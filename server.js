@@ -9,6 +9,26 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+
+// ========== API HIMOYA (ixtiyoriy) ==========
+// Render Environment ga ADMIN_KEY qo'shing. Bo'sh bo'lsa — himoya o'chiq.
+function requireAdmin(req, res, next) {
+  const key = process.env.ADMIN_KEY;
+  if (!key) return next(); // himoya o'chiq
+  const given = req.headers['x-admin-key'] || req.query.key;
+  if (given === key) return next();
+  return res.status(401).json({ ok: false, error: 'Unauthorized' });
+}
+
+// O'qish ochiq, yozish himoyalangan (ADMIN_KEY bo'lsa)
+app.use((req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+    return next();
+  }
+  return requireAdmin(req, res, next);
+});
+
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
@@ -32,11 +52,11 @@ app.get('/', (req, res) => {
   res.json({
     message: 'Briket ERP API ishlayapti!',
     time: new Date().toISOString(),
-    version: '1.3.0',
+    version: '1.4.0',
     modules: [
       'products', 'materials', 'customers',
       'batches', 'packaging', 'material-movements',
-      'orders', 'payments', 'expenses', 'dashboard'
+      'orders', 'payments', 'expenses', 'stock', 'dashboard'
     ]
   });
 });
@@ -859,6 +879,65 @@ app.post('/api/expenses', async (req, res) => {
       ]
     );
     res.status(201).json({ ok: true, data: r.rows[0] });
+  } catch (err) { sendError(res, err); }
+});
+
+
+// ========== STOCK (qoldiq) ==========
+app.get('/api/stock/materials', async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT
+        m.id,
+        m.name,
+        m.unit,
+        m.price,
+        m.initial_stock,
+        COALESCE(SUM(CASE WHEN mm.movement_type = 'in' THEN mm.qty ELSE 0 END), 0) AS total_in,
+        COALESCE(SUM(CASE WHEN mm.movement_type = 'out' THEN mm.qty ELSE 0 END), 0) AS total_out,
+        (m.initial_stock
+          + COALESCE(SUM(CASE WHEN mm.movement_type = 'in' THEN mm.qty ELSE 0 END), 0)
+          - COALESCE(SUM(CASE WHEN mm.movement_type = 'out' THEN mm.qty ELSE 0 END), 0)
+        ) AS balance
+      FROM materials m
+      LEFT JOIN material_movements mm ON mm.material_id = m.id
+      WHERE m.is_active = true
+      GROUP BY m.id
+      ORDER BY m.name
+    `);
+    res.json({ ok: true, count: r.rows.length, data: r.rows });
+  } catch (err) { sendError(res, err); }
+});
+
+app.get('/api/stock/products', async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT
+        p.id,
+        p.sku,
+        p.weight_kg,
+        p.price,
+        COALESCE(pack.total_qty, 0) AS packed_qty,
+        COALESCE(sold.sold_qty, 0) AS sold_qty,
+        (COALESCE(pack.total_qty, 0) - COALESCE(sold.sold_qty, 0)) AS balance_qty,
+        (COALESCE(pack.total_qty, 0) - COALESCE(sold.sold_qty, 0)) * p.weight_kg AS balance_kg
+      FROM products p
+      LEFT JOIN (
+        SELECT product_id, SUM(qty) AS total_qty
+        FROM packaging
+        GROUP BY product_id
+      ) pack ON pack.product_id = p.id
+      LEFT JOIN (
+        SELECT oi.product_id, SUM(oi.qty) AS sold_qty
+        FROM order_items oi
+        JOIN orders o ON o.id = oi.order_id
+        WHERE o.status NOT IN ('cancelled', 'rejected')
+        GROUP BY oi.product_id
+      ) sold ON sold.product_id = p.id
+      WHERE p.is_active = true
+      ORDER BY p.sku
+    `);
+    res.json({ ok: true, count: r.rows.length, data: r.rows });
   } catch (err) { sendError(res, err); }
 });
 
