@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Briket ERP - Admin</title>
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.26.0/babel.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1115; --card: #1a1d24; --border: #2a2f3a;
+      --text: #e8eaed; --muted: #9aa0a6; --accent: #c9a227;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.45;
+    }
+    .app { max-width: 1120px; margin: 0 auto; padding: 12px 14px 90px; }
+    header {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 8px 0 14px; border-bottom: 1px solid var(--border); margin-bottom: 14px; flex-wrap: wrap;
+    }
+    header h1 { font-size: 1.1rem; color: var(--accent); font-weight: 700; }
+    .nav { display: flex; gap: 5px; flex-wrap: wrap; }
+    .nav button {
+      background: var(--card); border: 1px solid var(--border); color: var(--text);
+      padding: 7px 11px; border-radius: 8px; cursor: pointer; font-size: 0.8rem;
+    }
+    .nav button.active {
+      background: var(--accent); color: #111; border-color: var(--accent); font-weight: 600;
+    }
+    .card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 14px; margin-bottom: 12px;
+    }
+    .card h2 { font-size: 0.92rem; margin-bottom: 10px; color: var(--accent); }
+    .kpi-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px;
+    }
+    .kpi {
+      background: #12151b; border-radius: 10px; padding: 12px; border: 1px solid var(--border);
+    }
+    .kpi .label { font-size: 0.72rem; color: var(--muted); }
+    .kpi .value { font-size: 1.15rem; font-weight: 700; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th, td { text-align: left; padding: 7px 5px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted); font-weight: 500; font-size: 0.72rem; }
+    input, select, textarea {
+      width: 100%; background: #12151b; border: 1px solid var(--border); color: var(--text);
+      padding: 8px 10px; border-radius: 8px; font-size: 0.88rem; margin-bottom: 8px;
+    }
+    label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 2px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    @media (max-width: 700px) {
+      .form-row, .form-row-3 { grid-template-columns: 1fr; }
+    }
+    .btn {
+      background: var(--accent); color: #111; border: none; padding: 9px 15px;
+      border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.88rem;
+    }
+    .btn:disabled { opacity: 0.5; }
+    .btn-ghost {
+      background: transparent; border: 1px solid var(--border); color: var(--text);
+      padding: 5px 9px; border-radius: 6px; cursor: pointer; font-size: 0.78rem;
+    }
+    .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
+    .msg { padding: 9px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.85rem; }
+    .msg.ok { background: #14301f; color: #81c995; }
+    .msg.err { background: #3c1518; color: #f28b82; }
+    .muted { color: var(--muted); font-size: 0.8rem; }
+    .badge {
+      display: inline-block; padding: 2px 7px; border-radius: 99px; font-size: 0.68rem;
+      background: #2a2f3a; color: var(--muted);
+    }
+    .badge.active, .badge.paid { background: #14301f; color: #81c995; }
+    .badge.closed { background: #2a2f3a; color: var(--muted); }
+    .badge.partial { background: #3d2e0a; color: #fdd663; }
+    .badge.pending, .badge.confirmed { background: #1a2a3a; color: #8ab4f8; }
+    .empty { text-align: center; padding: 20px; color: var(--muted); }
+    .settings-bar { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+    .settings-bar > div { flex: 1; min-width: 160px; }
+    .line-items { border: 1px dashed var(--border); border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+    .line-row { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 6px; align-items: end; margin-bottom: 6px; }
+    @media (max-width: 600px) { .line-row { grid-template-columns: 1fr 1fr; } }
+    .total-box {
+      background: #12151b; border-radius: 8px; padding: 10px 12px; margin: 8px 0;
+      display: flex; justify-content: space-between; font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+
+    const DEFAULT_API = window.location.origin;
+
+    function money(n) {
+      return Number(n || 0).toLocaleString("uz-UZ");
+    }
+
+    function useApi() {
+      const [apiBase, setApiBase] = useState(function () {
+        return localStorage.getItem("erp_api") || DEFAULT_API;
+      });
+      const [adminKey, setAdminKey] = useState(function () {
+        return localStorage.getItem("erp_key") || "";
+      });
+
+      function saveSettings(base, key) {
+        setApiBase(base);
+        setAdminKey(key);
+        localStorage.setItem("erp_api", base);
+        localStorage.setItem("erp_key", key);
+      }
+
+      const api = useCallback(async function (path, opts) {
+        opts = opts || {};
+        const headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {});
+        if (adminKey) headers["x-admin-key"] = adminKey;
+        const res = await fetch(apiBase.replace(/\/$/, "") + path, Object.assign({}, opts, { headers: headers }));
+        const data = await res.json().catch(function () { return {}; });
+        if (!res.ok || data.ok === false) {
+          throw new Error(data.error || res.statusText || "Xato");
+        }
+        return data;
+      }, [apiBase, adminKey]);
+
+      return { api: api, apiBase: apiBase, adminKey: adminKey, saveSettings: saveSettings };
+    }
+
+    function Msg(props) {
+      if (!props.text) return null;
+      return (
+        <div className={"msg " + (props.type || "ok")} onClick={props.onClose}>
+          {props.text}
+        </div>
+      );
+    }
+
+    // ---------- Dashboard ----------
+    function Dashboard(props) {
+      const api = props.api;
+      const [data, setData] = useState(null);
+      const [err, setErr] = useState("");
+
+      function load() {
+        api("/api/dashboard")
+          .then(function (r) { setData(r.data); })
+          .catch(function (e) { setErr(e.message); });
+      }
+
+      useEffect(function () { load(); }, [api]);
+
+      if (err) return <div className="msg err">{err}</div>;
+      if (!data) return <div className="muted">Yuklanmoqda...</div>;
+
+      const items = [
+        { label: "Bugungi savdo", value: money(data.bugungi_savdo) + " som" },
+        { label: "Bugungi xarajat", value: money(data.bugungi_xarajat) + " som" },
+        { label: "Jami qarz", value: money(data.jami_qarz) + " som" },
+        { label: "Faol partiya", value: data.faol_partiya },
+        { label: "Quruq qoldiq", value: Number(data.quruq_qoldiq_kg).toFixed(1) + " kg" },
+        { label: "Faol SKU", value: data.faol_sku }
+      ];
+
+      return (
+        <div className="card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h2>Dashboard</h2>
+            <button className="btn-ghost" type="button" onClick={load}>Yangilash</button>
+          </div>
+          <div className="kpi-grid">
+            {items.map(function (k) {
+              return (
+                <div className="kpi" key={k.label}>
+                  <div className="label">{k.label}</div>
+                  <div className="value">{k.value}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // ---------- Stock ----------
+    function Stock(props) {
+      const api = props.api;
+      const [materials, setMaterials] = useState([]);
+      const [products, setProducts] = useState([]);
+      const [err, setErr] = useState("");
+
+      useEffect(function () {
+        Promise.all([api("/api/stock/materials"), api("/api/stock/products")])
+          .then(function (arr) {
+            setMaterials(arr[0].data || []);
+            setProducts(arr[1].data || []);
+          })
+          .catch(function (e) { setErr(e.message); });
+      }, [api]);
+
+      if (err) return <div className="msg err">{err}</div>;
+
+      return (
+        <div>
+          <div className="card">
+            <h2>Material qoldiq</h2>
+            {materials.length === 0 ? (
+              <div className="empty">Bosh</div>
+            ) : (
+              <table>
+                <thead>
+                  <tr><th>Nomi</th><th>Birlik</th><th>Kirim</th><th>Chiqim</th><th>Qoldiq</th></tr>
+                </thead>
+                <tbody>
+                  {materials.map(function (m) {
+                    return (
+                      <tr key={m.id}>
+                        <td>{m.name}</td>
+                        <td>{m.unit}</td>
+                        <td>{Number(m.total_in)}</td>
+                        <td>{Number(m.total_out)}</td>
+                        <td><strong>{Number(m.balance)}</strong></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+          <div className="card">
+            <h2>Mahsulot qoldiq</h2>
+            {products.length === 0 ? (
+              <div className="empty">Bosh</div>
+            ) : (
+              <table>
+                <thead>
+                  <tr><th>SKU</th><th>Qadoq</th><th>Sotilgan</th><th>Qoldiq</th><th>kg</th></tr>
+                </thead>
+                <tbody>
+                  {products.map(function (p) {
+                    return (
+                      <tr key={p.id}>
+                        <td>{p.sku}</td>
+                        <td>{Number(p.packed_qty)}</td>
+                        <td>{Number(p.sold_qty)}</td>
+                        <td><strong>{Number(p.balance_qty)}</strong></td>
+                        <td>{Number(p.balance_kg).toFixed(1)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ---------- Products ----------
+    function Products(props) {
+      const api = props.api;
+      const [list, setList] = useState([]);
+      const [form, setForm] = useState({ sku: "", weight_kg: "", price: "", description: "" });
+      const [msg, setMsg] = useState({});
+
+      const load = useCallback(function () {
+        api("/api/products?active=0")
+          .then(function (r) { setList(r.data || []); })
+          .catch(function (e) { setMsg({ text: e.message, type: "err" }); });
+      }, [api]);
+
+      useEffect(function () { load(); }, [load]);
+
+      async function submit(e) {
+        e.preventDefault();
+        try {
+          await api("/api/products", {
+            method: "POST",
+            body: JSON.stringify({
+              sku: form.sku,
+              weight_kg: Number(form.weight_kg) || 0,
+              price: Number(form.price) || 0,
+              description: form.description || null
+            })
+          });
+          setMsg({ text: "SKU qoshildi", type: "ok" });
+          setForm({ sku: "", weight_kg: "", price: "", description: "" });
+          load();
+        } catch (err) {
+          setMsg({ text: err.message, type: "err" });
+        }
+      }
+
+      return (
+        <div>
+          <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
+          <div className="card">
+            <h2>Yangi SKU</h2>
+            <form onSubmit={submit}>
+              <div className="form-row">
+                <div>
+                  <label>SKU</label>
+                  <input value={form.sku} onChange={function (e) { setForm(Object.assign({}, form, { sku: e.target.value })); }} required />
+                </div>
+                <div>
+                  <label>Ogirlilik (kg)</label>
+                  <input type="number" step="0.1" value={form.weight_kg} onChange={function (e) { setForm(Object.assign({}, form, { weight_kg: e.target.value })); }} />
+                </div>
+                <div>
+                  <label>Narx</label>
+                  <input type="number" value={form.price} onChange={function (e) { setForm(Object.assign({}, form, { price: e.target.value })); }} />
+                </div>
+                <div>
+                  <label>Tavsif</label>
+                  <input value={form.description} onChange={function (e) { setForm(Object.assign({}, form, { description: e.target.value })); }} />
+                </div>
+              </div>
+              <button className="btn" type="submit">Qoshish</button>
+            </form>
+          </div>
+          <div className="card">
+            <h2>Mahsulotlar ({list.length})</h2>
+            <table>
+              <thead>
+                <tr><th>SKU</th><th>kg</th><th>Narx</th><th>Holat</th></tr>
+              </thead>
+              <tbody>
+                {list.map(function (p) {
+                  return (
+                    <tr key={p.id}>
+                      <td>{p.sku}</td>
+                      <td>{p.weight_kg}</td>
+                      <td>{money(p.price)}</td>
+                      <td>
+                        <span className={"badge " + (p.is_active ? "active" : "closed")}>
+                          {p.is_active ? "faol" : "ochiq"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    // ---------- Materials ----------
+    function Materials(props) {
+      const api = props.api;
+      const [list, setList] = useState([]);
+      const [form, setForm] = useState({ name: "", unit: "kg", price: "", initial_stock: "" });
+      const [mov, setMov] = useState({ material_id: "", qty: "", unit_price: "", note: "" });
+      const [msg, setMsg] = useState({});
+
+      const load = useCallback(function () {
+        api("/api/materials?active=0")
+          .then(function (r) { setList(r.data || []); })
+          .catch(function (e) { setMsg({ text: e.message, type: "err" }); });
+      }, [api]);
+
+      useEffect(function () { load(); }, [load]);
+
+      async function submitMat(e) {
+        e.preventDefault();
+        try {
+          await api("/api/materials", {
+            method: "POST",
+            body: JSON.stringify({
+              name: form.name,
+              unit: form.unit || "kg",
+              price: Number(form.price) || 0,
+              initial_stock: Number(form.initial_stock) || 0
+            })
+          });
+          setMsg({ text: "Material qoshildi", type: "ok" });
+          setForm({ name: "", unit: "kg", price: "", initial_stock: "" });
+          load();
+        } catch (err) {
+          setMsg({ text: err.message, type: "err" });
+        }
+      }
+
+      async function submitIn(e) {
+        e.preventDefault();
+        try {
+          await api("/api/material-movements", {
+            method: "POST",
+            body: JSON.stringify({
+              material_id: Number(mov.material_id),
+              movement_type: "in",
+              qty: Number(mov.qty),
+              unit_price: Number(mov.unit_price) || 0,
+              note: mov.note || "Kirim"
+            })
+          });
+          setMsg({ text: "Kirim yozildi", type: "ok" });
+          setMov({ material_id: "", qty: "", unit_price: "", note: "" });
+        } catch (err) {
+          setMsg({ text: err.message, type: "err" });
+        }
+      }
+
+      return (
+        <div>
+          <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
+          <div className="card">
+            <h2>Yangi material</h2>
+            <form onSubmit={submitMat}>
+              <div className="form-row">
+                <div>
+                  <label>Nomi</label>
+                  <input value={form.name} onChange={function (e) { setForm(Object.assign({}, form, { name: e.target.value })); }} required />
+                </div>
+                <div>
+                  <label>Birlik</label>
+                  <input value={form.unit} onChange={function (e) { setForm(Object.assign({}, form, { unit: e.target.value })); }} />
+                </div>
+                <div>
+                  <label>Narx</label>
+                  <input type="number" value={form.price} onChange={function (e) { setForm(Object.assign({}, form, { price: e.target.value })); }} />
+                </div>
+                <div>
+                  <label>Boshlangich zaxira</label>
+                  <input type="number" value={form.initial_stock} onChange={function (e) { setForm(Object.assign({}, form, { initial_stock: e.target.value })); }} />
+                </div>
+              </div>
+              <button className="btn" type="submit">Qoshish</button>
+            </form>
+          </div>
+          <div className="card">
+            <h2>Material kirim</h2>
+            <form onSubmit={submitIn}>
+              <div className="form-row">
+                <div>
+                  <label>Material</label>
+                  <select value={mov.material_id} onChange={function (e) { setMov(Object.assign({}, mov, { material_id: e.target.value })); }} required>
+                    <option value="">Tanlang</option>
+                    {list.filter(function (m) { return m.is_active; }).map(function (m) {
+                      return <option key={m.id} value={m.id}>{m.name}</option>;
+                    })}
+                  </select>
+                </div>
+                <div>
+                  <label>Miqdor</label>
+                  <input type="number" step="0.01" value={mov.qty} onChange={function (e) { setMov(Object.assign({}, mov, { qty: e.target.value })); }} required />
+                </div>
+                <div>
+                  <label>Birlik narx</label>
+                  <input type="number" value={mov.unit_price} onChange={function (e) { setMov(Object.assign({}, mov, { unit_price: e.target.value })); }} />
+                </div>
+                <div>
+                  <label>Izoh</label>
+                  <input value={mov.note} onChange={function (e) { setMov(Object.assign({}, mov, { note: e.target.value })); }} />
+                </div>
+              </div>
+              <button className="btn" type="submit">Kirim qilish</button>
+            </form>
+          </div>
+          <div className="card">
+            <h2>Materiallar ({list.length})</h2>
+            <table>
+              <thead>
+                <tr><th>Nomi</th><th>Birlik</th><th>Narx</th><th>Boshlangich</th></tr>
+              </thead>
+              <tbody>
+                {list.map(function (m) {
+                  return (
+                    <tr key={m.id}>
+                      <td>{m.name}</td>
+                      <td>{m.unit}</td>
+                      <td>{money(m.price)}</td>
+                      <td>{m.initial_stock}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    // ---------- Batches ----------
+    function Batches(props) {
+      const api = props.api;
+      const [list, setList] = useState([]);
+      const [form, setForm] = useState({
+        bags_count: "", bag_price: "", dry_kg: "", workers_count: "", press_wage: "", note: ""
+      });
+      const [msg, setMsg] = useState({});
+
+      const load = useCallback(function () {
+        api("/api/batches")
+          .then(function (r) { setList(r.data || []); })
+          .catch(function (e) { setMsg({ text: e.message, type: "err" }); });
+      }, [api]);
+
+      useEffect(function () { load(); }, [load]);
+
+      async function submit(e) {
+        e.preventDefault();
+        try {
+          await api("/api/batches", {
+            method: "POST",
+            body: JSON.stringify({
+              bags_count: Number(form.bags_count),
+              bag_price: Number(form.bag_price),
+              dry_kg: Number(form.dry_kg),
+              workers_count: Number(form.workers_count) || 0,
+              press_wage: Number(form.press_wage) || 0,
+              note: form.note || null
+            })
+          });
+          setMsg({ text: "Partiya yaratildi", type: "ok" });
+          setForm({ bags_count: "", bag_price: "", dry_kg: "", workers_count: "", press_wage: "", note: "" });
+          load();
+        } catch (err) {
+          setMsg({ text: err.message, type: "err" });
+        }
+      }
+
+      return (
+        <div>
+          <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
+          <div className="card">
+            <h2>Yangi partiya</h2>
+            <form onSubmit={submit}>
+              <div className="form-row-3">
+                <div>
+                  <label>Qop soni *</label>
+                  <input type="number" value={form.bags_count} onChange={function (e) { setForm(Object.assign({}, form, { bags_count: e.target.value })); }} required />
+                </div>
+                <div>
+                  <label>1 qop narxi *</label>
+                  <input type="number" value={form.bag_price} onChange={function (e) { setForm(Object.assign({}, form, { bag_price: e.target.value })); }} required />
+                </div>
+                <div>
+                  <label>Quruq kg *</label>
+                  <input type="number" step="0.1" value={form.dry_kg} onChange={function (e) { setForm(Object.assign({}, form, { dry_kg: e.target.value })); }} required />
+                </div>
+                <div>
+                  <label>Ishchilar</label>
+                  <input type="number" value={form.workers_count} onChange={function (e) { setForm(Object.assign({}, form, { workers_count: e.target.value })); }} />
+                </div>
+                <div>
+                  <label>Press ish haqi</label>
+                  <input type="number" value={form.press_wage} onChange={function (e) { setForm(Object.assign({}, form, { press_wage: e.target.value })); }} />
+                </div>
+                <div>
+                  <label>Izoh</label>
+                  <input value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
+                </div>
+              </div>
+              <button className="btn" type="submit">Partiya yaratish</button>
+            </form>
+          </div>
+          <div className="card">
+            <h2>Partiyalar ({list.length})</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Kod</th><th>Holat</th><th>Qop</th><th>Quruq</th><th>Qadoq</th><th>Qolgan</th><th>Yoqotish %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {list.map(function (b) {
+                  return (
+                    <tr key={b.id}>
+                      <td>{b.batch_code}</td>
+                      <td><span className={"badge " + b.status}>{b.status}</span></td>
+                      <td>{b.bags_count}</td>
+                      <td>{b.dry_kg}</td>
+                      <td>{b.packed_kg}</td>
+                      <td><strong>{b.remaining_kg}</strong></td>
+                      <td>{b.loss_percent}%</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    // ---------- Packaging ----------
+    function Packaging(props) {
+      const api = props.api;
+      const [list, setList] = useState([]);
+      const [products, setProducts] = useState([]);
+      const [batches, setBatches] = useState([]);
+      const [form, setForm] = useState({
+        product_id: "", qty: "", unit_wage: "700", workers_count: "1", batch_id: ""
+      });
+      const [msg, setMsg] = useState({});
+
+      const load = useCallback(function () {
+        Promise.all([
+          api("/api/packaging?limit=40"),
+          api("/api/products"),
+          api("/api/batches?status=active")
+        ])
+          .then(function (arr) {
+            setList(arr[0].data || []);
+            setProducts(arr[1].data || []);
+            setBatches(arr[2].data || []);
+          })
+          .catch(function (e) { setMsg({ text: e.message, type: "err" }); });
+      }, [api]);
+
+      useEffect(function () { load(); }, [load]);
+
+      async function submit(e) {
+        e.preventDefault();
+        try {
+          await api("/api/packaging", {
+            method: "POST",
+            body: JSON.stringify({
+              product_id: Number(form.product_id),
+              qty: Number(form.qty),
+              unit_wage: Number(form.unit_wage) || 700,
+              workers_count: Number(form.workers_count) || 1,
+              batch_id: form.batch_id ? Number(form.batch_id) : null
+            })
+          });
+          setMsg({ text: "Qadoqlandi", type: "ok" });
+          setForm(Object.assign({}, form, { qty: "" }));
+          load();
+        } catch (err) {
+          setMsg({ text: err.message, type: "err" });
+        }
+      }
+
+      return (
+        <div>
+          <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
+          <div className="card">
+            <h2>Qadoqlash</h2>
+            <form onSubmit={submit}>
+              <div className="form-row">
+                <div>
+                  <label>Mahsulot *</label>
+                  <select value={form.product_id} onChange={function (e) { setForm(Object.assign({}, form, { product_id: e.target.value })); }} required>
+                    <option value="">Tanlang</option>
+                    {products.map(function (p) {
+                      return <option key={p.id} value={p.id}>{p.sku} ({p.weight_kg} kg)</option>;
+                    })}
+                  </select>
+                </div>
+                <div>
+                  <label>Dona *</label>
+                  <input type="number" value={form.qty} onChange={function (e) { setForm(Object.assign({}, form, { qty: e.target.value })); }} required />
+                </div>
+                <div>
+                  <label>1 dona ish haqi</label>
+                  <input type="number" value={form.unit_wage} onChange={function (e) { setForm(Object.assign({}, form, { unit_wage: e.target.value })); }} />
+                </div>
+                <div>
+                  <label>Ishchilar</label>
+                  <input type="number" value={form.workers_count} onChange={function (e) { setForm(Object.assign({}, form, { workers_count: e.target.value })); }} />
+                </div>
+                <div>
+                  <label>Partiya (bosh = FIFO)</label>
+                  <select value={form.batch_id} onChange={function (e) { setForm(Object.assign({}, form, { batch_id: e.target.value })); }}>
+                    <option value="">Avto (FIFO)</option>
+                    {batches.map(function (b) {
+                      return <option key={b.id} value={b.id}>{b.batch_code} - {b.remaining_kg} kg</option>;
+                    })}
+                  </select>
+                </div>
+              </div>
+              <button className="btn" type="submit">Qadoqlash</button>
+            </form>
+          </div>
+          <div className="card">
+            <h2>Songgi qadoqlar</h2>
+            <table>
+              <thead>
+                <tr><th>SKU</th><th>Dona</th><th>kg</th><th>Partiya</th><th>Ish haqi</th></tr>
+              </thead>
+              <tbody>
+                {list.map(function (p) {
+                  return (
+                    <tr key={p.id}>
+                      <td>{p.sku}</td>
+                      <td>{p.qty}</td>
+                      <td>{p.kg}</td>
+                      <td>{p.batch_code || "-"}</td>
+                      <td>{money(p.total_wage)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    // ---------- Customers ----------
+    function Customers(props) {
+      const api = props.api;
+      const [list, setList] = useState([]);
+      const [form, setForm] = useState({ name: "", phone: "", address: "", credit_limit: "" });
+      const [msg, setMsg] = useState({});
+
+      const load = useCallback(function () {
+        api("/api/customers")
+          .then(function (r) { setList(r.data || []); })
+          .catch(function (e) { setMsg({ text: e.message, type: "err" }); });
+      }, [api]);
+
+      useEffect(function () { load(); }, [load]);
+
+      async function submit(e) {
+        e.preventDefault();
+        try {
+          await api("/api/customers", {
+            method: "POST",
+            body: JSON.stringify({
+              name: form.name,
+              phone: form.phone || null,
+              address: form.address || null,
+              credit_limit: Number(form.credit_limit) || 0
+            })
+          });
+          setMsg({ text: "Mijoz qoshildi", type: "ok" });
+          setForm({ name: "", phone: "", address: "", credit_limit: "" });
+          load();
+        } catch (err) {
+          setMsg({ text: err.message, type: "err" });
+        }
+      }
+
+      return (
+        <div>
+          <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
+          <div className="card">
+            <h2>Yangi mijoz</h2>
+            <form onSubmit={submit}>
+              <div className="form-row">
+                <div>
+                  <label>Ism *</label>
+                  <input value={form.name} onChange={function (e) { setForm(Object.assign({}, form, { name: e.target.value })); }} required />
+                </div>
+                <div>
+                  <label>Telefon</label>
+                  <input value={form.phone} onChange={function (e) { setForm(Object.assign({}, form, { phone: e.target.value })); }} />
+                </div>
+                <div>
+                  <label>Manzil</label>
+                  <input value={form.address} onChange={function (e) { setForm(Object.assign({}, form, { address: e.target.value })); }} />
+                </div>
+                <div>
+                  <label>Kredit limiti</label>
+                  <input type="number" value={form.credit_limit} onChange={function (e) { setForm(Object.assign({}, form, { credit_limit: e.target.value })); }} />
+                </div>
+              </div>
+              <button className="btn" type="submit">Qoshish</button>
+            </form>
+          </div>
+          <div className="card">
+            <h2>Mijozlar ({list.length})</h2>
+            <table>
+              <thead>
+                <tr><th>Ism</th><th>Tel</th><th>Manzil</th><th>Limit</th></tr>
+              </thead>
+              <tbody>
+                {list.map(function (c) {
+                  return (
+                    <tr key={c.id}>
+                      <td>{c.name}</td>
+                      <td>{c.phone || "-"}</td>
+                      <td>{c.address || "-"}</td>
+                      <td>{money(c.credit_limit)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    // ---------- Orders ----------
+    function Orders(props) {
+      const api = props.api;
+      const [list, setList] = useState([]);
+      const [products, setProducts] = useState([]);
+      const [customers, setCustomers] = useState([]);
+      const [form, setForm] = useState({
+        customer_id: "", customer_name: "", phone: "", paid_amount: "", note: ""
+      });
+      const [lines, setLines] = useState([{ product_id: "", qty: "", unit_price: "" }]);
+      const [msg, setMsg] = useState({});
+
+      const load = useCallback(function () {
+        Promise.all([
+          api("/api/orders?limit=25"),
+          api("/api/products"),
+          api("/api/customers")
+        ])
+          .then(function (arr) {
+            setList(arr[0].data || []);
+            setProducts(arr[1].data || []);
+            setCustomers(arr[2].data || []);
+          })
+          .catch(function (e) { setMsg({ text: e.message, type: "err" }); });
+      }, [api]);
+
+      useEffect(function () { load(); }, [load]);
+
+      function onCustomer(id) {
+        const c = customers.find(function (x) { return String(x.id) === String(id); });
+        setForm(function (f) {
+          return Object.assign({}, f, {
+            customer_id: id,
+            customer_name: c ? c.name : f.customer_name,
+            phone: c && c.phone ? c.phone : f.phone
+          });
+        });
+      }
+
+      function setLine(i, field, val) {
+        setLines(function (prev) {
+          const next = prev.slice();
+          next[i] = Object.assign({}, next[i], { [field]: val });
+          if (field === "product_id") {
+            const p = products.find(function (x) { return String(x.id) === String(val); });
+            if (p) next[i].unit_price = String(p.price);
+          }
+          return next;
+        });
+      }
+
+      const total = lines.reduce(function (s, l) {
+        return s + (Number(l.qty) || 0) * (Number(l.unit_price) || 0);
+      }, 0);
+
+      async function submit(e) {
+        e.preventDefault();
+        const items = lines
+          .filter(function (l) { return l.product_id && Number(l.qty) > 0; })
+          .map(function (l) {
+            return {
+              product_id: Number(l.product_id),
+              qty: Number(l.qty),
+              unit_price: Number(l.unit_price) || 0
+            };
+          });
+        if (!items.length) {
+          setMsg({ text: "Kamida 1 ta mahsulot kiriting", type: "err" });
+          return;
+        }
+        try {
+          await api("/api/orders", {
+            method: "POST",
+            body: JSON.stringify({
+              customer_id: form.customer_id ? Number(form.customer_id) : null,
+              customer_name: form.customer_name,
+              phone: form.phone || null,
+              paid_amount: Number(form.paid_amount) || 0,
+              note: form.note || null,
+              items: items
+            })
+          });
+          setMsg({ text: "Buyurtma yaratildi", type: "ok" });
+          setForm({ customer_id: "", customer_name: "", phone: "", paid_amount: "", note: "" });
+          setLines([{ product_id: "", qty: "", unit_price: "" }]);
+          load();
+        } catch (err) {
+          setMsg({ text: err.message, type: "err" });
+        }
+      }
+
+      async function setStatus(id, status) {
+        try {
+          await api("/api/orders/" + id + "/status", {
+            method: "PATCH",
+            body: JSON.stringify({ status: status })
+          });
+          load();
+        } catch (err) {
+          setMsg({ text: err.message, type: "err" });
+        }
+      }
+
+      return (
+        <div>
+          <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
+          <div className="card">
+            <h2>Yangi buyurtma</h2>
+            <form onSubmit={submit}>
+              <div className="form-row">
+                <div>
+                  <label>Mijoz (royxat)</label>
+                  <select value={form.customer_id} onChange={function (e) { onCustomer(e.target.value); }}>
+                    <option value="">-</option>
+                    {customers.map(function (c) {
+                      return <option key={c.id} value={c.id}>{c.name}</option>;
+                    })}
+                  </select>
+                </div>
+                <div>
+                  <label>Ism *</label>
+                  <input value={form.customer_name} onChange={function (e) { setForm(Object.assign({}, form, { customer_name: e.target.value })); }} required />
+                </div>
+                <div>
+                  <label>Telefon</label>
+                  <input value={form.phone} onChange={function (e) { setForm(Object.assign({}, form, { phone: e.target.value })); }} />
+                </div>
+                <div>
+                  <label>Tolangan</label>
+                  <input type="number" value={form.paid_amount} onChange={function (e) { setForm(Object.assign({}, form, { paid_amount: e.target.value })); }} />
+                </div>
+              </div>
+              <div className="line-items">
+                <label style={{ marginBottom: 8 }}>Mahsulotlar</label>
+                {lines.map(function (l, i) {
+                  return (
+                    <div className="line-row" key={i}>
+                      <div>
+                        <label>SKU</label>
+                        <select value={l.product_id} onChange={function (e) { setLine(i, "product_id", e.target.value); }}>
+                          <option value="">Tanlang</option>
+                          {products.map(function (p) {
+                            return <option key={p.id} value={p.id}>{p.sku}</option>;
+                          })}
+                        </select>
+                      </div>
+                      <div>
+                        <label>Dona</label>
+                        <input type="number" value={l.qty} onChange={function (e) { setLine(i, "qty", e.target.value); }} />
+                      </div>
+                      <div>
+                        <label>Narx</label>
+                        <input type="number" value={l.unit_price} onChange={function (e) { setLine(i, "unit_price", e.target.value); }} />
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-ghost btn-sm"
+                        disabled={lines.length === 1}
+                        onClick={function () {
+                          setLines(function (prev) { return prev.filter(function (_, j) { return j !== i; }); });
+                        }}
+                      >
+                        x
+                      </button>
+                    </div>
+                  );
+                })}
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={function () {
+                    setLines(function (p) { return p.concat([{ product_id: "", qty: "", unit_price: "" }]); });
+                  }}
+                >
+                  + qator
+                </button>
+              </div>
+              <div className="total-box">
+                <span>Jami</span>
+                <span>{money(total)} som</span>
+              </div>
+              <div>
+                <label>Izoh</label>
+                <input value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
+              </div>
+              <button className="btn" type="submit">Buyurtma yaratish</button>
+            </form>
+          </div>
+          <div className="card">
+            <h2>Buyurtmalar</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Kod</th><th>Mijoz</th><th>Summa</th><th>Tolangan</th><th>Qarz</th><th>Holat</th><th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {list.map(function (o) {
+                  return (
+                    <tr key={o.id}>
+                      <td>{o.order_code}</td>
+                      <td>
+                        {o.customer_name}
+                        <div className="muted">
+                          {o.items && o.items.map(function (i) { return i.sku + "x" + i.qty; }).join(", ")}
+                        </div>
+                      </td>
+                      <td>{money(o.total_amount)}</td>
+                      <td>{money(o.paid_amount)}</td>
+                      <td>{money(o.debt_amount)}</td>
+                      <td><span className={"badge " + o.status}>{o.status}</span></td>
+                      <td>
+                        {o.status === "pending" ? (
+                          <button className="btn-ghost btn-sm" type="button" onClick={function () { setStatus(o.id, "confirmed"); }}>
+                            Tasdiq
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    // ---------- Payments ----------
+    function Payments(props) {
+      const api = props.api;
+      const [list, setList] = useState([]);
+      const [customers, setCustomers] = useState([]);
+      const [orders, setOrders] = useState([]);
+      const [form, setForm] = useState({
+        customer_id: "", order_id: "", amount: "", method: "cash", note: ""
+      });
+      const [msg, setMsg] = useState({});
+
+      const load = useCallback(function () {
+        Promise.all([
+          api("/api/payments?limit=30"),
+          api("/api/customers"),
+          api("/api/orders?limit=50")
+        ])
+          .then(function (arr) {
+            setList(arr[0].data || []);
+            setCustomers(arr[1].data || []);
+            setOrders((arr[2].data || []).filter(function (x) { return Number(x.debt_amount) > 0; }));
+          })
+          .catch(function (e) { setMsg({ text: e.message, type: "err" }); });
+      }, [api]);
+
+      useEffect(function () { load(); }, [load]);
+
+      async function submit(e) {
+        e.preventDefault();
+        try {
+          const r = await api("/api/payments", {
+            method: "POST",
+            body: JSON.stringify({
+              customer_id: form.customer_id ? Number(form.customer_id) : null,
+              order_id: form.order_id ? Number(form.order_id) : null,
+              amount: Number(form.amount),
+              method: form.method || "cash",
+              note: form.note || null
+            })
+          });
+          setMsg({
+            text: "Tolov qabul qilindi. Qollandi: " + money(r.applied) + (r.leftover > 0 ? ", qoldi: " + money(r.leftover) : ""),
+            type: "ok"
+          });
+          setForm({ customer_id: "", order_id: "", amount: "", method: "cash", note: "" });
+          load();
+        } catch (err) {
+          setMsg({ text: err.message, type: "err" });
+        }
+      }
+
+      return (
+        <div>
+          <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
+          <div className="card">
+            <h2>Qarz tolovi</h2>
+            <form onSubmit={submit}>
+              <div className="form-row">
+                <div>
+                  <label>Mijoz</label>
+                  <select
+                    value={form.customer_id}
+                    onChange={function (e) {
+                      setForm(Object.assign({}, form, { customer_id: e.target.value, order_id: "" }));
+                    }}
+                  >
+                    <option value="">-</option>
+                    {customers.map(function (c) {
+                      return <option key={c.id} value={c.id}>{c.name}</option>;
+                    })}
+                  </select>
+                </div>
+                <div>
+                  <label>Buyurtma (ixtiyoriy)</label>
+                  <select value={form.order_id} onChange={function (e) { setForm(Object.assign({}, form, { order_id: e.target.value })); }}>
+                    <option value="">Barcha qarzlarga (FIFO)</option>
+                    {orders
+                      .filter(function (o) {
+                        return !form.customer_id || String(o.customer_id) === String(form.customer_id);
+                      })
+                      .map(function (o) {
+                        return (
+                          <option key={o.id} value={o.id}>
+                            {o.order_code} - qarz {money(o.debt_amount)}
+                          </option>
+                        );
+                      })}
+                  </select>
+                </div>
+                <div>
+                  <label>Summa *</label>
+                  <input type="number" value={form.amount} onChange={function (e) { setForm(Object.assign({}, form, { amount: e.target.value })); }} required />
+                </div>
+                <div>
+                  <label>Usul</label>
+                  <select value={form.method} onChange={function (e) { setForm(Object.assign({}, form, { method: e.target.value })); }}>
+                    <option value="cash">Naqd</option>
+                    <option value="card">Karta</option>
+                    <option value="transfer">Otkazma</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Izoh</label>
+                  <input value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
+                </div>
+              </div>
+              <button className="btn" type="submit">Tolov qabul qilish</button>
+            </form>
+          </div>
+          <div className="card">
+            <h2>Songgi tolovlar</h2>
+            <table>
+              <thead>
+                <tr><th>Sana</th><th>Mijoz</th><th>Buyurtma</th><th>Summa</th><th>Usul</th></tr>
+              </thead>
+              <tbody>
+                {list.map(function (p) {
+                  return (
+                    <tr key={p.id}>
+                      <td>{p.paid_at ? new Date(p.paid_at).toLocaleString("uz-UZ") : "-"}</td>
+                      <td>{p.customer_name || "-"}</td>
+                      <td>{p.order_code || "-"}</td>
+                      <td><strong>{money(p.amount)}</strong></td>
+                      <td>{p.method}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    // ---------- Expenses ----------
+    function Expenses(props) {
+      const api = props.api;
+      const [list, setList] = useState([]);
+      const [form, setForm] = useState({ category: "", amount: "", payment_method: "cash", note: "" });
+      const [msg, setMsg] = useState({});
+      const cats = ["Elektr", "Transport", "Ijara", "Ish haqi", "Tamirlash", "Boshqa"];
+
+      const load = useCallback(function () {
+        api("/api/expenses?limit=40")
+          .then(function (r) { setList(r.data || []); })
+          .catch(function (e) { setMsg({ text: e.message, type: "err" }); });
+      }, [api]);
+
+      useEffect(function () { load(); }, [load]);
+
+      async function submit(e) {
+        e.preventDefault();
+        try {
+          await api("/api/expenses", {
+            method: "POST",
+            body: JSON.stringify({
+              category: form.category,
+              amount: Number(form.amount),
+              payment_method: form.payment_method || "cash",
+              note: form.note || null
+            })
+          });
+          setMsg({ text: "Xarajat yozildi", type: "ok" });
+          setForm({ category: "", amount: "", payment_method: "cash", note: "" });
+          load();
+        } catch (err) {
+          setMsg({ text: err.message, type: "err" });
+        }
+      }
+
+      return (
+        <div>
+          <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
+          <div className="card">
+            <h2>Yangi xarajat</h2>
+            <form onSubmit={submit}>
+              <div className="form-row">
+                <div>
+                  <label>Kategoriya *</label>
+                  <input list="exp-cats" value={form.category} onChange={function (e) { setForm(Object.assign({}, form, { category: e.target.value })); }} required />
+                  <datalist id="exp-cats">
+                    {cats.map(function (c) { return <option key={c} value={c} />; })}
+                  </datalist>
+                </div>
+                <div>
+                  <label>Summa *</label>
+                  <input type="number" value={form.amount} onChange={function (e) { setForm(Object.assign({}, form, { amount: e.target.value })); }} required />
+                </div>
+                <div>
+                  <label>Usul</label>
+                  <select value={form.payment_method} onChange={function (e) { setForm(Object.assign({}, form, { payment_method: e.target.value })); }}>
+                    <option value="cash">Naqd</option>
+                    <option value="card">Karta</option>
+                    <option value="transfer">Otkazma</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Izoh</label>
+                  <input value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
+                </div>
+              </div>
+              <button className="btn" type="submit">Saqlash</button>
+            </form>
+          </div>
+          <div className="card">
+            <h2>Xarajatlar</h2>
+            <table>
+              <thead>
+                <tr><th>Sana</th><th>Kategoriya</th><th>Summa</th><th>Usul</th><th>Izoh</th></tr>
+              </thead>
+              <tbody>
+                {list.map(function (x) {
+                  return (
+                    <tr key={x.id}>
+                      <td>{x.expense_date ? new Date(x.expense_date).toLocaleDateString("uz-UZ") : "-"}</td>
+                      <td>{x.category}</td>
+                      <td><strong>{money(x.amount)}</strong></td>
+                      <td>{x.payment_method}</td>
+                      <td>{x.note || "-"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    // ---------- App ----------
+    function App() {
+      const apiHook = useApi();
+      const api = apiHook.api;
+      const apiBase = apiHook.apiBase;
+      const adminKey = apiHook.adminKey;
+      const saveSettings = apiHook.saveSettings;
+
+      const [tab, setTab] = useState("dashboard");
+      const [showSettings, setShowSettings] = useState(false);
+      const [tmpApi, setTmpApi] = useState(apiBase);
+      const [tmpKey, setTmpKey] = useState(adminKey);
+
+      const tabs = [
+        { id: "dashboard", label: "Dashboard" },
+        { id: "stock", label: "Ombor" },
+        { id: "batches", label: "Partiya" },
+        { id: "packaging", label: "Qadoq" },
+        { id: "orders", label: "Buyurtma" },
+        { id: "payments", label: "Tolov" },
+        { id: "expenses", label: "Xarajat" },
+        { id: "products", label: "SKU" },
+        { id: "materials", label: "Material" },
+        { id: "customers", label: "Mijoz" }
+      ];
+
+      let content = null;
+      if (tab === "dashboard") content = <Dashboard api={api} />;
+      else if (tab === "stock") content = <Stock api={api} />;
+      else if (tab === "batches") content = <Batches api={api} />;
+      else if (tab === "packaging") content = <Packaging api={api} />;
+      else if (tab === "orders") content = <Orders api={api} />;
+      else if (tab === "payments") content = <Payments api={api} />;
+      else if (tab === "expenses") content = <Expenses api={api} />;
+      else if (tab === "products") content = <Products api={api} />;
+      else if (tab === "materials") content = <Materials api={api} />;
+      else if (tab === "customers") content = <Customers api={api} />;
+
+      return (
+        <div className="app">
+          <header>
+            <h1>Briket ERP</h1>
+            <div className="nav">
+              {tabs.map(function (t) {
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={tab === t.id ? "active" : ""}
+                    onClick={function () { setTab(t.id); }}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+              <button className="btn-ghost" type="button" onClick={function () { setShowSettings(!showSettings); }}>
+                Sozlama
+              </button>
+            </div>
+          </header>
+
+          {showSettings ? (
+            <div className="card">
+              <h2>Sozlamalar</h2>
+              <div className="settings-bar">
+                <div>
+                  <label>API URL</label>
+                  <input value={tmpApi} onChange={function (e) { setTmpApi(e.target.value); }} />
+                </div>
+                <div>
+                  <label>Admin key</label>
+                  <input value={tmpKey} onChange={function (e) { setTmpKey(e.target.value); }} placeholder="ADMIN_KEY" />
+                </div>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={function () {
+                    saveSettings(tmpApi.trim(), tmpKey.trim());
+                    setShowSettings(false);
+                  }}
+                >
+                  Saqlash
+                </button>
+              </div>
+              <p className="muted" style={{ marginTop: 8 }}>Hozirgi: {apiBase}</p>
+            </div>
+          ) : null}
+
+          {content}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>

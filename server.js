@@ -9,6 +9,13 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Admin panel (public/admin.html)
+const path = require('path');
+app.use(express.static(path.join(__dirname, 'public')));
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
 
 // ========== API HIMOYA (ixtiyoriy) ==========
 // Render Environment ga ADMIN_KEY qo'shing. Bo'sh bo'lsa — himoya o'chiq.
@@ -52,7 +59,7 @@ app.get('/', (req, res) => {
   res.json({
     message: 'Briket ERP API ishlayapti!',
     time: new Date().toISOString(),
-    version: '1.4.0',
+    version: '1.5.0',
     modules: [
       'products', 'materials', 'customers',
       'batches', 'packaging', 'material-movements',
