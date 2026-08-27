@@ -32,19 +32,15 @@ app.get('/', (req, res) => {
   res.json({
     message: 'Briket ERP API ishlayapti!',
     time: new Date().toISOString(),
-    version: '1.1.0',
+    version: '1.2.0',
     endpoints: [
       'GET  /health',
-      'GET  /api/products',
-      'GET  /api/products/:id',
-      'POST /api/products',
-      'PUT  /api/products/:id',
-      'DELETE /api/products/:id',
-      'GET  /api/materials',
-      'GET  /api/materials/:id',
-      'POST /api/materials',
-      'PUT  /api/materials/:id',
-      'DELETE /api/materials/:id'
+      'GET|POST /api/products',
+      'GET|PUT|DELETE /api/products/:id',
+      'GET|POST /api/materials',
+      'GET|PUT|DELETE /api/materials/:id',
+      'GET|POST /api/customers',
+      'GET|PUT|DELETE /api/customers/:id'
     ]
   });
 });
@@ -288,6 +284,114 @@ app.delete('/api/materials/:id', async (req, res) => {
     }
     if (!result.rows.length) {
       return res.status(404).json({ ok: false, error: 'Material topilmadi' });
+    }
+    res.json({ ok: true, data: result.rows[0], deleted: hard ? 'hard' : 'soft' });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+// ================= CUSTOMERS (mijozlar) =================
+
+app.get('/api/customers', async (req, res) => {
+  try {
+    const onlyActive = req.query.active !== '0' && req.query.active !== 'false';
+    const sql = onlyActive
+      ? 'SELECT * FROM customers WHERE is_active = true ORDER BY id'
+      : 'SELECT * FROM customers ORDER BY id';
+    const result = await pool.query(sql);
+    res.json({ ok: true, count: result.rows.length, data: result.rows });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+app.get('/api/customers/:id', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM customers WHERE id = $1', [req.params.id]);
+    if (!result.rows.length) {
+      return res.status(404).json({ ok: false, error: 'Mijoz topilmadi' });
+    }
+    res.json({ ok: true, data: result.rows[0] });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+app.post('/api/customers', async (req, res) => {
+  try {
+    const { name, phone, address, credit_limit, telegram_id, note, is_active } = req.body;
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ ok: false, error: 'name majburiy' });
+    }
+    const result = await pool.query(
+      `INSERT INTO customers (name, phone, address, credit_limit, telegram_id, note, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [
+        String(name).trim(),
+        phone || null,
+        address || null,
+        Number(credit_limit) || 0,
+        telegram_id || null,
+        note || null,
+        is_active === false || is_active === 0 ? false : true
+      ]
+    );
+    res.status(201).json({ ok: true, data: result.rows[0] });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+app.put('/api/customers/:id', async (req, res) => {
+  try {
+    const { name, phone, address, credit_limit, telegram_id, note, is_active } = req.body;
+    const result = await pool.query(
+      `UPDATE customers SET
+         name = COALESCE($1, name),
+         phone = COALESCE($2, phone),
+         address = COALESCE($3, address),
+         credit_limit = COALESCE($4, credit_limit),
+         telegram_id = COALESCE($5, telegram_id),
+         note = COALESCE($6, note),
+         is_active = COALESCE($7, is_active)
+       WHERE id = $8
+       RETURNING *`,
+      [
+        name != null ? String(name).trim() : null,
+        phone !== undefined ? phone : null,
+        address !== undefined ? address : null,
+        credit_limit != null ? Number(credit_limit) : null,
+        telegram_id !== undefined ? telegram_id : null,
+        note !== undefined ? note : null,
+        is_active !== undefined ? !!is_active : null,
+        req.params.id
+      ]
+    );
+    if (!result.rows.length) {
+      return res.status(404).json({ ok: false, error: 'Mijoz topilmadi' });
+    }
+    res.json({ ok: true, data: result.rows[0] });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+app.delete('/api/customers/:id', async (req, res) => {
+  try {
+    const hard = req.query.hard === '1' || req.query.hard === 'true';
+    let result;
+    if (hard) {
+      result = await pool.query('DELETE FROM customers WHERE id = $1 RETURNING *', [req.params.id]);
+    } else {
+      result = await pool.query(
+        'UPDATE customers SET is_active = false WHERE id = $1 RETURNING *',
+        [req.params.id]
+      );
+    }
+    if (!result.rows.length) {
+      return res.status(404).json({ ok: false, error: 'Mijoz topilmadi' });
     }
     res.json({ ok: true, data: result.rows[0], deleted: hard ? 'hard' : 'soft' });
   } catch (err) {
