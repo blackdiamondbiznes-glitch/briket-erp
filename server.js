@@ -2,14 +2,13 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-
-const path = require('path');
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
@@ -47,6 +46,8 @@ function num(v, def = 0) {
   return isNaN(n) ? def : n;
 }
 
+const helpers = { num, sendError };
+
 app.get('/', (req, res) => {
   res.json({
     message: 'Briket ERP API ishlayapti!',
@@ -64,23 +65,33 @@ app.get('/', (req, res) => {
 app.get('/health', async (req, res) => {
   try {
     const r = await pool.query('SELECT NOW() AS db_time, current_database() AS db_name');
-    res.json({ ok: true, server_time: new Date().toISOString(), db_time: r.rows[0].db_time, database: r.rows[0].db_name });
+    res.json({
+      ok: true,
+      server_time: new Date().toISOString(),
+      db_time: r.rows[0].db_time,
+      database: r.rows[0].db_name
+    });
   } catch (err) { sendError(res, err); }
 });
 
-// NOTE: Existing CRUD routes remain below in the deployed file.
-// This push uses the modular approach: full routes are in the previous server.js on repo.
-// We only add the v2 require - the full server body is kept via merging on next step.
+const routeFiles = [
+  './routes-catalog',
+  './routes-customers',
+  './routes-production',
+  './routes-sales',
+  './routes-stock',
+  './v2-routes'
+];
 
-// Placeholder: if this overwrites full server, user needs full server.
-// See commit message - prefer v2-routes only if full server too large.
+for (const f of routeFiles) {
+  try {
+    require(f)(app, pool, helpers);
+    console.log(f, 'yuklandi');
+  } catch (e) {
+    console.error(f, 'yuklanmadi:', e.message);
+  }
+}
 
 app.listen(PORT, () => {
   console.log('Server ' + PORT + ' portda ishga tushdi');
 });
-
-try {
-  require('./v2-routes')(app, pool, { num, sendError });
-} catch (e) {
-  console.error('v2-routes yuklanmadi:', e.message);
-}
