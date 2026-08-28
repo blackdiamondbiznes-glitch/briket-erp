@@ -7,6 +7,7 @@
   <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7.26.0/babel.min.js"></script>
+  <script type="text/babel" src="/admin-v2-components.jsx"></script>
   <style>
     :root {
       --bg: #0f1115; --card: #1a1d24; --border: #2a2f3a;
@@ -1266,11 +1267,14 @@
         { id: "batches", label: "Partiya" },
         { id: "packaging", label: "Qadoq" },
         { id: "orders", label: "Buyurtma" },
+        { id: "partners", label: "Hamkorlar" },
+        { id: "shipments", label: "Yuk" },
         { id: "payments", label: "Tolov" },
         { id: "expenses", label: "Xarajat" },
         { id: "products", label: "SKU" },
         { id: "materials", label: "Material" },
-        { id: "customers", label: "Mijoz" }
+        { id: "customers", label: "Mijoz (eski)" },
+        { id: "biz", label: "Biznes sozlama" }
       ];
 
       let content = null;
@@ -1279,11 +1283,14 @@
       else if (tab === "batches") content = <Batches api={api} />;
       else if (tab === "packaging") content = <Packaging api={api} />;
       else if (tab === "orders") content = <Orders api={api} />;
+      else if (tab === "partners" && window.Partners) content = React.createElement(window.Partners, { api: api });
+      else if (tab === "shipments" && window.Shipments) content = React.createElement(window.Shipments, { api: api });
       else if (tab === "payments") content = <Payments api={api} />;
       else if (tab === "expenses") content = <Expenses api={api} />;
       else if (tab === "products") content = <Products api={api} />;
       else if (tab === "materials") content = <Materials api={api} />;
       else if (tab === "customers") content = <Customers api={api} />;
+      else if (tab === "biz" && window.BizSettings) content = React.createElement(window.BizSettings, { api: api });
 
       return (
         <div className="app">
