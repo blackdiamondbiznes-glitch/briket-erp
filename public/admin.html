@@ -7,7 +7,6 @@
   <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7.26.0/babel.min.js"></script>
-  <script type="text/babel" src="/admin-v2-components.jsx"></script>
   <style>
     :root {
       --bg: #0f1115; --card: #1a1d24; --border: #2a2f3a;
@@ -150,7 +149,7 @@
 
       function load() {
         api("/api/dashboard")
-          .then(function (r) { setData(r.data); })
+          .then(function (r) { setData(r.data); setErr(""); })
           .catch(function (e) { setErr(e.message); });
       }
 
@@ -159,23 +158,59 @@
       if (err) return <div className="msg err">{err}</div>;
       if (!data) return <div className="muted">Yuklanmoqda...</div>;
 
-      const items = [
-        { label: "Bugungi savdo", value: money(data.bugungi_savdo) + " som" },
-        { label: "Bugungi xarajat", value: money(data.bugungi_xarajat) + " som" },
-        { label: "Jami qarz", value: money(data.jami_qarz) + " som" },
-        { label: "Faol partiya", value: data.faol_partiya },
-        { label: "Quruq qoldiq", value: Number(data.quruq_qoldiq_kg).toFixed(1) + " kg" },
-        { label: "Faol SKU", value: data.faol_sku }
+      const heroes = [
+        { label: "Bugungi savdo", value: money(data.bugungi_savdo) + " som", sub: "asosiy korsatkich" },
+        { label: "Bugungi qadoq", value: Number(data.bugungi_qadoq_kg || 0).toFixed(1) + " kg", sub: "ishlab chiqarish" },
+        { label: "Bugungi xarajat", value: money(data.bugungi_xarajat) + " som", sub: "press + qadoq + boshqa" },
+        { label: "Mijozlar qarzi", value: money(data.jami_qarz) + " som", sub: "nasiya qoldigi" }
       ];
+      const monthKpis = [
+        { label: "Oylik savdo", value: money(data.oylik_savdo || 0) + " som" },
+        { label: "Oylik qadoq", value: Number(data.oylik_qadoq_kg || 0).toFixed(1) + " kg" },
+        { label: "Oylik xarajat", value: money(data.oylik_xarajat || 0) + " som" },
+        { label: "Faol partiya", value: String(data.faol_partiya) },
+        { label: "Quruq qoldiq", value: Number(data.quruq_qoldiq_kg || 0).toFixed(1) + " kg" },
+        { label: "Faol SKU", value: String(data.faol_sku) }
+      ];
+      const alerts = data.alerts || [];
+      const skuStock = data.sku_stock || [];
+      const mats = data.material_stock || [];
+      const batches = data.active_batches || [];
+      const orders = data.recent_orders || [];
 
       return (
-        <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h2>Dashboard</h2>
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <h2 style={{ color: "var(--accent)", fontSize: "0.95rem", margin: 0 }}>Dashboard</h2>
             <button className="btn-ghost" type="button" onClick={load}>Yangilash</button>
           </div>
-          <div className="kpi-grid">
-            {items.map(function (k) {
+
+          <div className="kpi-grid" style={{ marginBottom: 12 }}>
+            {heroes.map(function (k) {
+              return (
+                <div className="kpi" key={k.label}>
+                  <div className="label">{k.label}</div>
+                  <div className="value">{k.value}</div>
+                  <div className="muted" style={{ marginTop: 4 }}>{k.sub}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          {alerts.length > 0 ? (
+            <div style={{ marginBottom: 12 }}>
+              {alerts.map(function (a, i) {
+                return (
+                  <div key={i} className={"msg " + (a.type === "danger" ? "err" : "ok")} style={{ marginBottom: 6 }}>
+                    {a.text}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+
+          <div className="kpi-grid" style={{ marginBottom: 12 }}>
+            {monthKpis.map(function (k) {
               return (
                 <div className="kpi" key={k.label}>
                   <div className="label">{k.label}</div>
@@ -184,11 +219,117 @@
               );
             })}
           </div>
+
+          <div className="card">
+            <h2>Tayyor mahsulot ombori</h2>
+            {skuStock.length === 0 ? (
+              <div className="empty">Mahsulot qoldigi yoq</div>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>SKU</th><th>kg</th><th>Narx</th><th>Qadoq</th><th>Sotilgan</th><th>Qoldiq</th><th>Qiymat</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {skuStock.map(function (s) {
+                    return (
+                      <tr key={s.id}>
+                        <td>{s.sku}</td>
+                        <td>{s.weight_kg}</td>
+                        <td>{money(s.price)}</td>
+                        <td>{Number(s.packed_qty)}</td>
+                        <td>{Number(s.sold_qty)}</td>
+                        <td><strong>{Number(s.balance_qty)}</strong></td>
+                        <td>{money(s.value)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="card">
+            <h2>Material qoldiq</h2>
+            {mats.length === 0 ? (
+              <div className="empty">Material yoq</div>
+            ) : (
+              <table>
+                <thead>
+                  <tr><th>Nomi</th><th>Birlik</th><th>Qoldiq</th><th>Qiymat</th></tr>
+                </thead>
+                <tbody>
+                  {mats.map(function (m) {
+                    return (
+                      <tr key={m.id}>
+                        <td>{m.name}</td>
+                        <td>{m.unit}</td>
+                        <td><strong>{Number(m.balance)}</strong></td>
+                        <td>{money(m.value)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="card">
+            <h2>Faol partiyalar</h2>
+            {batches.length === 0 ? (
+              <div className="empty">Faol partiya yoq</div>
+            ) : (
+              <table>
+                <thead>
+                  <tr><th>Kod</th><th>Quruq</th><th>Qadoq</th><th>Qolgan</th><th>%</th></tr>
+                </thead>
+                <tbody>
+                  {batches.map(function (b) {
+                    return (
+                      <tr key={b.id}>
+                        <td>{b.batch_code}</td>
+                        <td>{b.dry_kg}</td>
+                        <td>{b.packed_kg}</td>
+                        <td><strong>{b.remaining_kg}</strong></td>
+                        <td>{b.loss_percent}%</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="card">
+            <h2>Songgi buyurtmalar</h2>
+            {orders.length === 0 ? (
+              <div className="empty">Buyurtma yoq</div>
+            ) : (
+              <table>
+                <thead>
+                  <tr><th>Kod</th><th>Mijoz</th><th>Summa</th><th>Qarz</th><th>Holat</th></tr>
+                </thead>
+                <tbody>
+                  {orders.map(function (o) {
+                    return (
+                      <tr key={o.id}>
+                        <td>{o.order_code}</td>
+                        <td>{o.customer_name}</td>
+                        <td>{money(o.total_amount)}</td>
+                        <td>{money(o.debt_amount)}</td>
+                        <td><span className={"badge " + o.status}>{o.status}</span></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       );
     }
 
-    // ---------- Stock ----------
     function Stock(props) {
       const api = props.api;
       const [materials, setMaterials] = useState([]);
@@ -267,6 +408,8 @@
       const api = props.api;
       const [list, setList] = useState([]);
       const [form, setForm] = useState({ sku: "", weight_kg: "", price: "", description: "" });
+      const [editId, setEditId] = useState(null);
+      const [editForm, setEditForm] = useState({ sku: "", weight_kg: "", price: "", description: "", is_active: true });
       const [msg, setMsg] = useState({});
 
       const load = useCallback(function () {
@@ -297,6 +440,53 @@
         }
       }
 
+      function startEdit(p) {
+        setEditId(p.id);
+        setEditForm({
+          sku: p.sku || "",
+          weight_kg: String(p.weight_kg != null ? p.weight_kg : ""),
+          price: String(p.price != null ? p.price : ""),
+          description: p.description || "",
+          is_active: p.is_active !== false
+        });
+      }
+
+      function cancelEdit() {
+        setEditId(null);
+      }
+
+      async function saveEdit(e) {
+        e.preventDefault();
+        try {
+          await api("/api/products/" + editId, {
+            method: "PUT",
+            body: JSON.stringify({
+              sku: editForm.sku,
+              weight_kg: Number(editForm.weight_kg) || 0,
+              price: Number(editForm.price) || 0,
+              description: editForm.description || null,
+              is_active: !!editForm.is_active
+            })
+          });
+          setMsg({ text: "SKU yangilandi", type: "ok" });
+          setEditId(null);
+          load();
+        } catch (err) {
+          setMsg({ text: err.message, type: "err" });
+        }
+      }
+
+      async function softDelete(id) {
+        if (!window.confirm("SKU ni nofaol qilish?")) return;
+        try {
+          await api("/api/products/" + id, { method: "DELETE" });
+          setMsg({ text: "SKU nofaol qilindi", type: "ok" });
+          load();
+        } catch (err) {
+          setMsg({ text: err.message, type: "err" });
+        }
+      }
+
       return (
         <div>
           <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
@@ -309,7 +499,7 @@
                   <input value={form.sku} onChange={function (e) { setForm(Object.assign({}, form, { sku: e.target.value })); }} required />
                 </div>
                 <div>
-                  <label>Ogirlilik (kg)</label>
+                  <label>Ogirlik (kg)</label>
                   <input type="number" step="0.1" value={form.weight_kg} onChange={function (e) { setForm(Object.assign({}, form, { weight_kg: e.target.value })); }} />
                 </div>
                 <div>
@@ -324,11 +514,49 @@
               <button className="btn" type="submit">Qoshish</button>
             </form>
           </div>
+
+          {editId ? (
+            <div className="card">
+              <h2>SKU tahrirlash</h2>
+              <form onSubmit={saveEdit}>
+                <div className="form-row">
+                  <div>
+                    <label>SKU</label>
+                    <input value={editForm.sku} onChange={function (e) { setEditForm(Object.assign({}, editForm, { sku: e.target.value })); }} required />
+                  </div>
+                  <div>
+                    <label>Ogirlik (kg)</label>
+                    <input type="number" step="0.1" value={editForm.weight_kg} onChange={function (e) { setEditForm(Object.assign({}, editForm, { weight_kg: e.target.value })); }} />
+                  </div>
+                  <div>
+                    <label>Narx</label>
+                    <input type="number" value={editForm.price} onChange={function (e) { setEditForm(Object.assign({}, editForm, { price: e.target.value })); }} />
+                  </div>
+                  <div>
+                    <label>Tavsif</label>
+                    <input value={editForm.description} onChange={function (e) { setEditForm(Object.assign({}, editForm, { description: e.target.value })); }} />
+                  </div>
+                  <div>
+                    <label>Holat</label>
+                    <select value={editForm.is_active ? "1" : "0"} onChange={function (e) { setEditForm(Object.assign({}, editForm, { is_active: e.target.value === "1" })); }}>
+                      <option value="1">Faol</option>
+                      <option value="0">Nofaol</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn" type="submit">Saqlash</button>
+                  <button className="btn-ghost" type="button" onClick={cancelEdit}>Bekor</button>
+                </div>
+              </form>
+            </div>
+          ) : null}
+
           <div className="card">
             <h2>Mahsulotlar ({list.length})</h2>
             <table>
               <thead>
-                <tr><th>SKU</th><th>kg</th><th>Narx</th><th>Holat</th></tr>
+                <tr><th>SKU</th><th>kg</th><th>Narx</th><th>Holat</th><th></th></tr>
               </thead>
               <tbody>
                 {list.map(function (p) {
@@ -339,8 +567,15 @@
                       <td>{money(p.price)}</td>
                       <td>
                         <span className={"badge " + (p.is_active ? "active" : "closed")}>
-                          {p.is_active ? "faol" : "ochiq"}
+                          {p.is_active ? "faol" : "nofaol"}
                         </span>
+                      </td>
+                      <td>
+                        <button type="button" className="btn-ghost btn-sm" onClick={function () { startEdit(p); }}>Tahrir</button>
+                        {" "}
+                        {p.is_active ? (
+                          <button type="button" className="btn-ghost btn-sm" onClick={function () { softDelete(p.id); }}>Ochirish</button>
+                        ) : null}
                       </td>
                     </tr>
                   );
@@ -352,7 +587,6 @@
       );
     }
 
-    // ---------- Materials ----------
     function Materials(props) {
       const api = props.api;
       const [list, setList] = useState([]);
@@ -1267,14 +1501,11 @@
         { id: "batches", label: "Partiya" },
         { id: "packaging", label: "Qadoq" },
         { id: "orders", label: "Buyurtma" },
-        { id: "partners", label: "Hamkorlar" },
-        { id: "shipments", label: "Yuk" },
         { id: "payments", label: "Tolov" },
         { id: "expenses", label: "Xarajat" },
         { id: "products", label: "SKU" },
         { id: "materials", label: "Material" },
-        { id: "customers", label: "Mijoz (eski)" },
-        { id: "biz", label: "Biznes sozlama" }
+        { id: "customers", label: "Mijoz" }
       ];
 
       let content = null;
@@ -1283,14 +1514,11 @@
       else if (tab === "batches") content = <Batches api={api} />;
       else if (tab === "packaging") content = <Packaging api={api} />;
       else if (tab === "orders") content = <Orders api={api} />;
-      else if (tab === "partners" && window.Partners) content = React.createElement(window.Partners, { api: api });
-      else if (tab === "shipments" && window.Shipments) content = React.createElement(window.Shipments, { api: api });
       else if (tab === "payments") content = <Payments api={api} />;
       else if (tab === "expenses") content = <Expenses api={api} />;
       else if (tab === "products") content = <Products api={api} />;
       else if (tab === "materials") content = <Materials api={api} />;
       else if (tab === "customers") content = <Customers api={api} />;
-      else if (tab === "biz" && window.BizSettings) content = React.createElement(window.BizSettings, { api: api });
 
       return (
         <div className="app">
