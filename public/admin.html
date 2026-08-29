@@ -17,20 +17,71 @@
       font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.45;
     }
-    .app { max-width: 1120px; margin: 0 auto; padding: 12px 14px 90px; }
-    header {
-      display: flex; align-items: center; justify-content: space-between; gap: 10px;
-      padding: 8px 0 14px; border-bottom: 1px solid var(--border); margin-bottom: 14px; flex-wrap: wrap;
+    .shell { min-height: 100vh; }
+    .sidebar {
+      display: none;
+      position: fixed; inset: 0 auto 0 0; width: 220px;
+      background: var(--card); border-right: 1px solid var(--border);
+      padding: 16px 12px; z-index: 20; flex-direction: column;
     }
-    header h1 { font-size: 1.1rem; color: var(--accent); font-weight: 700; }
-    .nav { display: flex; gap: 5px; flex-wrap: wrap; }
-    .nav button {
-      background: var(--card); border: 1px solid var(--border); color: var(--text);
-      padding: 7px 11px; border-radius: 8px; cursor: pointer; font-size: 0.8rem;
+    .sidebar .brand-kicker {
+      font-size: 0.65rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
     }
-    .nav button.active {
-      background: var(--accent); color: #111; border-color: var(--accent); font-weight: 600;
+    .sidebar .brand-title {
+      color: var(--accent); font-weight: 700; font-size: 1.05rem; margin: 4px 0 16px;
     }
+    .side-nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+    .side-nav button, .bottom-nav button {
+      background: transparent; border: none; color: var(--muted);
+      text-align: left; padding: 11px 12px; border-radius: 8px;
+      cursor: pointer; font-size: 0.88rem; font-weight: 500;
+    }
+    .side-nav button.active, .bottom-nav button.active {
+      background: var(--accent); color: #111; font-weight: 600;
+    }
+    .side-nav button:hover:not(.active) { background: #12151b; color: var(--text); }
+    .main {
+      padding: 12px 14px 88px;
+      max-width: 1120px; margin: 0 auto;
+    }
+    .mobile-top {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 0 12px; border-bottom: 1px solid var(--border); margin-bottom: 12px;
+    }
+    .mobile-top h1 { font-size: 1rem; color: var(--accent); margin: 0; }
+    .segment {
+      display: flex; flex-wrap: wrap; gap: 4px;
+      background: #12151b; border: 1px solid var(--border);
+      border-radius: 10px; padding: 4px; margin-bottom: 14px;
+    }
+    .segment button {
+      flex: 1; min-width: 72px; border: none; background: transparent;
+      color: var(--muted); padding: 9px 10px; border-radius: 8px;
+      cursor: pointer; font-size: 0.82rem; font-weight: 500;
+    }
+    .segment button.active {
+      background: var(--accent); color: #111; font-weight: 600;
+    }
+    .bottom-nav {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+      display: grid; grid-template-columns: repeat(5, 1fr);
+      background: var(--card); border-top: 1px solid var(--border);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .bottom-nav button {
+      text-align: center; font-size: 0.65rem; padding: 8px 4px 10px;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      min-height: 56px; justify-content: center;
+    }
+    .bottom-nav .ico { font-size: 0.95rem; line-height: 1; opacity: 0.9; }
+    @media (min-width: 860px) {
+      .sidebar { display: flex; }
+      .main { margin-left: 220px; padding: 22px 28px 28px; max-width: none; }
+      .mobile-top { display: none; }
+      .bottom-nav { display: none; }
+    }
+    /* legacy nav kept inert */
+    .nav { display: none; }
     .card {
       background: var(--card); border: 1px solid var(--border); border-radius: 12px;
       padding: 14px; margin-bottom: 12px;
@@ -1490,23 +1541,73 @@
       const adminKey = apiHook.adminKey;
       const saveSettings = apiHook.saveSettings;
 
+      const modules = [
+        {
+          id: "boshqaruv",
+          label: "Boshqaruv",
+          short: "Bosh",
+          ico: "BD",
+          tabs: [{ id: "dashboard", label: "Dashboard" }]
+        },
+        {
+          id: "ishlab",
+          label: "Ishlab chiqarish",
+          short: "Ishlab",
+          ico: "IC",
+          tabs: [
+            { id: "batches", label: "Partiya" },
+            { id: "packaging", label: "Qadoq" },
+            { id: "stock", label: "Ombor" }
+          ]
+        },
+        {
+          id: "savdo",
+          label: "Savdo",
+          short: "Savdo",
+          ico: "SV",
+          tabs: [
+            { id: "orders", label: "Buyurtma" },
+            { id: "payments", label: "Tolov" },
+            { id: "expenses", label: "Xarajat" }
+          ]
+        },
+        {
+          id: "hamkor",
+          label: "Hamkorlar",
+          short: "Hamkor",
+          ico: "HM",
+          tabs: [{ id: "customers", label: "Mijoz" }]
+        },
+        {
+          id: "katalog",
+          label: "Katalog",
+          short: "Katalog",
+          ico: "KT",
+          tabs: [
+            { id: "products", label: "SKU" },
+            { id: "materials", label: "Material" },
+            { id: "settings", label: "Sozlama" }
+          ]
+        }
+      ];
+
+      const [moduleId, setModuleId] = useState("boshqaruv");
       const [tab, setTab] = useState("dashboard");
-      const [showSettings, setShowSettings] = useState(false);
       const [tmpApi, setTmpApi] = useState(apiBase);
       const [tmpKey, setTmpKey] = useState(adminKey);
 
-      const tabs = [
-        { id: "dashboard", label: "Dashboard" },
-        { id: "stock", label: "Ombor" },
-        { id: "batches", label: "Partiya" },
-        { id: "packaging", label: "Qadoq" },
-        { id: "orders", label: "Buyurtma" },
-        { id: "payments", label: "Tolov" },
-        { id: "expenses", label: "Xarajat" },
-        { id: "products", label: "SKU" },
-        { id: "materials", label: "Material" },
-        { id: "customers", label: "Mijoz" }
-      ];
+      const currentModule = modules.find(function (m) { return m.id === moduleId; }) || modules[0];
+
+      function openModule(id) {
+        const m = modules.find(function (x) { return x.id === id; });
+        if (!m) return;
+        setModuleId(id);
+        setTab(m.tabs[0].id);
+      }
+
+      function openSub(id) {
+        setTab(id);
+      }
 
       let content = null;
       if (tab === "dashboard") content = <Dashboard api={api} />;
@@ -1519,58 +1620,102 @@
       else if (tab === "products") content = <Products api={api} />;
       else if (tab === "materials") content = <Materials api={api} />;
       else if (tab === "customers") content = <Customers api={api} />;
+      else if (tab === "settings") {
+        content = (
+          <div className="card">
+            <h2>Tizim sozlama</h2>
+            <div className="settings-bar">
+              <div>
+                <label>API URL</label>
+                <input value={tmpApi} onChange={function (e) { setTmpApi(e.target.value); }} />
+              </div>
+              <div>
+                <label>Admin key</label>
+                <input value={tmpKey} onChange={function (e) { setTmpKey(e.target.value); }} placeholder="ADMIN_KEY" />
+              </div>
+              <button
+                className="btn"
+                type="button"
+                onClick={function () {
+                  saveSettings(tmpApi, tmpKey);
+                  alert("Saqlandi. Sahifani yangilang.");
+                }}
+              >
+                Saqlash
+              </button>
+            </div>
+            <p className="muted" style={{ marginTop: 10 }}>
+              API: {apiBase || "(bo'sh)"}
+            </p>
+          </div>
+        );
+      }
 
       return (
-        <div className="app">
-          <header>
-            <h1>Briket ERP</h1>
-            <div className="nav">
-              {tabs.map(function (t) {
+        <div className="shell">
+          <aside className="sidebar">
+            <div>
+              <div className="brand-kicker">Black Diamond</div>
+              <div className="brand-title">Briket ERP</div>
+            </div>
+            <nav className="side-nav">
+              {modules.map(function (m) {
                 return (
                   <button
-                    key={t.id}
+                    key={m.id}
                     type="button"
-                    className={tab === t.id ? "active" : ""}
-                    onClick={function () { setTab(t.id); }}
+                    className={moduleId === m.id ? "active" : ""}
+                    onClick={function () { openModule(m.id); }}
                   >
-                    {t.label}
+                    {m.label}
                   </button>
                 );
               })}
-              <button className="btn-ghost" type="button" onClick={function () { setShowSettings(!showSettings); }}>
-                Sozlama
-              </button>
-            </div>
-          </header>
+            </nav>
+            <p className="muted" style={{ fontSize: "0.7rem", marginTop: 12 }}>Operator paneli</p>
+          </aside>
 
-          {showSettings ? (
-            <div className="card">
-              <h2>Sozlamalar</h2>
-              <div className="settings-bar">
-                <div>
-                  <label>API URL</label>
-                  <input value={tmpApi} onChange={function (e) { setTmpApi(e.target.value); }} />
-                </div>
-                <div>
-                  <label>Admin key</label>
-                  <input value={tmpKey} onChange={function (e) { setTmpKey(e.target.value); }} placeholder="ADMIN_KEY" />
-                </div>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={function () {
-                    saveSettings(tmpApi.trim(), tmpKey.trim());
-                    setShowSettings(false);
-                  }}
-                >
-                  Saqlash
-                </button>
+          <div className="main">
+            <div className="mobile-top">
+              <h1>Briket ERP</h1>
+              <span className="muted" style={{ fontSize: "0.75rem" }}>{currentModule.label}</span>
+            </div>
+
+            {currentModule.tabs.length > 1 ? (
+              <div className="segment">
+                {currentModule.tabs.map(function (t) {
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className={tab === t.id ? "active" : ""}
+                      onClick={function () { openSub(t.id); }}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
               </div>
-              <p className="muted" style={{ marginTop: 8 }}>Hozirgi: {apiBase}</p>
-            </div>
-          ) : null}
+            ) : null}
 
-          {content}
+            {content}
+          </div>
+
+          <nav className="bottom-nav">
+            {modules.map(function (m) {
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={moduleId === m.id ? "active" : ""}
+                  onClick={function () { openModule(m.id); }}
+                >
+                  <span className="ico">{m.ico}</span>
+                  {m.short}
+                </button>
+              );
+            })}
+          </nav>
         </div>
       );
     }
