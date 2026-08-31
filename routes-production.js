@@ -24,28 +24,86 @@ app.get('/api/batches/:id', async (req, res) => {
 
 app.post('/api/batches', async (req, res) => {
   try {
-    const { bags_count, bag_price, dry_kg, workers_count, press_wage, note, already_packed_kg } = req.body;
-    const bags = num(bags_count), price = num(bag_price), dry = num(dry_kg), already = Math.max(0, num(already_packed_kg));
-    if (bags <= 0 || price <= 0 || dry <= 0) return res.status(400).json({ ok: false, error: 'bags_count, bag_price, dry_kg musbat bolishi kerak' });
-    if (already > dry + 0.01) return res.status(400).json({ ok: false, error: 'already_packed_kg dry_kg dan katta bolmasin' });
-    const bagsCost = bags * price, estimated = bags * 27;
+    const {
+      bags_count, bag_price, dry_kg, workers_count, press_wage,
+      note, already_packed_kg, material_id,
+    } = req.body;
+    const bags = num(bags_count);
+    const price = num(bag_price);
+    const dry = num(dry_kg);
+    const already = Math.max(0, num(already_packed_kg));
+    if (bags <= 0 || price <= 0 || dry <= 0) {
+      return res.status(400).json({ ok: false, error: 'bags_count, bag_price, dry_kg musbat bolishi kerak' });
+    }
+    if (already > dry + 0.01) {
+      return res.status(400).json({ ok: false, error: 'already_packed_kg dry_kg dan katta bolmasin' });
+    }
+
+    let matRow = null;
+    if (material_id) {
+      const mat = await pool.query(
+        'SELECT id, price, name FROM materials WHERE id = $1 AND is_active = true',
+        [material_id]
+      );
+      if (!mat.rows.length) {
+        return res.status(400).json({ ok: false, error: 'Material topilmadi yoki nofaol' });
+      }
+      matRow = mat.rows[0];
+    } else {
+      const mat = await pool.query(
+        `SELECT id, price, name FROM materials
+         WHERE is_active = true
+           AND (name ILIKE '%ko''mir%' OR name ILIKE '%komir%' OR name ILIKE '%ko%mir%')
+         ORDER BY id ASC LIMIT 1`
+      );
+      if (mat.rows.length) matRow = mat.rows[0];
+    }
+
+    const bagsCost = bags * price;
+    const estimated = bags * 27;
     const loss = estimated > 0 ? Number((((estimated - dry) / estimated) * 100).toFixed(1)) : 0;
     const remaining = Math.max(0, Math.round((dry - already) * 1000) / 1000);
     const status = remaining > 0.01 ? 'active' : 'closed';
     const code = 'P-' + new Date().toISOString().slice(0, 10) + '-' + Math.floor(10 + Math.random() * 90);
+
     const r = await pool.query(
-      `INSERT INTO batches (batch_code, status, bags_count, bag_price, bags_cost, estimated_kg, dry_kg, loss_percent, packed_kg, remaining_kg, workers_count, press_wage, note)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
-      [code, status, bags, price, bagsCost, estimated, dry, loss, already, remaining, num(workers_count), num(press_wage), note || null]
+      `INSERT INTO batches (
+         batch_code, status, bags_count, bag_price, bags_cost, estimated_kg,
+         dry_kg, loss_percent, packed_kg, remaining_kg, workers_count, press_wage, note
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+      [
+        code, status, bags, price, bagsCost, estimated, dry, loss,
+        already, remaining, num(workers_count), num(press_wage), note || null,
+      ]
     );
+
     if (num(press_wage) > 0) {
-      await pool.query(`INSERT INTO expenses (category, amount, payment_method, batch_id, note) VALUES ('Press ish haqi', $1, 'cash', $2, $3)`, [num(press_wage), r.rows[0].id, code + ' | ' + num(workers_count) + ' kishi']);
+      await pool.query(
+        `INSERT INTO expenses (category, amount, payment_method, batch_id, note)
+         VALUES ('Press ish haqi', $1, 'cash', $2, $3)`,
+        [num(press_wage), r.rows[0].id, code + ' | ' + num(workers_count) + ' kishi']
+      );
     }
-    const mat = await pool.query(`SELECT id, price FROM materials WHERE name ILIKE '%ko%mir%' OR name ILIKE '%komir%' LIMIT 1`);
-    if (mat.rows.length) {
-      await pool.query(`INSERT INTO material_movements (material_id, movement_type, qty, unit_price, total_amount, batch_id, note) VALUES ($1, 'out', $2, $3, $4, $5, $6)`, [mat.rows[0].id, bags, price, bagsCost, r.rows[0].id, 'Pressga sarflandi']);
+
+    if (matRow) {
+      const unitPrice = num(matRow.price) > 0 ? num(matRow.price) : price;
+      await pool.query(
+        `INSERT INTO material_movements (
+           material_id, movement_type, qty, unit_price, total_amount, batch_id, note
+         ) VALUES ($1, 'out', $2, $3, $4, $5, $6)`,
+        [
+          matRow.id, bags, unitPrice, bags * unitPrice, r.rows[0].id,
+          'Pressga sarflandi: ' + (matRow.name || ''),
+        ]
+      );
     }
-    res.status(201).json({ ok: true, data: r.rows[0] });
+
+    res.status(201).json({
+      ok: true,
+      data: r.rows[0],
+      material_used: matRow ? { id: matRow.id, name: matRow.name } : null,
+      warning: matRow ? null : 'Material topilmadi — material_movements yozilmadi. material_id yuboring.',
+    });
   } catch (err) { sendError(res, err); }
 });
 
