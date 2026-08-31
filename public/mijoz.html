@@ -650,7 +650,6 @@ function ProductCard({ p, settings, onAdd, onDetail, onLightbox }) {
             : <span className="stock-ok">Sotuvda: {stock} dona</span>}
           {p.weight_kg ? <span>· {p.weight_kg} kg</span> : null}
         </div>
-        {p.description ? <div className="meta" style={{ marginTop: 8 }}>{p.description}</div> : null}
 
         <div className="qty-actions">
           <div className="qty-label">Miqdor (dona) — <span style={{ color: 'var(--accent)' }}>bu yerga son yozing</span></div>
@@ -743,12 +742,6 @@ function DetailPage({ p, settings, onClose, onAdd, showMsg }) {
             : <span className="stock-ok">Sotuvda: {stock} dona</span>}
           {p.weight_kg ? <span>· {p.weight_kg} kg</span> : null}
         </div>
-        {p.description && (
-          <div className="detail-desc">
-            <strong style={{ color: 'var(--text)', display: 'block', marginBottom: 6 }}>Mahsulot haqida</strong>
-            {p.description}
-          </div>
-        )}
       </div>
       <div className="detail-actions">
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, fontWeight: 600 }}>
@@ -1076,7 +1069,7 @@ function Buyurtmalar({ orders, loading, onReload, orderSuccess, onClearSuccess, 
                 Naqd (niyat): {money(b.paid_amount)} so‘m · Qoldiq: {money(b.debt_amount)} so‘m
               </div>
               <div className="meta" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                Naqd summasi admin tasdiqlamaguncha to‘langan hisoblanmaydi
+                Ko'rsatilgan summa buyurtmani qabul qilishda to'lanadi
               </div>
               {b.phone ? <div className="meta">Tel: {b.phone}</div> : null}
               {st.canCancel ? (
