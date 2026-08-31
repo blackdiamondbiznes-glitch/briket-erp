@@ -130,6 +130,7 @@
     .badge.closed { background: #2a2f3a; color: var(--muted); }
     .badge.partial { background: #3d2e0a; color: #fdd663; }
     .badge.pending, .badge.confirmed { background: #1a2a3a; color: #8ab4f8; }
+    .badge.rejected, .badge.cancelled { background: #3c1518; color: #f28b82; }
     .empty { text-align: center; padding: 20px; color: var(--muted); }
     .settings-bar { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
     .settings-bar > div { flex: 1; min-width: 160px; }
@@ -1090,7 +1091,7 @@
 
       const load = useCallback(function () {
         Promise.all([
-          api("/api/orders?limit=25"),
+          api("/api/orders?limit=50"),
           api("/api/products"),
           api("/api/customers")
         ])
@@ -1265,32 +1266,54 @@
             </form>
           </div>
           <div className="card">
-            <h2>Buyurtmalar</h2>
+            <h2>Buyurtmalar (admin + mijoz/Telegram)</h2>
+            <p className="muted" style={{ marginBottom: 10 }}>
+              Telegram/PWA dan kelgan buyurtmalar <b>pending</b> — Tasdiq yoki Rad eting.
+            </p>
             <table>
               <thead>
                 <tr>
-                  <th>Kod</th><th>Mijoz</th><th>Summa</th><th>Tolangan</th><th>Qarz</th><th>Holat</th><th></th>
+                  <th>Kod</th><th>Manba</th><th>Mijoz</th><th>Summa</th><th>Qarz</th><th>Holat</th><th>Amallar</th>
                 </tr>
               </thead>
               <tbody>
                 {list.map(function (o) {
+                  var src = o.source || "admin";
+                  var srcLabel = src === "telegram" ? "Telegram" : (src === "pwa" ? "PWA/Web" : src);
                   return (
-                    <tr key={o.id}>
-                      <td>{o.order_code}</td>
+                    <tr key={o.id} style={o.status === "pending" && (src === "telegram" || src === "pwa") ? { background: "rgba(201,162,39,0.08)" } : undefined}>
                       <td>
-                        {o.customer_name}
-                        <div className="muted">
+                        {o.order_code}
+                        <div className="muted" style={{ fontSize: "0.7rem" }}>
                           {o.items && o.items.map(function (i) { return i.sku + "x" + i.qty; }).join(", ")}
                         </div>
                       </td>
+                      <td><span className="badge">{srcLabel}</span></td>
+                      <td>
+                        {o.customer_name}
+                        {o.phone ? <div className="muted">{o.phone}</div> : null}
+                        {o.note ? <div className="muted">{o.note}</div> : null}
+                      </td>
                       <td>{money(o.total_amount)}</td>
-                      <td>{money(o.paid_amount)}</td>
                       <td>{money(o.debt_amount)}</td>
                       <td><span className={"badge " + o.status}>{o.status}</span></td>
-                      <td>
+                      <td style={{ whiteSpace: "nowrap" }}>
                         {o.status === "pending" ? (
-                          <button className="btn-ghost btn-sm" type="button" onClick={function () { setStatus(o.id, "confirmed"); }}>
-                            Tasdiq
+                          <span>
+                            <button className="btn-ghost btn-sm" type="button" onClick={function () { setStatus(o.id, "confirmed"); }}>
+                              Tasdiq
+                            </button>
+                            {" "}
+                            <button className="btn-ghost btn-sm" type="button" onClick={function () {
+                              if (window.confirm("Buyurtmani rad etasizmi?")) setStatus(o.id, "rejected");
+                            }}>
+                              Rad
+                            </button>
+                          </span>
+                        ) : null}
+                        {o.status === "confirmed" ? (
+                          <button className="btn-ghost btn-sm" type="button" onClick={function () { setStatus(o.id, "closed"); }}>
+                            Yopish
                           </button>
                         ) : null}
                       </td>

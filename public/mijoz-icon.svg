@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Black Diamond Briquettes">
+  <rect width="128" height="128" rx="24" fill="#0c0d10"/>
+  <circle cx="64" cy="64" r="48" fill="none" stroke="#c9a227" stroke-width="3" opacity="0.35"/>
+  <path d="M64 22 L98 52 L64 106 L30 52 Z" fill="#1a1c20" stroke="#c9a227" stroke-width="3.5" stroke-linejoin="round"/>
+  <path d="M30 52 L64 52 L64 22 Z" fill="#c9a227" opacity="0.18"/>
+  <path d="M98 52 L64 52 L64 22 Z" fill="#c9a227" opacity="0.08"/>
+  <path d="M30 52 L64 52 L64 106 Z" fill="#c9a227" opacity="0.12"/>
+  <path d="M98 52 L64 52 L64 106 Z" fill="#000" opacity="0.25"/>
+  <path d="M30 52 L98 52" stroke="#c9a227" stroke-width="2" opacity="0.7"/>
+  <rect x="48" y="88" width="12" height="8" rx="1.5" fill="#c9a227" opacity="0.55"/>
+  <rect x="62" y="88" width="12" height="8" rx="1.5" fill="#c9a227" opacity="0.4"/>
+  <rect x="55" y="98" width="12" height="8" rx="1.5" fill="#c9a227" opacity="0.3"/>
+</svg>

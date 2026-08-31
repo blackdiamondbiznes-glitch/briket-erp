@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0c0d10" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Black Diamond — Buyurtma</title>
+  <link rel="manifest" href="/mijoz-manifest.webmanifest" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: #0c0d10; --card: #15171c; --elev: #1c1f26;
+      --text: #ecece8; --muted: #9a9588; --accent: #c9a227;
+      --ok: #7dba8a; --danger: #d97a72; --border: #2a2c31;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg); color: var(--text); min-height: 100vh;
+      padding-bottom: 72px;
+    }
+    header {
+      position: sticky; top: 0; z-index: 20;
+      background: rgba(12,13,16,0.92); backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;
+    }
+    header h1 { font-size: 1rem; color: var(--accent); }
+    header .user { font-size: 0.75rem; color: var(--muted); }
+    .page { padding: 14px 16px 20px; max-width: 560px; margin: 0 auto; }
+    .msg {
+      padding: 10px 12px; border-radius: 10px; margin-bottom: 12px; font-size: 0.88rem;
+    }
+    .msg.ok { background: rgba(125,186,138,0.15); color: var(--ok); }
+    .msg.err { background: rgba(217,122,114,0.15); color: var(--danger); }
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 14px; margin-bottom: 12px;
+    }
+    .product { display: flex; gap: 12px; align-items: center; }
+    .product .info { flex: 1; min-width: 0; }
+    .product .sku { font-weight: 600; font-size: 0.95rem; }
+    .product .meta { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+    .product .price { color: var(--accent); font-weight: 600; margin-top: 4px; }
+    .qty { display: flex; align-items: center; gap: 6px; }
+    .qty button {
+      width: 36px; height: 36px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--elev);
+      color: var(--text); font-size: 1.1rem; cursor: pointer;
+    }
+    .qty span { min-width: 24px; text-align: center; font-weight: 600; }
+    .badge {
+      display: inline-block; font-size: 0.68rem; padding: 2px 8px;
+      border-radius: 99px; background: var(--elev); color: var(--muted);
+    }
+    .badge.ok { background: rgba(125,186,138,0.15); color: var(--ok); }
+    .badge.out { background: rgba(217,122,114,0.15); color: var(--danger); }
+    input, textarea {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); border-radius: 10px; padding: 11px 12px;
+      font-size: 0.95rem; margin-bottom: 10px;
+    }
+    label { display: block; font-size: 0.72rem; color: var(--muted); margin-bottom: 4px; }
+    .btn {
+      width: 100%; border: none; border-radius: 12px; padding: 14px;
+      background: var(--accent); color: #14120c; font-weight: 700;
+      font-size: 0.95rem; cursor: pointer;
+    }
+    .btn:disabled { opacity: 0.5; }
+    .bottom {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      background: var(--card); border-top: 1px solid var(--border);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .bottom button {
+      background: transparent; border: none; color: var(--muted);
+      padding: 10px 4px 12px; font-size: 0.7rem; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+    }
+    .bottom button.active { color: var(--accent); font-weight: 600; }
+    .cart-count {
+      background: var(--accent); color: #111; border-radius: 99px;
+      font-size: 0.65rem; padding: 1px 5px; font-weight: 700;
+    }
+    .total-row {
+      display: flex; justify-content: space-between; align-items: center;
+      font-weight: 700; margin: 12px 0; font-size: 1.05rem;
+    }
+    .empty { text-align: center; color: var(--muted); padding: 40px 12px; }
+    .order-item { border-bottom: 1px solid var(--border); padding: 10px 0; }
+    .order-item:last-child { border-bottom: none; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+(function () {
+  var API = window.location.origin;
+  var tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+  if (tg) {
+    try { tg.ready(); tg.expand(); } catch (e) {}
+  }
+
+  function money(n) {
+    return Number(n || 0).toLocaleString("uz-UZ");
+  }
+
+  function getInitData() {
+    if (tg && tg.initData) return tg.initData;
+    return localStorage.getItem("demo_init") || "";
+  }
+
+  function headers(json) {
+    var h = {};
+    if (json) h["Content-Type"] = "application/json";
+    var init = getInitData();
+    if (init) h["x-telegram-init-data"] = init;
+    var demo = localStorage.getItem("demo_tg_id");
+    if (demo) h["x-demo-telegram-id"] = demo;
+    return h;
+  }
+
+  async function api(path, opts) {
+    opts = opts || {};
+    var res = await fetch(API + path, {
+      method: opts.method || "GET",
+      headers: headers(!!opts.body),
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    });
+    var data = {};
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.error || res.statusText || "Xato");
+    }
+    return data;
+  }
+
+  var state = {
+    tab: "catalog",
+    catalog: [],
+    cart: JSON.parse(localStorage.getItem("bd_cart") || "{}"),
+    customer: null,
+    orders: [],
+    msg: null,
+    loading: true,
+    phone: localStorage.getItem("bd_phone") || "",
+    address: localStorage.getItem("bd_address") || "",
+    note: ""
+  };
+
+  function saveCart() {
+    localStorage.setItem("bd_cart", JSON.stringify(state.cart));
+  }
+
+  function cartCount() {
+    var n = 0;
+    Object.keys(state.cart).forEach(function (id) { n += state.cart[id]; });
+    return n;
+  }
+
+  function cartTotal() {
+    var t = 0;
+    state.catalog.forEach(function (p) {
+      var q = state.cart[p.id] || 0;
+      t += q * Number(p.price);
+    });
+    return t;
+  }
+
+  function setQty(id, delta) {
+    var cur = state.cart[id] || 0;
+    var next = Math.max(0, cur + delta);
+    if (next === 0) delete state.cart[id];
+    else state.cart[id] = next;
+    saveCart();
+    render();
+  }
+
+  async function boot() {
+    state.loading = true;
+    render();
+    try {
+      if (!getInitData() && !localStorage.getItem("demo_tg_id")) {
+        localStorage.setItem("demo_tg_id", "web-" + Date.now());
+      }
+      try {
+        var auth = await api("/api/customer/auth/telegram", {
+          method: "POST",
+          body: { initData: getInitData() }
+        });
+        state.customer = auth.data;
+        if (auth.data.phone) state.phone = auth.data.phone;
+      } catch (e) {
+        state.msg = { type: "err", text: e.message };
+      }
+      var cat = await api("/api/customer/catalog");
+      state.catalog = cat.data || [];
+    } catch (e) {
+      state.msg = { type: "err", text: e.message };
+    }
+    state.loading = false;
+    render();
+  }
+
+  async function loadOrders() {
+    try {
+      var r = await api("/api/customer/orders");
+      state.orders = r.data || [];
+      state.msg = null;
+    } catch (e) {
+      state.msg = { type: "err", text: e.message };
+    }
+    render();
+  }
+
+  async function placeOrder() {
+    var items = [];
+    Object.keys(state.cart).forEach(function (id) {
+      items.push({ product_id: Number(id), qty: state.cart[id] });
+    });
+    if (!items.length) {
+      state.msg = { type: "err", text: "Savat bo'sh" };
+      render();
+      return;
+    }
+    try {
+      localStorage.setItem("bd_phone", state.phone);
+      localStorage.setItem("bd_address", state.address);
+      var r = await api("/api/customer/orders", {
+        method: "POST",
+        body: {
+          initData: getInitData(),
+          items: items,
+          phone: state.phone || null,
+          address: state.address || null,
+          note: state.note || null,
+          paid_amount: 0
+        }
+      });
+      state.cart = {};
+      saveCart();
+      state.msg = { type: "ok", text: "Buyurtma qabul qilindi: " + r.data.order_code };
+      state.tab = "orders";
+      await loadOrders();
+    } catch (e) {
+      state.msg = { type: "err", text: e.message };
+      render();
+    }
+  }
+
+  function el(tag, attrs, children) {
+    var node = document.createElement(tag);
+    if (attrs) {
+      Object.keys(attrs).forEach(function (k) {
+        if (k === "className") node.className = attrs[k];
+        else if (k === "text") node.textContent = attrs[k];
+        else if (k.indexOf("on") === 0) node.addEventListener(k.slice(2).toLowerCase(), attrs[k]);
+        else if (k === "value") node.value = attrs[k];
+        else node.setAttribute(k, attrs[k]);
+      });
+    }
+    (children || []).forEach(function (c) {
+      if (c == null) return;
+      if (typeof c === "string") node.appendChild(document.createTextNode(c));
+      else node.appendChild(c);
+    });
+    return node;
+  }
+
+  function renderCatalog() {
+    var wrap = el("div", { className: "page" });
+    if (state.loading) {
+      wrap.appendChild(el("div", { className: "empty", text: "Yuklanmoqda..." }));
+      return wrap;
+    }
+    if (!state.catalog.length) {
+      wrap.appendChild(el("div", { className: "empty", text: "Hozircha mahsulot yo'q" }));
+      return wrap;
+    }
+    state.catalog.forEach(function (p) {
+      var q = state.cart[p.id] || 0;
+      var card = el("div", { className: "card" });
+      var row = el("div", { className: "product" });
+      var info = el("div", { className: "info" }, [
+        el("div", { className: "sku", text: p.sku }),
+        el("div", { className: "meta", text: p.weight_kg + " kg · qoldiq " + p.balance_qty }),
+        el("div", { className: "price", text: money(p.price) + " so'm" }),
+        el("span", {
+          className: "badge " + (p.in_stock ? "ok" : "out"),
+          text: p.in_stock ? "Mavjud" : "Tugagan"
+        })
+      ]);
+      var qtyBox = el("div", { className: "qty" }, [
+        el("button", { type: "button", text: "−", onClick: function () { setQty(p.id, -1); } }),
+        el("span", { text: String(q) }),
+        el("button", {
+          type: "button",
+          text: "+",
+          onClick: function () {
+            if (!p.in_stock) return;
+            setQty(p.id, 1);
+          }
+        })
+      ]);
+      row.appendChild(info);
+      row.appendChild(qtyBox);
+      card.appendChild(row);
+      wrap.appendChild(card);
+    });
+    return wrap;
+  }
+
+  function renderCart() {
+    var wrap = el("div", { className: "page" });
+    var lines = state.catalog.filter(function (p) { return state.cart[p.id]; });
+    if (!lines.length) {
+      wrap.appendChild(el("div", { className: "empty", text: "Savat bo'sh" }));
+      return wrap;
+    }
+    lines.forEach(function (p) {
+      var q = state.cart[p.id];
+      var card = el("div", { className: "card product" }, [
+        el("div", { className: "info" }, [
+          el("div", { className: "sku", text: p.sku }),
+          el("div", { className: "meta", text: q + " × " + money(p.price) }),
+          el("div", { className: "price", text: money(q * p.price) + " so'm" })
+        ]),
+        el("div", { className: "qty" }, [
+          el("button", { type: "button", text: "−", onClick: function () { setQty(p.id, -1); } }),
+          el("span", { text: String(q) }),
+          el("button", { type: "button", text: "+", onClick: function () { setQty(p.id, 1); } })
+        ])
+      ]);
+      wrap.appendChild(card);
+    });
+
+    var form = el("div", { className: "card" });
+    form.appendChild(el("label", { text: "Telefon" }));
+    var phone = el("input", {
+      value: state.phone,
+      placeholder: "+998...",
+      onInput: function (e) { state.phone = e.target.value; }
+    });
+    phone.value = state.phone;
+    form.appendChild(phone);
+    form.appendChild(el("label", { text: "Manzil / izoh" }));
+    var addr = el("input", {
+      value: state.address,
+      placeholder: "Yetkazib berish manzili",
+      onInput: function (e) { state.address = e.target.value; }
+    });
+    addr.value = state.address;
+    form.appendChild(addr);
+    form.appendChild(el("div", { className: "total-row" }, [
+      el("span", { text: "Jami" }),
+      el("span", { text: money(cartTotal()) + " so'm" })
+    ]));
+    form.appendChild(el("button", {
+      className: "btn",
+      type: "button",
+      text: "Buyurtma berish",
+      onClick: placeOrder
+    }));
+    wrap.appendChild(form);
+    return wrap;
+  }
+
+  function renderOrders() {
+    var wrap = el("div", { className: "page" });
+    if (!state.orders.length) {
+      wrap.appendChild(el("div", { className: "empty", text: "Hali buyurtma yo'q" }));
+      return wrap;
+    }
+    var statusMap = {
+      pending: "Kutilmoqda (tasdiq)",
+      confirmed: "Tasdiqlangan",
+      paid: "To'langan",
+      partial: "Qisman to'langan",
+      rejected: "Rad etilgan",
+      cancelled: "Bekor",
+      closed: "Yopilgan"
+    };
+    state.orders.forEach(function (o) {
+      var st = statusMap[o.status] || o.status;
+      var card = el("div", { className: "card order-item" });
+      card.appendChild(el("div", { className: "sku", text: o.order_code }));
+      card.appendChild(el("div", {
+        className: "meta",
+        text: st + " · " + money(o.total_amount) + " so'm"
+      }));
+      if (o.items && o.items.length) {
+        card.appendChild(el("div", {
+          className: "meta",
+          text: o.items.map(function (i) { return i.sku + "×" + i.qty; }).join(", ")
+        }));
+      }
+      if (Number(o.debt_amount) > 0 && o.status !== "rejected") {
+        card.appendChild(el("div", {
+          className: "price",
+          text: "Qarz: " + money(o.debt_amount) + " so'm"
+        }));
+      }
+      if (o.status === "rejected") {
+        card.appendChild(el("div", {
+          className: "msg err",
+          text: "Buyurtma rad etilgan"
+        }));
+      }
+      if (o.status === "confirmed" || o.status === "paid") {
+        card.appendChild(el("div", {
+          className: "msg ok",
+          text: "Buyurtmangiz qabul qilindi"
+        }));
+      }
+      wrap.appendChild(card);
+    });
+    return wrap;
+  }
+
+  function render() {
+    var root = document.getElementById("root");
+    root.innerHTML = "";
+    root.appendChild(el("header", null, [
+      el("h1", { text: "Black Diamond" }),
+      el("div", {
+        className: "user",
+        text: state.customer ? state.customer.name : (tg ? "Telegram" : "PWA")
+      })
+    ]));
+
+    var content;
+    if (state.tab === "catalog") content = renderCatalog();
+    else if (state.tab === "cart") content = renderCart();
+    else content = renderOrders();
+
+    if (state.msg) {
+      content.insertBefore(
+        el("div", { className: "msg " + state.msg.type, text: state.msg.text }),
+        content.firstChild
+      );
+    }
+    root.appendChild(content);
+
+    var cc = cartCount();
+    root.appendChild(el("nav", { className: "bottom" }, [
+      el("button", {
+        type: "button",
+        className: state.tab === "catalog" ? "active" : "",
+        onClick: function () { state.tab = "catalog"; state.msg = null; render(); }
+      }, [document.createTextNode("Katalog")]),
+      el("button", {
+        type: "button",
+        className: state.tab === "cart" ? "active" : "",
+        onClick: function () { state.tab = "cart"; state.msg = null; render(); }
+      }, [
+        document.createTextNode("Savat"),
+        cc ? el("span", { className: "cart-count", text: String(cc) }) : null
+      ]),
+      el("button", {
+        type: "button",
+        className: state.tab === "orders" ? "active" : "",
+        onClick: function () {
+          state.tab = "orders";
+          state.msg = null;
+          loadOrders();
+        }
+      }, [document.createTextNode("Buyurtmalar")])
+    ]));
+  }
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/mijoz-sw.js").catch(function () {});
+  }
+
+  boot();
+})();
+  </script>
+</body>
+</html>

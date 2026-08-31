@@ -10,8 +10,13 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+app.get('/mijoz', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'mijoz.html'));
 });
 
 function requireAdmin(req, res, next) {
@@ -22,17 +27,25 @@ function requireAdmin(req, res, next) {
   return res.status(401).json({ ok: false, error: 'Unauthorized' });
 }
 
+// GET ochiq; POST/PUT/DELETE — admin yoki mijoz API
 app.use((req, res, next) => {
-  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+    return next();
+  }
+  // Mijoz app o'z endpointlariga yozishi mumkin (Telegram initData bilan)
+  if (req.path.indexOf('/api/customer/') === 0) {
+    return next();
+  }
   return requireAdmin(req, res, next);
 });
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
 });
 
-pool.query('SELECT NOW() AS now')
+pool
+  .query('SELECT NOW() AS now')
   .then((res) => console.log('PostgreSQL OK:', res.rows[0].now))
   .catch((err) => console.error('PostgreSQL error:', err.message));
 
@@ -52,26 +65,42 @@ app.get('/', (req, res) => {
   res.json({
     message: 'Briket ERP API ishlayapti!',
     time: new Date().toISOString(),
-    version: '2.0.0',
+    version: '2.1.0',
     modules: [
-      'products', 'materials', 'customers', 'partners',
-      'batches', 'packaging', 'material-movements',
-      'orders', 'payments', 'expenses', 'shipments',
-      'settings', 'stock', 'dashboard', 'pricing'
-    ]
+      'products',
+      'materials',
+      'customers',
+      'partners',
+      'batches',
+      'packaging',
+      'material-movements',
+      'orders',
+      'payments',
+      'expenses',
+      'shipments',
+      'settings',
+      'stock',
+      'dashboard',
+      'pricing',
+      'customer-app',
+    ],
   });
 });
 
 app.get('/health', async (req, res) => {
   try {
-    const r = await pool.query('SELECT NOW() AS db_time, current_database() AS db_name');
+    const r = await pool.query(
+      'SELECT NOW() AS db_time, current_database() AS db_name'
+    );
     res.json({
       ok: true,
       server_time: new Date().toISOString(),
       db_time: r.rows[0].db_time,
-      database: r.rows[0].db_name
+      database: r.rows[0].db_name,
     });
-  } catch (err) { sendError(res, err); }
+  } catch (err) {
+    sendError(res, err);
+  }
 });
 
 const routeFiles = [
@@ -80,7 +109,8 @@ const routeFiles = [
   './routes-production',
   './routes-sales',
   './routes-stock',
-  './v2-routes'
+  './v2-routes',
+  './routes-customer-app',
 ];
 
 for (const f of routeFiles) {
