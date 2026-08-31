@@ -2,7 +2,8 @@
 <html lang="uz">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex, nofollow" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Briket ERP - Admin</title>
   <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
@@ -141,6 +142,33 @@
       background: #12151b; border-radius: 8px; padding: 10px 12px; margin: 8px 0;
       display: flex; justify-content: space-between; font-weight: 600;
     }
+
+    .login-wrap {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 24px; background: #0a0a0b;
+    }
+    .login-card {
+      width: 100%; max-width: 380px; background: #141210; border: 1px solid #2e2a22;
+      border-radius: 16px; padding: 28px 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+    }
+    .login-card h1 { font-size: 1.15rem; color: #e8d5a3; margin-bottom: 4px; }
+    .login-card p { font-size: 0.8rem; color: #8a8270; margin-bottom: 18px; }
+    .login-card label { display: block; font-size: 0.75rem; color: #b0a894; margin-bottom: 6px; }
+    .login-card input {
+      width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid #3f3a30;
+      background: #1a1814; color: #f5f0e6; font-size: 0.95rem; margin-bottom: 14px;
+    }
+    .login-card input:focus { outline: none; border-color: #c9a227; }
+    .login-card .btn {
+      width: 100%; padding: 13px; border: none; border-radius: 10px; font-weight: 700;
+      background: linear-gradient(180deg, #d4b03a, #c9a227); color: #1a1408; cursor: pointer;
+    }
+    .login-card .err { color: #fca5a5; font-size: 0.85rem; margin-bottom: 10px; }
+    .logout-btn {
+      margin-top: 8px; width: 100%; padding: 8px; border-radius: 8px;
+      border: 1px solid #2e2a22; background: transparent; color: #8a8270;
+      font-size: 0.75rem; cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -175,13 +203,77 @@
         if (adminKey) headers["x-admin-key"] = adminKey;
         const res = await fetch(apiBase.replace(/\/$/, "") + path, Object.assign({}, opts, { headers: headers }));
         const data = await res.json().catch(function () { return {}; });
+        if (res.status === 401) {
+          const err = new Error(data.error || "Unauthorized");
+          err.code = 401;
+          throw err;
+        }
         if (!res.ok || data.ok === false) {
           throw new Error(data.error || res.statusText || "Xato");
         }
         return data;
       }, [apiBase, adminKey]);
 
-      return { api: api, apiBase: apiBase, adminKey: adminKey, saveSettings: saveSettings };
+      function logout() {
+        setAdminKey("");
+        localStorage.removeItem("erp_key");
+      }
+
+      return { api: api, apiBase: apiBase, adminKey: adminKey, saveSettings: saveSettings, logout: logout };
+    }
+
+    function LoginScreen(props) {
+      const [key, setKey] = useState("");
+      const [err, setErr] = useState("");
+      const [busy, setBusy] = useState(false);
+
+      async function submit(e) {
+        e.preventDefault();
+        if (!key.trim()) {
+          setErr("Admin kalitini kiriting");
+          return;
+        }
+        setBusy(true);
+        setErr("");
+        try {
+          const base = (props.apiBase || window.location.origin).replace(/\/$/, "");
+          const res = await fetch(base + "/api/dashboard", {
+            headers: { "x-admin-key": key.trim() }
+          });
+          const data = await res.json().catch(function () { return {}; });
+          if (!res.ok) {
+            setErr(data.error || "Kalit noto'g'ri");
+            setBusy(false);
+            return;
+          }
+          props.onLogin(key.trim());
+        } catch (ex) {
+          setErr(ex.message || "Ulanish xatosi");
+        }
+        setBusy(false);
+      }
+
+      return (
+        <div className="login-wrap">
+          <form className="login-card" onSubmit={submit}>
+            <h1>Black Diamond Admin</h1>
+            <p>Operatsion panel — faqat xodimlar uchun</p>
+            {err ? <div className="err">{err}</div> : null}
+            <label>Admin kaliti (ADMIN_KEY)</label>
+            <input
+              type="password"
+              value={key}
+              onChange={function (e) { setKey(e.target.value); }}
+              placeholder="Kalitni kiriting"
+              autoComplete="current-password"
+              autoFocus
+            />
+            <button className="btn" type="submit" disabled={busy}>
+              {busy ? "Tekshirilmoqda..." : "Kirish"}
+            </button>
+          </form>
+        </div>
+      );
     }
 
     function Msg(props) {
@@ -1563,6 +1655,16 @@
       const apiBase = apiHook.apiBase;
       const adminKey = apiHook.adminKey;
       const saveSettings = apiHook.saveSettings;
+      const logout = apiHook.logout;
+
+      if (!adminKey) {
+        return (
+          <LoginScreen
+            apiBase={apiBase}
+            onLogin={function (k) { saveSettings(apiBase || window.location.origin, k); }}
+          />
+        );
+      }
 
       const modules = [
         {
@@ -1696,6 +1798,7 @@
               })}
             </nav>
             <p className="muted" style={{ fontSize: "0.7rem", marginTop: 12 }}>Operator paneli</p>
+            <button type="button" className="logout-btn" onClick={logout}>Chiqish</button>
           </aside>
 
           <div className="main">

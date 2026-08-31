@@ -21,22 +21,23 @@ app.get('/mijoz', (req, res) => {
 
 function requireAdmin(req, res, next) {
   const key = process.env.ADMIN_KEY;
-  if (!key) return next();
+  if (!key) {
+    console.warn('ADMIN_KEY env yoq — API himoyasiz!');
+    return next();
+  }
   const given = req.headers['x-admin-key'] || req.query.key;
-  if (given === key) return next();
-  return res.status(401).json({ ok: false, error: 'Unauthorized' });
+  if (given && given === key) return next();
+  return res.status(401).json({ ok: false, error: 'Unauthorized — admin kaliti kerak' });
 }
 
-// GET ochiq; POST/PUT/DELETE — admin yoki mijoz API
+// Himoya: /api/* (mijoz API dan tashqari) — barcha methodlar
+// Ochiq: /, /health, /mijoz, /admin, static, /api/customer/*
 app.use((req, res, next) => {
-  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
-    return next();
-  }
-  // Mijoz app o'z endpointlariga yozishi mumkin (Telegram initData bilan)
-  if (req.path.indexOf('/api/customer/') === 0) {
-    return next();
-  }
-  return requireAdmin(req, res, next);
+  if (req.method === 'OPTIONS') return next();
+  if (req.path === '/' || req.path === '/health') return next();
+  if (req.path.indexOf('/api/customer/') === 0) return next();
+  if (req.path.indexOf('/api/') === 0) return requireAdmin(req, res, next);
+  return next();
 });
 
 const pool = new Pool({
