@@ -1383,7 +1383,8 @@
                       <td><span className="badge">{srcLabel}</span></td>
                       <td>
                         {o.customer_name}
-                        {o.phone ? <div className="muted">{o.phone}</div> : null}
+                        <div className="muted" style={{ fontWeight: 600, color: '#e8d5a3' }}>{o.phone || 'Tel yo\'q'}</div>
+                        {o.customer_name ? <div className="muted">{o.customer_name}</div> : null}
                         {o.note ? <div className="muted">{o.note}</div> : null}
                       </td>
                       <td>{money(o.total_amount)}</td>

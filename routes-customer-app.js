@@ -197,6 +197,22 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
         );
       }
 
+      // Narx: DB price = yirik; oddiy = price + bulk_discount (katalog bilan bir xil)
+      let bulkDisc = 3000;
+      let bulkMin = 500;
+      try {
+        const st = await client.query(
+          `SELECT key, value FROM settings WHERE key IN ('bulk_discount','bulk_min_qty')`
+        );
+        st.rows.forEach((row) => {
+          if (row.key === 'bulk_discount') bulkDisc = num(row.value, 3000);
+          if (row.key === 'bulk_min_qty') bulkMin = num(row.value, 500);
+        });
+      } catch (e) { /* settings ixtiyoriy */ }
+
+      const totalQty = items.reduce((s, it) => s + Math.max(0, num(it.qty)), 0);
+      const useBulk = totalQty >= bulkMin;
+
       let total = 0;
       const lines = [];
       for (const it of items) {
@@ -204,14 +220,16 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
         if (q <= 0) continue;
         let product = null;
         if (it.product_id) {
-          const p = await client.query(
+          const pr = await client.query(
             'SELECT * FROM products WHERE id = $1 AND is_active = true',
             [it.product_id]
           );
-          if (p.rows.length) product = p.rows[0];
+          if (pr.rows.length) product = pr.rows[0];
         }
         if (!product) continue;
-        const unitPrice = num(product.price);
+        const yirik = num(product.price);
+        const asosiy = yirik + bulkDisc;
+        const unitPrice = useBulk ? yirik : asosiy;
         const lineTotal = Math.round(unitPrice * q);
         total += lineTotal;
         lines.push({
@@ -226,11 +244,11 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
         return res.status(400).json({ ok: false, error: "Yaroqli mahsulot yo'q" });
       }
 
+      // Mijoz kiritgan summa — "naqd to'lamoqchi" (niyat), hali tasdiqlanmagan
       const paid = Math.max(0, num(paid_amount));
       const debt = Math.max(0, total - paid);
-      let status = 'pending';
-      if (debt === 0 && paid > 0) status = 'paid';
-      else if (paid > 0) status = 'partial';
+      // Har doim pending — admin tasdiqlamaguncha "to'langan" emas
+      const status = 'pending';
 
       const code =
         'TG-' +

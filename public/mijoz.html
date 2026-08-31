@@ -486,7 +486,16 @@ function money(n) {
 }
 
 function getInitData() {
-  return (tg && tg.initData) ? tg.initData : '';
+  try {
+    if (tg) {
+      if (tg.initData) return tg.initData;
+      // ba'zi klientlarda kechikish
+      if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        return tg.initData || '';
+      }
+    }
+  } catch (e) {}
+  return '';
 }
 
 function demoId() {
@@ -866,6 +875,11 @@ function Savat({ cart, katalog, settings, user, setCart, showMsg, onOrdered, onG
   }
 
   const submit = async () => {
+    const initNow = getInitData();
+    if (!initNow && !(tg && tg.initDataUnsafe && tg.initDataUnsafe.user)) {
+      showMsg('Telegram sessiyasi topilmadi. Botdagi Mini App tugmasidan qayta oching (brauzer orqali emas).', true);
+      return;
+    }
     if (!phone || String(phone).replace(/\D/g, '').length < 9) {
       showMsg('Telefon raqamini to‘liq kiriting', true);
       return;
@@ -1019,14 +1033,20 @@ function Buyurtmalar({ orders, loading, onReload, orderSuccess, onClearSuccess, 
 
   const normalizeStatus = (raw) => {
     const low = String(raw || '').toLowerCase();
-    if (!low || low === 'pending' || low === 'yangi' || low === 'kutilmoqda') {
+    if (!low || low === 'pending' || low === 'yangi' || low === 'kutilmoqda' || low === 'partial') {
       return { badgeCls: 'badge-wait', text: 'Ko‘rib chiqilmoqda' };
     }
-    if (low.indexOf('confirm') >= 0 || low.indexOf('tasdiq') >= 0 || low === 'paid' || low === 'closed') {
-      return { badgeCls: 'badge-ok', text: low === 'paid' ? 'To‘langan' : 'Tasdiqlandi' };
+    if (low === 'confirmed' || low.indexOf('tasdiq') >= 0) {
+      return { badgeCls: 'badge-ok', text: 'Tasdiqlandi' };
     }
-    if (low.indexOf('reject') >= 0 || low.indexOf('rad') >= 0 || low.indexOf('cancel') >= 0) {
+    if (low === 'paid' || low === 'closed') {
+      return { badgeCls: 'badge-ok', text: 'Yakunlandi' };
+    }
+    if (low.indexOf('reject') >= 0 || low.indexOf('rad') >= 0) {
       return { badgeCls: 'badge-no', text: 'Rad etildi' };
+    }
+    if (low.indexOf('cancel') >= 0 || low === 'bekor') {
+      return { badgeCls: 'badge-no', text: 'Bekor qilindi' };
     }
     return { badgeCls: 'badge-wait', text: raw };
   };
@@ -1046,8 +1066,15 @@ function Buyurtmalar({ orders, loading, onReload, orderSuccess, onClearSuccess, 
                 <div className="meta" key={i}>• {it.sku} × {it.qty}</div>
               ))}
               <div className="meta">
-                Jami: {money(b.total_amount)} · To‘lov: {money(b.paid_amount)} · Qarz: {money(b.debt_amount)}
+                Jami: {money(b.total_amount)} so‘m
               </div>
+              <div className="meta">
+                Naqd (niyat): {money(b.paid_amount)} so‘m · Qoldiq: {money(b.debt_amount)} so‘m
+              </div>
+              <div className="meta" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                Naqd summasi admin tasdiqlamaguncha to‘langan hisoblanmaydi
+              </div>
+              {b.phone ? <div className="meta">Tel: {b.phone}</div> : null}
             </div>
           );
         })}
