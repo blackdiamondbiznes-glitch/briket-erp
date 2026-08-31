@@ -204,13 +204,38 @@ app.get('/api/partners/:id/debt', async (req, res) => {
     const id = req.params.id;
     const partner = await pool.query('SELECT * FROM partners WHERE id = $1', [id]);
     if (!partner.rows.length) return res.status(404).json({ ok: false, error: 'Hamkor topilmadi' });
-    const orderDebt = await pool.query(`SELECT COALESCE(SUM(debt_amount),0) AS total FROM orders WHERE partner_id = $1 AND debt_amount > 0`, [id]);
-    const shipped = await pool.query(`SELECT COALESCE(SUM(total_amount),0) AS total, COALESCE(SUM(qty - returned_qty),0) AS qty FROM shipments WHERE to_partner_id = $1 AND status IN ('given','partial_return','closed')`, [id]);
-    const paid = await pool.query(`SELECT COALESCE(SUM(amount),0) AS total FROM payments WHERE partner_id = $1`, [id]);
+    // Faqat tasdiqlangan buyurtmalar qarzi (pending hisobga olinmaydi)
+    const orderDebt = await pool.query(
+      `SELECT COALESCE(SUM(debt_amount),0) AS total FROM orders
+       WHERE partner_id = $1 AND debt_amount > 0
+         AND status IN ('confirmed','paid','partial','closed')`,
+      [id]
+    );
+    const shipped = await pool.query(
+      `SELECT COALESCE(SUM(total_amount),0) AS total,
+              COALESCE(SUM(qty - returned_qty),0) AS qty
+       FROM shipments
+       WHERE to_partner_id = $1 AND status IN ('given','partial_return','closed')`,
+      [id]
+    );
+    const paid = await pool.query(
+      `SELECT COALESCE(SUM(amount),0) AS total FROM payments WHERE partner_id = $1`,
+      [id]
+    );
     const orderDebtAmt = num(orderDebt.rows[0].total);
     const shippedAmt = num(shipped.rows[0].total);
     const paidAmt = num(paid.rows[0].total);
-    res.json({ ok: true, data: { partner: partner.rows[0], order_debt: orderDebtAmt, shipped_amount: shippedAmt, shipped_qty: num(shipped.rows[0].qty), paid_amount: paidAmt, estimated_balance: orderDebtAmt + shippedAmt - paidAmt } });
+    res.json({
+      ok: true,
+      data: {
+        partner: partner.rows[0],
+        order_debt: orderDebtAmt,
+        shipped_amount: shippedAmt,
+        shipped_qty: num(shipped.rows[0].qty),
+        paid_amount: paidAmt,
+        estimated_balance: orderDebtAmt + shippedAmt - paidAmt,
+      },
+    });
   } catch (err) { sendError(res, err); }
 });
 

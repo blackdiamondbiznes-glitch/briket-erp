@@ -96,7 +96,8 @@
     }
     .kpi .label { font-size: 0.72rem; color: var(--muted); }
     .kpi .value { font-size: 1.15rem; font-weight: 700; margin-top: 4px; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -2px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 480px; }
     th, td { text-align: left; padding: 7px 5px; border-bottom: 1px solid var(--border); vertical-align: top; }
     th { color: var(--muted); font-weight: 500; font-size: 0.72rem; }
     input, select, textarea {
@@ -133,6 +134,44 @@
     .badge.pending, .badge.confirmed { background: #1a2a3a; color: #8ab4f8; }
     .badge.rejected, .badge.cancelled { background: #3c1518; color: #f28b82; }
     .empty { text-align: center; padding: 20px; color: var(--muted); }
+    /* Dashboard — ixcham (Linear / Vercel uslubi) */
+    .dash-kpis {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .dash-kpi {
+      background: #12151b; border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .dash-kpi .label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+    .dash-kpi .value { font-size: 1.05rem; font-weight: 700; margin-top: 2px; line-height: 1.25; }
+    .dash-meta {
+      display: flex; flex-wrap: wrap; gap: 6px 12px;
+      margin-bottom: 10px; padding: 8px 10px;
+      background: #12151b; border: 1px solid var(--border); border-radius: 10px;
+      font-size: 0.75rem; color: var(--muted);
+    }
+    .dash-meta strong { color: var(--text); font-weight: 600; }
+    .dash-alert {
+      font-size: 0.78rem; padding: 6px 10px; border-radius: 8px; margin-bottom: 6px;
+    }
+    .dash-alert.danger { background: #3c1518; color: #f28b82; }
+    .dash-alert.warn { background: #3d2e0a; color: #fdd663; }
+    .dash-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;
+    }
+    .card.tight { padding: 12px; margin-bottom: 10px; }
+    .card.tight h2 { font-size: 0.82rem; margin-bottom: 8px; }
+    .card.tight table { font-size: 0.75rem; }
+    .card.tight th, .card.tight td { padding: 5px 4px; }
+    .order-row-code { font-family: ui-monospace, monospace; font-size: 0.7rem; color: var(--muted); max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .neg { color: #f28b82; font-weight: 700; }
+    @media (max-width: 700px) {
+      .dash-kpis { grid-template-columns: 1fr 1fr; }
+      .dash-grid { grid-template-columns: 1fr; }
+    }
     .settings-bar { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
     .settings-bar > div { flex: 1; min-width: 160px; }
     .line-items { border: 1px dashed var(--border); border-radius: 8px; padding: 10px; margin-bottom: 10px; }
@@ -285,7 +324,7 @@
       );
     }
 
-    // ---------- Dashboard ----------
+    // ---------- Dashboard (ixcham) ----------
     function Dashboard(props) {
       const api = props.api;
       const [data, setData] = useState(null);
@@ -302,50 +341,61 @@
       if (err) return <div className="msg err">{err}</div>;
       if (!data) return <div className="muted">Yuklanmoqda...</div>;
 
-      const heroes = [
-        { label: "Bugungi savdo", value: money(data.bugungi_savdo) + " som", sub: "asosiy korsatkich" },
-        { label: "Bugungi qadoq", value: Number(data.bugungi_qadoq_kg || 0).toFixed(1) + " kg", sub: "ishlab chiqarish" },
-        { label: "Bugungi xarajat", value: money(data.bugungi_xarajat) + " som", sub: "press + qadoq + boshqa" },
-        { label: "Mijozlar qarzi", value: money(data.jami_qarz) + " som", sub: "nasiya qoldigi" }
-      ];
-      const monthKpis = [
-        { label: "Oylik savdo", value: money(data.oylik_savdo || 0) + " som" },
-        { label: "Oylik qadoq", value: Number(data.oylik_qadoq_kg || 0).toFixed(1) + " kg" },
-        { label: "Oylik xarajat", value: money(data.oylik_xarajat || 0) + " som" },
-        { label: "Faol partiya", value: String(data.faol_partiya) },
-        { label: "Quruq qoldiq", value: Number(data.quruq_qoldiq_kg || 0).toFixed(1) + " kg" },
-        { label: "Faol SKU", value: String(data.faol_sku) }
-      ];
       const alerts = data.alerts || [];
       const skuStock = data.sku_stock || [];
       const mats = data.material_stock || [];
       const batches = data.active_batches || [];
       const orders = data.recent_orders || [];
 
+      function shortCode(code) {
+        if (!code) return "—";
+        const s = String(code);
+        if (s.length <= 14) return s;
+        return s.slice(0, 6) + "…" + s.slice(-4);
+      }
+
       return (
         <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <h2 style={{ color: "var(--accent)", fontSize: "0.95rem", margin: 0 }}>Dashboard</h2>
             <button className="btn-ghost" type="button" onClick={load}>Yangilash</button>
           </div>
 
-          <div className="kpi-grid" style={{ marginBottom: 12 }}>
-            {heroes.map(function (k) {
-              return (
-                <div className="kpi" key={k.label}>
-                  <div className="label">{k.label}</div>
-                  <div className="value">{k.value}</div>
-                  <div className="muted" style={{ marginTop: 4 }}>{k.sub}</div>
-                </div>
-              );
-            })}
+          {/* Asosiy 4 ko'rsatkich */}
+          <div className="dash-kpis">
+            <div className="dash-kpi">
+              <div className="label">Bugun savdo</div>
+              <div className="value">{money(data.bugungi_savdo)}</div>
+            </div>
+            <div className="dash-kpi">
+              <div className="label">Bugun qadoq</div>
+              <div className="value">{Number(data.bugungi_qadoq_kg || 0).toFixed(1)} kg</div>
+            </div>
+            <div className="dash-kpi">
+              <div className="label">Bugun xarajat</div>
+              <div className="value">{money(data.bugungi_xarajat)}</div>
+            </div>
+            <div className="dash-kpi">
+              <div className="label">Qarz</div>
+              <div className="value">{money(data.jami_qarz)}</div>
+            </div>
+          </div>
+
+          {/* Oylik va ishlab chiqarish — bitta qator */}
+          <div className="dash-meta">
+            <span>Oy savdo: <strong>{money(data.oylik_savdo || 0)}</strong></span>
+            <span>Oy qadoq: <strong>{Number(data.oylik_qadoq_kg || 0).toFixed(1)} kg</strong></span>
+            <span>Oy xarajat: <strong>{money(data.oylik_xarajat || 0)}</strong></span>
+            <span>Partiya: <strong>{data.faol_partiya}</strong></span>
+            <span>Quruq: <strong>{Number(data.quruq_qoldiq_kg || 0).toFixed(1)} kg</strong></span>
+            <span>SKU: <strong>{data.faol_sku}</strong></span>
           </div>
 
           {alerts.length > 0 ? (
-            <div style={{ marginBottom: 12 }}>
+            <div style={{ marginBottom: 10 }}>
               {alerts.map(function (a, i) {
                 return (
-                  <div key={i} className={"msg " + (a.type === "danger" ? "err" : "ok")} style={{ marginBottom: 6 }}>
+                  <div key={i} className={"dash-alert " + (a.type === "danger" ? "danger" : "warn")}>
                     {a.text}
                   </div>
                 );
@@ -353,123 +403,128 @@
             </div>
           ) : null}
 
-          <div className="kpi-grid" style={{ marginBottom: 12 }}>
-            {monthKpis.map(function (k) {
-              return (
-                <div className="kpi" key={k.label}>
-                  <div className="label">{k.label}</div>
-                  <div className="value">{k.value}</div>
-                </div>
-              );
-            })}
+          {/* Ombor + material yonma-yon */}
+          <div className="dash-grid">
+            <div className="card tight">
+              <h2>Tayyor mahsulot</h2>
+              {skuStock.length === 0 ? (
+                <div className="empty" style={{ padding: 12 }}>Qoldiq yo‘q</div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>SKU</th>
+                      <th>Qadoq</th>
+                      <th>Sotilgan</th>
+                      <th>Qoldiq</th>
+                      <th>Qiymat</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {skuStock.map(function (s) {
+                      const bal = Number(s.balance_qty);
+                      return (
+                        <tr key={s.id}>
+                          <td>{s.sku}</td>
+                          <td>{Number(s.packed_qty)}</td>
+                          <td>{Number(s.sold_qty)}</td>
+                          <td className={bal < 0 ? "neg" : ""}><strong>{bal}</strong></td>
+                          <td>{money(s.value)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className="card tight">
+              <h2>Material</h2>
+              {mats.length === 0 ? (
+                <div className="empty" style={{ padding: 12 }}>Yo‘q</div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr><th>Nomi</th><th>Birlik</th><th>Qoldiq</th></tr>
+                  </thead>
+                  <tbody>
+                    {mats.map(function (m) {
+                      const bal = Number(m.balance);
+                      return (
+                        <tr key={m.id}>
+                          <td>{m.name}</td>
+                          <td>{m.unit}</td>
+                          <td className={bal < 0 ? "neg" : ""}><strong>{bal}</strong></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
 
-          <div className="card">
-            <h2>Tayyor mahsulot ombori</h2>
-            {skuStock.length === 0 ? (
-              <div className="empty">Mahsulot qoldigi yoq</div>
-            ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>SKU</th><th>kg</th><th>Narx</th><th>Qadoq</th><th>Sotilgan</th><th>Qoldiq</th><th>Qiymat</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {skuStock.map(function (s) {
-                    return (
-                      <tr key={s.id}>
-                        <td>{s.sku}</td>
-                        <td>{s.weight_kg}</td>
-                        <td>{money(s.price)}</td>
-                        <td>{Number(s.packed_qty)}</td>
-                        <td>{Number(s.sold_qty)}</td>
-                        <td><strong>{Number(s.balance_qty)}</strong></td>
-                        <td>{money(s.value)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+          <div className="dash-grid">
+            <div className="card tight">
+              <h2>Faol partiyalar</h2>
+              {batches.length === 0 ? (
+                <div className="empty" style={{ padding: 12 }}>Faol partiya yo‘q</div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr><th>Kod</th><th>Quruq</th><th>Qolgan</th><th>%</th></tr>
+                  </thead>
+                  <tbody>
+                    {batches.map(function (b) {
+                      return (
+                        <tr key={b.id}>
+                          <td>{b.batch_code}</td>
+                          <td>{b.dry_kg}</td>
+                          <td><strong>{b.remaining_kg}</strong></td>
+                          <td>{b.loss_percent}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
 
-          <div className="card">
-            <h2>Material qoldiq</h2>
-            {mats.length === 0 ? (
-              <div className="empty">Material yoq</div>
-            ) : (
-              <table>
-                <thead>
-                  <tr><th>Nomi</th><th>Birlik</th><th>Qoldiq</th><th>Qiymat</th></tr>
-                </thead>
-                <tbody>
-                  {mats.map(function (m) {
-                    return (
-                      <tr key={m.id}>
-                        <td>{m.name}</td>
-                        <td>{m.unit}</td>
-                        <td><strong>{Number(m.balance)}</strong></td>
-                        <td>{money(m.value)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          <div className="card">
-            <h2>Faol partiyalar</h2>
-            {batches.length === 0 ? (
-              <div className="empty">Faol partiya yoq</div>
-            ) : (
-              <table>
-                <thead>
-                  <tr><th>Kod</th><th>Quruq</th><th>Qadoq</th><th>Qolgan</th><th>%</th></tr>
-                </thead>
-                <tbody>
-                  {batches.map(function (b) {
-                    return (
-                      <tr key={b.id}>
-                        <td>{b.batch_code}</td>
-                        <td>{b.dry_kg}</td>
-                        <td>{b.packed_kg}</td>
-                        <td><strong>{b.remaining_kg}</strong></td>
-                        <td>{b.loss_percent}%</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          <div className="card">
-            <h2>Songgi buyurtmalar</h2>
-            {orders.length === 0 ? (
-              <div className="empty">Buyurtma yoq</div>
-            ) : (
-              <table>
-                <thead>
-                  <tr><th>Kod</th><th>Mijoz</th><th>Summa</th><th>Qarz</th><th>Holat</th></tr>
-                </thead>
-                <tbody>
-                  {orders.map(function (o) {
-                    return (
-                      <tr key={o.id}>
-                        <td>{o.order_code}</td>
-                        <td>{o.customer_name}</td>
-                        <td>{money(o.total_amount)}</td>
-                        <td>{money(o.debt_amount)}</td>
-                        <td><span className={"badge " + orderStatusLabel(o.status).cls}>{orderStatusLabel(o.status).text}</span>
-                        <div className="muted" style={{ fontSize: "0.7rem" }}>Naqd niyat: {money(o.paid_amount)}</div></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
+            <div className="card tight">
+              <h2>So‘nggi buyurtmalar</h2>
+              {orders.length === 0 ? (
+                <div className="empty" style={{ padding: 12 }}>Buyurtma yo‘q</div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr><th>Kod</th><th>Mijoz</th><th>Summa</th><th>Holat</th></tr>
+                  </thead>
+                  <tbody>
+                    {orders.map(function (o) {
+                      const st = orderStatusLabel(o.status);
+                      return (
+                        <tr key={o.id}>
+                          <td title={o.order_code} className="order-row-code">{shortCode(o.order_code)}</td>
+                          <td>{o.customer_name}</td>
+                          <td>
+                            {money(o.total_amount)}
+                            {Number(o.debt_amount) > 0 ? (
+                              <div className="muted" style={{ fontSize: "0.65rem" }}>qarz {money(o.debt_amount)}</div>
+                            ) : null}
+                          </td>
+                          <td>
+                            <span className={"badge " + st.cls}>{st.text}</span>
+                            {Number(o.paid_amount) > 0 && String(o.status) === "pending" ? (
+                              <div className="muted" style={{ fontSize: "0.65rem" }}>niyat {money(o.paid_amount)}</div>
+                            ) : null}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         </div>
       );
@@ -1369,64 +1424,110 @@
             </form>
           </div>
           <div className="card">
-            <h2>Buyurtmalar (admin + mijoz/Telegram)</h2>
-            <p className="muted" style={{ marginBottom: 10 }}>
-              Telegram/PWA dan kelgan buyurtmalar <b>pending</b> — Tasdiq yoki Rad eting.
+            <h2>Buyurtmalar</h2>
+            <p className="muted" style={{ marginBottom: 10, fontSize: "0.78rem" }}>
+              Telegram/PWA buyurtmalari <b>pending</b> — Tasdiq yoki Rad.
             </p>
-            <table>
-              <thead>
-                <tr>
-                  <th>Kod</th><th>Manba</th><th>Mijoz</th><th>Summa</th><th>Qarz</th><th>Holat</th><th>Amallar</th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.map(function (o) {
-                  var src = o.source || "admin";
-                  var srcLabel = src === "telegram" ? "Telegram" : (src === "pwa" ? "PWA/Web" : src);
-                  return (
-                    <tr key={o.id} style={o.status === "pending" && (src === "telegram" || src === "pwa") ? { background: "rgba(201,162,39,0.08)" } : undefined}>
-                      <td>
-                        {o.order_code}
-                        <div className="muted" style={{ fontSize: "0.7rem" }}>
-                          {o.items && o.items.map(function (i) { return i.sku + "x" + i.qty; }).join(", ")}
-                        </div>
-                      </td>
-                      <td><span className="badge">{srcLabel}</span></td>
-                      <td>
-                        {o.customer_name}
-                        <div className="muted" style={{ fontWeight: 600, color: '#e8d5a3' }}>{o.phone || 'Tel yo\'q'}</div>
-                        {o.customer_name ? <div className="muted">{o.customer_name}</div> : null}
-                        {o.note ? <div className="muted">{o.note}</div> : null}
-                      </td>
-                      <td>{money(o.total_amount)}</td>
-                      <td>{money(o.debt_amount)}</td>
-                      <td><span className={"badge " + orderStatusLabel(o.status).cls}>{orderStatusLabel(o.status).text}</span>
-                        <div className="muted" style={{ fontSize: "0.7rem" }}>Naqd niyat: {money(o.paid_amount)}</div></td>
-                      <td style={{ whiteSpace: "nowrap" }}>
-                        {o.status === "pending" ? (
-                          <span>
-                            <button className="btn-ghost btn-sm" type="button" onClick={function () { setStatus(o.id, "confirmed"); }}>
-                              Tasdiq
-                            </button>
-                            {" "}
-                            <button className="btn-ghost btn-sm" type="button" onClick={function () {
-                              if (window.confirm("Buyurtmani rad etasizmi?")) setStatus(o.id, "rejected");
-                            }}>
-                              Rad
-                            </button>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Buyurtma</th>
+                    <th>Mijoz</th>
+                    <th>Summa</th>
+                    <th>Holat</th>
+                    <th>Amallar</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map(function (o) {
+                    var src = o.source || "admin";
+                    var srcLabel = src === "telegram" ? "TG" : (src === "pwa" ? "PWA" : "Admin");
+                    var st = orderStatusLabel(o.status);
+                    var itemsLine = o.items && o.items.length
+                      ? o.items.map(function (i) { return i.sku + "×" + i.qty; }).join(", ")
+                      : "";
+                    return (
+                      <tr
+                        key={o.id}
+                        style={
+                          o.status === "pending" && (src === "telegram" || src === "pwa")
+                            ? { background: "rgba(201,162,39,0.08)" }
+                            : undefined
+                        }
+                      >
+                        <td>
+                          <span className="badge" style={{ marginRight: 4 }}>{srcLabel}</span>
+                          <span className="order-row-code" title={o.order_code}>
+                            {o.order_code && o.order_code.length > 16
+                              ? o.order_code.slice(0, 8) + "…" + o.order_code.slice(-4)
+                              : o.order_code}
                           </span>
-                        ) : null}
-                        {o.status === "confirmed" ? (
-                          <button className="btn-ghost btn-sm" type="button" onClick={function () { setStatus(o.id, "closed"); }}>
-                            Yopish
-                          </button>
-                        ) : null}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                          {itemsLine ? (
+                            <div className="muted" style={{ fontSize: "0.7rem", marginTop: 2 }}>{itemsLine}</div>
+                          ) : null}
+                        </td>
+                        <td>
+                          <div>{o.customer_name || "—"}</div>
+                          {o.phone ? (
+                            <div className="muted" style={{ fontWeight: 600, color: "#e8d5a3", fontSize: "0.72rem" }}>
+                              {o.phone}
+                            </div>
+                          ) : null}
+                          {o.note ? (
+                            <div className="muted" style={{ fontSize: "0.7rem" }}>{o.note}</div>
+                          ) : null}
+                        </td>
+                        <td>
+                          {money(o.total_amount)}
+                          {Number(o.debt_amount) > 0 ? (
+                            <div className="muted" style={{ fontSize: "0.68rem" }}>qarz {money(o.debt_amount)}</div>
+                          ) : null}
+                        </td>
+                        <td>
+                          <span className={"badge " + st.cls}>{st.text}</span>
+                          {Number(o.paid_amount) > 0 && String(o.status) === "pending" ? (
+                            <div className="muted" style={{ fontSize: "0.68rem" }}>niyat {money(o.paid_amount)}</div>
+                          ) : null}
+                        </td>
+                        <td style={{ whiteSpace: "nowrap" }}>
+                          {o.status === "pending" ? (
+                            <span>
+                              <button
+                                className="btn-ghost btn-sm"
+                                type="button"
+                                onClick={function () { setStatus(o.id, "confirmed"); }}
+                              >
+                                Tasdiq
+                              </button>
+                              {" "}
+                              <button
+                                className="btn-ghost btn-sm"
+                                type="button"
+                                onClick={function () {
+                                  if (window.confirm("Buyurtmani rad etasizmi?")) setStatus(o.id, "rejected");
+                                }}
+                              >
+                                Rad
+                              </button>
+                            </span>
+                          ) : null}
+                          {o.status === "confirmed" ? (
+                            <button
+                              className="btn-ghost btn-sm"
+                              type="button"
+                              onClick={function () { setStatus(o.id, "closed"); }}
+                            >
+                              Yopish
+                            </button>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       );
