@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>Black Diamond — Buyurtma</title>
   <link rel="manifest" href="/mijoz-manifest.webmanifest" />
-  <link rel="icon" href="/mijoz-icon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/bd_logo.jpg" type="image/jpeg" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     :root {
@@ -60,7 +60,7 @@
       background: var(--surface-2); border: 1px solid var(--border);
       display: grid; place-items: center; flex-shrink: 0;
     }
-    .brand-mark img { width: 22px; height: 22px; }
+    .brand-mark img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
     .brand-text h1 {
       font-size: 0.95rem; font-weight: 700; color: var(--accent);
       letter-spacing: 0.02em;
@@ -526,7 +526,7 @@
       el("div", { className: "hdr-row" }, [
         el("div", { className: "brand" }, [
           el("div", { className: "brand-mark" }, [
-            el("img", { src: "/mijoz-icon.svg", alt: "" })
+            el("img", { src: "/bd_logo.jpg", alt: "" })
           ]),
           el("div", { className: "brand-text" }, [
             el("h1", { text: "Black Diamond" }),
