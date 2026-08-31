@@ -498,6 +498,33 @@ function demoId() {
   return id;
 }
 
+/** Har bir Telegram akkaunt uchun alohida kalit */
+function getUserScopeId() {
+  try {
+    if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+      return 'tg-' + String(tg.initDataUnsafe.user.id);
+    }
+  } catch (e) {}
+  // Brauzer: demo ID (bir qurilmada bitta)
+  return 'web-' + demoId();
+}
+
+function storageKey(base) {
+  return base + '__' + getUserScopeId();
+}
+
+function loadCart() {
+  try {
+    return JSON.parse(localStorage.getItem(storageKey('bd_cart')) || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveCart(cart) {
+  localStorage.setItem(storageKey('bd_cart'), JSON.stringify(cart || []));
+}
+
 function apiHeaders(json) {
   const h = {};
   if (json) h['Content-Type'] = 'application/json';
@@ -764,7 +791,7 @@ function Catalog({ katalog, settings, loading, onAdd, onDetail, onLightbox, tipO
               <strong>Qanday buyurtma beriladi?</strong><br />
               1) Miqdorni yozing → 2) Savatga qo‘shing → 3) Savatdan yuboring
             </div>
-            <button type="button" className="tip-close" onClick={() => { setTipOpen(false); localStorage.setItem('bd_tip_closed', '1'); }}>×</button>
+            <button type="button" className="tip-close" onClick={() => { setTipOpen(false); localStorage.setItem(storageKey('bd_tip_closed'), '1'); }}>×</button>
           </div>
         )}
         <button className="btn btn-secondary" onClick={onRefresh}>Yangilash</button>
@@ -787,8 +814,8 @@ function Savat({ cart, katalog, settings, user, setCart, showMsg, onOrdered, onG
   const [tolangan, setTolangan] = useState('');
   const [muddat, setMuddat] = useState('');
   const [izoh, setIzoh] = useState('');
-  const [phone, setPhone] = useState(user.phone || localStorage.getItem('bd_phone') || '');
-  const [address, setAddress] = useState(localStorage.getItem('bd_address') || '');
+  const [phone, setPhone] = useState(user.phone || localStorage.getItem(storageKey('bd_phone')) || '');
+  const [address, setAddress] = useState(localStorage.getItem(storageKey('bd_address')) || '');
   const [busy, setBusy] = useState(false);
   const [qtyStr, setQtyStr] = useState({});
 
@@ -820,7 +847,7 @@ function Savat({ cart, katalog, settings, user, setCart, showMsg, onOrdered, onG
     n = Math.max(0, Math.floor(Number(n) || 0));
     setCart((prev) => {
       const next = prev.map((x) => (x.id === id ? { ...x, qty: n } : x)).filter((x) => x.qty > 0);
-      localStorage.setItem('bd_cart_v2', JSON.stringify(next));
+      saveCart(next);
       return next;
     });
   };
@@ -851,8 +878,8 @@ function Savat({ cart, katalog, settings, user, setCart, showMsg, onOrdered, onG
     }
     setBusy(true);
     try {
-      localStorage.setItem('bd_phone', phone);
-      localStorage.setItem('bd_address', address);
+      localStorage.setItem(storageKey('bd_phone'), phone);
+      localStorage.setItem(storageKey('bd_address'), address);
       const r = await api('/api/customer/orders', {
         method: 'POST',
         body: {
@@ -865,7 +892,7 @@ function Savat({ cart, katalog, settings, user, setCart, showMsg, onOrdered, onG
         }
       });
       setCart([]);
-      localStorage.setItem('bd_cart_v2', '[]');
+      saveCart([]);
       showMsg('Buyurtma qabul qilindi: ' + r.data.order_code, false);
       onOrdered(r.data);
     } catch (e) {
@@ -950,7 +977,7 @@ function Savat({ cart, katalog, settings, user, setCart, showMsg, onOrdered, onG
         <button className="btn" disabled={busy} onClick={submit}>
           {busy ? 'Buyurtma yuborilmoqda...' : 'Buyurtmani yuborish'}
         </button>
-        <button className="btn btn-secondary" onClick={() => { setCart([]); localStorage.setItem('bd_cart_v2', '[]'); }}>
+        <button className="btn btn-secondary" onClick={() => { setCart([]); saveCart([]); }}>
           Savatni tozalash
         </button>
       </div>
@@ -1090,9 +1117,7 @@ function App() {
     customer_phone: '998880090506',
     customer_telegram: 'https://t.me/briketkumir'
   });
-  const [cart, setCart] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('bd_cart_v2') || '[]'); } catch (e) { return []; }
-  });
+  const [cart, setCart] = useState(() => loadCart());
   const [user, setUser] = useState({ name: 'Mijoz', phone: '' });
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1100,7 +1125,7 @@ function App() {
   const [msg, setMsg] = useState(null);
   const [detail, setDetail] = useState(null);
   const [lightbox, setLightbox] = useState(null);
-  const [tipOpen, setTipOpen] = useState(localStorage.getItem('bd_tip_closed') !== '1');
+  const [tipOpen, setTipOpen] = useState(localStorage.getItem(storageKey('bd_tip_closed')) !== '1');
   const [orderSuccess, setOrderSuccess] = useState(null);
   const msgTimer = useRef(null);
 
@@ -1116,6 +1141,7 @@ function App() {
       try {
         const auth = await api('/api/customer/auth/telegram', { method: 'POST', body: { initData: getInitData() } });
         setUser({ name: auth.data.name || 'Mijoz', phone: auth.data.phone || '' });
+        setCart(loadCart());
       } catch (e) {}
       const cat = await api('/api/customer/catalog');
       setKatalog(cat.data || []);
@@ -1141,7 +1167,7 @@ function App() {
       } else {
         next = prev.concat([{ id: p.id, qty }]);
       }
-      localStorage.setItem('bd_cart_v2', JSON.stringify(next));
+      saveCart(next);
       return next;
     });
     showMsg('Savatga qo‘shildi', false);
