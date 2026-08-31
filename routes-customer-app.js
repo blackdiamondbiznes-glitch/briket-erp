@@ -55,19 +55,16 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
       (req.body && req.body.initData) ||
       '';
 
-    // 1) Rasmiy HMAC (bot token majburiy)
     if (botToken && initData) {
       const user = validateTelegramInitData(initData, botToken);
       if (user && user.id) return { source: 'telegram', user, initData };
     }
 
-    // 2) Token yo'q yoki demo ruxsat: initData ichidagi user (Telegram ochgan, lekin token sozlanmagan)
     if (allowDemo && initData) {
       const user = parseUserFromInitData(initData);
       if (user && user.id) return { source: 'telegram-unverified', user, initData };
     }
 
-    // 3) PWA / brauzer demo
     if (allowDemo) {
       const demoId =
         req.headers['x-demo-telegram-id'] ||
@@ -113,7 +110,6 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
     return r.rows[0];
   }
 
-  // ——— Auth ———
   app.post('/api/customer/auth/telegram', async (req, res) => {
     try {
       const ctx = getTelegramUser(req);
@@ -139,7 +135,9 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
     }
   });
 
-  // ——— Katalog ———
+  // Sotilgan holatlar — pending zaxiraga ta'sir qilmaydi (routes-stock bilan bir xil)
+  const SOLD_STATUSES = `('confirmed', 'paid', 'partial', 'closed')`;
+
   app.get('/api/customer/catalog', async (req, res) => {
     try {
       const r = await pool.query(`
@@ -154,7 +152,7 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
           SELECT oi.product_id, SUM(oi.qty) AS sold_qty
           FROM order_items oi
           JOIN orders o ON o.id = oi.order_id
-          WHERE o.status NOT IN ('cancelled', 'rejected')
+          WHERE o.status IN ${SOLD_STATUSES}
           GROUP BY oi.product_id
         ) sold ON sold.product_id = p.id
         WHERE p.is_active = true
@@ -176,7 +174,6 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
     }
   });
 
-  // ——— Buyurtma yaratish ———
   app.post('/api/customer/orders', async (req, res) => {
     const client = await pool.connect();
     try {
@@ -197,7 +194,6 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
         );
       }
 
-      // Narx: DB price = yirik; oddiy = price + bulk_discount (katalog bilan bir xil)
       let bulkDisc = 3000;
       let bulkMin = 500;
       try {
@@ -244,11 +240,27 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
         return res.status(400).json({ ok: false, error: "Yaroqli mahsulot yo'q" });
       }
 
-      // Mijoz kiritgan summa — "naqd to'lamoqchi" (niyat), hali tasdiqlanmagan
       const paid = Math.max(0, num(paid_amount));
       const debt = Math.max(0, total - paid);
-      // Har doim pending — admin tasdiqlamaguncha "to'langan" emas
       const status = 'pending';
+
+      // Nasiya limidi (faqat qarz bo'lsa)
+      const creditLimit = num(customer.credit_limit);
+      if (debt > 0 && creditLimit > 0) {
+        const dr = await client.query(
+          `SELECT COALESCE(SUM(debt_amount), 0) AS total FROM orders
+           WHERE customer_id = $1 AND debt_amount > 0
+             AND status IN ('confirmed','paid','partial','closed')`,
+          [customer.id]
+        );
+        const existing = num(dr.rows[0].total);
+        if (existing + debt > creditLimit) {
+          return res.status(400).json({
+            ok: false,
+            error: 'Nasiya limiti oshib ketdi',
+          });
+        }
+      }
 
       const code =
         'TG-' +
@@ -326,7 +338,6 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
     }
   });
 
-  // ——— Mening buyurtmalarim ———
   app.get('/api/customer/orders', async (req, res) => {
     try {
       const ctx = getTelegramUser(req);
@@ -354,8 +365,6 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
     }
   });
 
-
-  // ——— Mijoz buyurtmani bekor qilish (faqat pending) ———
   app.post('/api/customer/orders/:id/cancel', async (req, res) => {
     try {
       const ctx = getTelegramUser(req);
@@ -388,7 +397,6 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
     }
   });
 
-  // ——— Profil ———
   app.put('/api/customer/profile', async (req, res) => {
     try {
       const ctx = getTelegramUser(req);
