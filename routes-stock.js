@@ -1,5 +1,5 @@
 /**
- * Stock + expanded Dashboard (eski tizimdagi ko‘rsatkichlar)
+ * Stock + expanded Dashboard (eski tizimdagi ko'rsatkichlar)
  * server.js: require('./routes-stock')(app, pool, helpers);
  */
 module.exports = function (app, pool, helpers) {
@@ -29,6 +29,10 @@ module.exports = function (app, pool, helpers) {
     }
   });
 
+  // Sotilgan deb hisoblanadigan holatlar (admin tasdiqlagan / yakunlangan)
+  // pending — hali tasdiqlanmagan, zaxiraga ta'sir qilmaydi
+  const SOLD_STATUSES = `('confirmed', 'paid', 'partial', 'closed')`;
+
   app.get('/api/stock/products', async (req, res) => {
     try {
       const r = await pool.query(`
@@ -46,7 +50,7 @@ module.exports = function (app, pool, helpers) {
           SELECT oi.product_id, SUM(oi.qty) AS sold_qty
           FROM order_items oi
           JOIN orders o ON o.id = oi.order_id
-          WHERE o.status NOT IN ('cancelled', 'rejected')
+          WHERE o.status IN ${SOLD_STATUSES}
           GROUP BY oi.product_id
         ) sold ON sold.product_id = p.id
         WHERE p.is_active = true
@@ -84,13 +88,13 @@ module.exports = function (app, pool, helpers) {
       ] = await Promise.all([
         pool.query(
           `SELECT COALESCE(SUM(total_amount),0) AS total FROM orders
-           WHERE status NOT IN ('cancelled','rejected')
+           WHERE status IN ('confirmed','paid','partial','closed')
              AND created_at::date = $1::date`,
           [dayStr]
         ),
         pool.query(
           `SELECT COALESCE(SUM(total_amount),0) AS total FROM orders
-           WHERE status NOT IN ('cancelled','rejected')
+           WHERE status IN ('confirmed','paid','partial','closed')
              AND to_char(created_at, 'YYYY-MM') = $1`,
           [monthStr]
         ),
@@ -115,7 +119,9 @@ module.exports = function (app, pool, helpers) {
           [monthStr]
         ),
         pool.query(
-          `SELECT COALESCE(SUM(debt_amount),0) AS total FROM orders WHERE debt_amount > 0`
+          `SELECT COALESCE(SUM(debt_amount),0) AS total FROM orders
+           WHERE debt_amount > 0
+             AND status IN ('confirmed','paid','partial','closed')`
         ),
         pool.query(
           `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(remaining_kg),0) AS kg
@@ -137,7 +143,7 @@ module.exports = function (app, pool, helpers) {
             SELECT oi.product_id, SUM(oi.qty) AS sold_qty
             FROM order_items oi
             JOIN orders o ON o.id = oi.order_id
-            WHERE o.status NOT IN ('cancelled', 'rejected')
+            WHERE o.status IN ('confirmed','paid','partial','closed')
             GROUP BY oi.product_id
           ) sold ON sold.product_id = p.id
           WHERE p.is_active = true
@@ -223,22 +229,18 @@ module.exports = function (app, pool, helpers) {
       res.json({
         ok: true,
         data: {
-          // bugun
           bugungi_savdo: num(salesToday.rows[0].total),
           bugungi_xarajat: num(expenseToday.rows[0].total),
           bugungi_qadoq_kg: packTodayKg,
           bugungi_qadoq_qty: num(packToday.rows[0].qty),
-          // oy
           oylik_savdo: num(salesMonth.rows[0].total),
           oylik_xarajat: num(expenseMonth.rows[0].total),
           oylik_qadoq_kg: num(packMonth.rows[0].kg),
           oylik_qadoq_qty: num(packMonth.rows[0].qty),
-          // umumiy
           jami_qarz: jamiQarz,
           faol_partiya: activeBatches.rows[0].cnt,
           quruq_qoldiq_kg: quruq,
           faol_sku: productsCnt.rows[0].cnt,
-          // batafsil
           sku_stock,
           material_stock,
           active_batches: batches.rows,
