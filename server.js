@@ -98,12 +98,14 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
   message: { ok: false, error: 'Juda ko\'p so\'rov — biroz kuting' },
 });
-// Auth tekshiruvi (noto'g'ri kalit): daqiqasiga 20 urinish / IP
+// Faqat muvaffaqiyatsiz auth (401) urinishlari: daqiqasiga 20 / IP
+// Muvaffaqiyatli so'rovlar hisobga olinmaydi (admin ishlashi to'xtamaydi)
 const authLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  skipSuccessfulRequests: true,
   message: { ok: false, error: 'Juda ko\'p urinish — biroz kuting' },
 });
 
@@ -153,7 +155,10 @@ function requireAdmin(req, res, next) {
   const given = req.headers['x-admin-key'];
   if (given && safeEqualString(given, key)) return next();
 
-  return res.status(401).json({ ok: false, error: 'Unauthorized — admin kaliti kerak' });
+  // Faqat muvaffaqiyatsiz urinishlar rate-limit ostida
+  return authLimiter(req, res, () => {
+    res.status(401).json({ ok: false, error: 'Unauthorized — admin kaliti kerak' });
+  });
 }
 
 // Himoya: /api/* (mijoz API dan tashqari)
@@ -162,10 +167,7 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') return next();
   if (req.path === '/' || req.path === '/health') return next();
   if (req.path.indexOf('/api/customer/') === 0) return next();
-  if (req.path.indexOf('/api/') === 0) {
-    // Noto'g'ri kalit urinishlarini cheklash
-    return authLimiter(req, res, () => requireAdmin(req, res, next));
-  }
+  if (req.path.indexOf('/api/') === 0) return requireAdmin(req, res, next);
   return next();
 });
 
