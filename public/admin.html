@@ -462,7 +462,8 @@
                         <td>{o.customer_name}</td>
                         <td>{money(o.total_amount)}</td>
                         <td>{money(o.debt_amount)}</td>
-                        <td><span className={"badge " + o.status}>{o.status}</span></td>
+                        <td><span className={"badge " + orderStatusLabel(o.status).cls}>{orderStatusLabel(o.status).text}</span>
+                        <div className="muted" style={{ fontSize: "0.7rem" }}>Naqd niyat: {money(o.paid_amount)}</div></td>
                       </tr>
                     );
                   })}
@@ -1170,6 +1171,16 @@
     }
 
     // ---------- Orders ----------
+    function orderStatusLabel(s) {
+      var low = String(s || "").toLowerCase();
+      if (low === "pending" || low === "partial") return { text: "Ko'rib chiqilmoqda", cls: "pending" };
+      if (low === "confirmed") return { text: "Tasdiqlandi", cls: "confirmed" };
+      if (low === "rejected") return { text: "Rad etildi", cls: "rejected" };
+      if (low === "cancelled") return { text: "Bekor", cls: "cancelled" };
+      if (low === "paid" || low === "closed") return { text: "Tasdiqlandi", cls: "paid" };
+      return { text: s, cls: s };
+    }
+
     function Orders(props) {
       const api = props.api;
       const [list, setList] = useState([]);
@@ -1389,7 +1400,8 @@
                       </td>
                       <td>{money(o.total_amount)}</td>
                       <td>{money(o.debt_amount)}</td>
-                      <td><span className={"badge " + o.status}>{o.status}</span></td>
+                      <td><span className={"badge " + orderStatusLabel(o.status).cls}>{orderStatusLabel(o.status).text}</span>
+                        <div className="muted" style={{ fontSize: "0.7rem" }}>Naqd niyat: {money(o.paid_amount)}</div></td>
                       <td style={{ whiteSpace: "nowrap" }}>
                         {o.status === "pending" ? (
                           <span>

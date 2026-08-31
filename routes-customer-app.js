@@ -354,6 +354,40 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
     }
   });
 
+
+  // ——— Mijoz buyurtmani bekor qilish (faqat pending) ———
+  app.post('/api/customer/orders/:id/cancel', async (req, res) => {
+    try {
+      const ctx = getTelegramUser(req);
+      if (!ctx) {
+        return res.status(401).json({ ok: false, error: 'Avval kiring' });
+      }
+      const customer = await upsertCustomerFromTelegram(ctx.user);
+      const id = Number(req.params.id);
+      const r = await pool.query(
+        `SELECT * FROM orders WHERE id = $1 AND (customer_id = $2 OR phone = $3) LIMIT 1`,
+        [id, customer.id, customer.phone || '']
+      );
+      if (!r.rows.length) {
+        return res.status(404).json({ ok: false, error: 'Buyurtma topilmadi' });
+      }
+      const o = r.rows[0];
+      if (String(o.status) !== 'pending') {
+        return res.status(400).json({
+          ok: false,
+          error: 'Faqat ko\'rib chiqilayotgan buyurtmani bekor qilish mumkin',
+        });
+      }
+      const upd = await pool.query(
+        `UPDATE orders SET status = 'cancelled', updated_at = NOW() WHERE id = $1 RETURNING *`,
+        [id]
+      );
+      res.json({ ok: true, data: upd.rows[0] });
+    } catch (err) {
+      sendError(res, err);
+    }
+  });
+
   // ——— Profil ———
   app.put('/api/customer/profile', async (req, res) => {
     try {

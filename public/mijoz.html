@@ -999,7 +999,7 @@ function Savat({ cart, katalog, settings, user, setCart, showMsg, onOrdered, onG
   );
 }
 
-function Buyurtmalar({ orders, loading, onReload, orderSuccess, onClearSuccess, onGoCatalog }) {
+function Buyurtmalar({ orders, loading, onReload, orderSuccess, onClearSuccess, onGoCatalog, showMsg }) {
   if (orderSuccess) {
     return (
       <div className="container">
@@ -1033,22 +1033,26 @@ function Buyurtmalar({ orders, loading, onReload, orderSuccess, onClearSuccess, 
 
   const normalizeStatus = (raw) => {
     const low = String(raw || '').toLowerCase();
-    if (!low || low === 'pending' || low === 'yangi' || low === 'kutilmoqda' || low === 'partial') {
-      return { badgeCls: 'badge-wait', text: 'Ko‘rib chiqilmoqda' };
+    // Faqat 3 asosiy holat (mijoz uchun)
+    if (low === 'confirmed' || low === 'paid' || low === 'closed' || low.indexOf('tasdiq') >= 0) {
+      return { badgeCls: 'badge-ok', text: 'Tasdiqlandi', canCancel: false };
     }
-    if (low === 'confirmed' || low.indexOf('tasdiq') >= 0) {
-      return { badgeCls: 'badge-ok', text: 'Tasdiqlandi' };
+    if (low.indexOf('reject') >= 0 || low.indexOf('rad') >= 0 || low.indexOf('cancel') >= 0 || low === 'bekor') {
+      return { badgeCls: 'badge-no', text: low.indexOf('cancel') >= 0 || low === 'bekor' ? 'Bekor qilindi' : 'Rad etildi', canCancel: false };
     }
-    if (low === 'paid' || low === 'closed') {
-      return { badgeCls: 'badge-ok', text: 'Yakunlandi' };
+    // pending, partial, yangi, ...
+    return { badgeCls: 'badge-wait', text: 'Ko‘rib chiqilmoqda', canCancel: true };
+  };
+
+  const cancelOrder = async (orderId) => {
+    if (!window.confirm('Buyurtmani bekor qilasizmi?')) return;
+    try {
+      await api('/api/customer/orders/' + orderId + '/cancel', { method: 'POST', body: {} });
+      showMsg('Buyurtma bekor qilindi', false);
+      onReload();
+    } catch (e) {
+      showMsg(e.message, true);
     }
-    if (low.indexOf('reject') >= 0 || low.indexOf('rad') >= 0) {
-      return { badgeCls: 'badge-no', text: 'Rad etildi' };
-    }
-    if (low.indexOf('cancel') >= 0 || low === 'bekor') {
-      return { badgeCls: 'badge-no', text: 'Bekor qilindi' };
-    }
-    return { badgeCls: 'badge-wait', text: raw };
   };
 
   return (
@@ -1075,6 +1079,16 @@ function Buyurtmalar({ orders, loading, onReload, orderSuccess, onClearSuccess, 
                 Naqd summasi admin tasdiqlamaguncha to‘langan hisoblanmaydi
               </div>
               {b.phone ? <div className="meta">Tel: {b.phone}</div> : null}
+              {st.canCancel ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ marginTop: 10, background: 'transparent', borderColor: 'rgba(239,68,68,0.4)', color: '#fca5a5' }}
+                  onClick={() => cancelOrder(b.id)}
+                >
+                  Bekor qilish
+                </button>
+              ) : null}
             </div>
           );
         })}
@@ -1248,6 +1262,7 @@ function App() {
           orderSuccess={orderSuccess}
           onClearSuccess={() => setOrderSuccess(null)}
           onGoCatalog={() => setTab('catalog')}
+          showMsg={showMsg}
         />
       )}
       {tab === 'aloqa' && !detail && <Aloqa user={user} settings={settings} />}
