@@ -125,9 +125,24 @@
       transition: border-color .2s;
     }
     .product-img {
-      position: relative; background: #0d0d0f; aspect-ratio: 1/1; overflow: hidden; cursor: pointer;
+      position: relative;
+      background: #ffffff;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      min-height: 240px;
+      overflow: hidden;
+      cursor: pointer;
     }
-    .product-img img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .product-img img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center;
+      display: block;
+      background: #ffffff;
+    }
     .product-body { padding: 16px; }
     .product-body h3 { font-size: 17px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.02em; cursor: pointer; }
 
@@ -208,9 +223,22 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .detail-gallery {
-      position: relative; background: #0d0d0f; aspect-ratio: 1/1; max-height: 55vh;
+      position: relative;
+      background: #ffffff;
+      aspect-ratio: 1 / 1;
+      max-height: 55vh;
+      min-height: 220px;
+      overflow: hidden;
     }
-    .detail-gallery img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .detail-gallery img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      background: #ffffff;
+    }
     .gallery-ctrl {
       position: absolute; top: 50%; transform: translateY(-50%);
       width: 44px; height: 44px; border-radius: 50%;
@@ -523,7 +551,7 @@ function Loading({ text }) {
 function Gallery({ images, alt }) {
   const [i, setI] = useState(0);
   if (!images || !images.length) {
-    return <div className="product-img" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>Rasm yo‘q</div>;
+    return <div className="product-img" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666', minHeight: 240 }}>Rasm yo‘q</div>;
   }
   const n = images.length;
   return (
