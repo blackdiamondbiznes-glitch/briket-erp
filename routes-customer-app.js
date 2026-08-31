@@ -35,18 +35,43 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
     }
   }
 
+  function parseUserFromInitData(initData) {
+    if (!initData) return null;
+    try {
+      const params = new URLSearchParams(initData);
+      const userRaw = params.get('user');
+      if (!userRaw) return null;
+      const user = JSON.parse(userRaw);
+      if (user && user.id) return user;
+    } catch (e) {}
+    return null;
+  }
+
   function getTelegramUser(req) {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN || '';
+    const botToken = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
+    const allowDemo = process.env.ALLOW_DEMO_CUSTOMER === '1';
     const initData =
       req.headers['x-telegram-init-data'] ||
       (req.body && req.body.initData) ||
       '';
-    const user = validateTelegramInitData(initData, botToken);
-    if (user && user.id) return { source: 'telegram', user, initData };
 
-    // Dev / PWA test: token bo'sh va demo ruxsat
-    if (!botToken && process.env.ALLOW_DEMO_CUSTOMER === '1') {
-      const demoId = req.headers['x-demo-telegram-id'] || (req.body && req.body.demo_telegram_id);
+    // 1) Rasmiy HMAC (bot token majburiy)
+    if (botToken && initData) {
+      const user = validateTelegramInitData(initData, botToken);
+      if (user && user.id) return { source: 'telegram', user, initData };
+    }
+
+    // 2) Token yo'q yoki demo ruxsat: initData ichidagi user (Telegram ochgan, lekin token sozlanmagan)
+    if (allowDemo && initData) {
+      const user = parseUserFromInitData(initData);
+      if (user && user.id) return { source: 'telegram-unverified', user, initData };
+    }
+
+    // 3) PWA / brauzer demo
+    if (allowDemo) {
+      const demoId =
+        req.headers['x-demo-telegram-id'] ||
+        (req.body && req.body.demo_telegram_id);
       if (demoId) {
         return {
           source: 'demo',
@@ -58,6 +83,7 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
         };
       }
     }
+
     return null;
   }
 
@@ -156,7 +182,7 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
     try {
       const ctx = getTelegramUser(req);
       if (!ctx) {
-        return res.status(401).json({ ok: false, error: 'Avval Telegram orqali kiring' });
+        return res.status(401).json({ ok: false, error: 'Telegram tasdiqlanmadi. Botda TELEGRAM_BOT_TOKEN va ALLOW_DEMO_CUSTOMER=1 ni tekshiring yoki Mini Appni qayta oching' });
       }
       const customer = await upsertCustomerFromTelegram(ctx.user);
       const { items, phone, address, note, paid_amount } = req.body || {};
