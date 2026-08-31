@@ -397,9 +397,8 @@
     }
 
     .product-img img, .detail-gallery img, .cart-item img {
-      opacity: 0; transition: opacity 0.35s ease;
+      opacity: 1;
     }
-    .product-img img.loaded, .detail-gallery img.loaded, .cart-item img.loaded { opacity: 1; }
 
     .order-timeline {
       display: flex; align-items: center; gap: 0; margin: 10px 0 6px; padding: 0 2px;
@@ -556,7 +555,7 @@ function Gallery({ images, alt }) {
   const n = images.length;
   return (
     <div className="product-img" style={{ position: 'relative' }}>
-      <img src={images[i]} alt={alt || ''} loading="lazy" />
+      <img src={images[i]} alt={alt || ''} loading="lazy" onLoad={(e) => e.target.classList.add('loaded')} onError={(e) => { e.target.style.opacity = 0.3; e.target.classList.add('loaded'); }} />
       {n > 1 && (
         <>
           <button type="button" className="gallery-ctrl prev" onClick={(e) => { e.stopPropagation(); setI((i - 1 + n) % n); }}>‹</button>
@@ -680,7 +679,7 @@ function DetailPage({ p, settings, onClose, onAdd, showMsg }) {
       <div className="detail-gallery">
         {imgs.length ? (
           <>
-            <img src={imgs[imgI]} alt={p.sku} />
+            <img src={imgs[imgI]} alt={p.sku} onLoad={(e) => e.target.classList.add('loaded')} />
             {imgs.length > 1 && (
               <>
                 <button type="button" className="gallery-ctrl prev" onClick={() => setImgI((imgI - 1 + imgs.length) % imgs.length)}>‹</button>
@@ -888,7 +887,7 @@ function Savat({ cart, katalog, settings, user, setCart, showMsg, onOrdered, onG
           return (
             <div className="cart-item" key={l.p.id}>
               {imgs[0]
-                ? <img src={imgs[0]} alt="" loading="lazy" />
+                ? <img src={imgs[0]} alt="" loading="lazy" onLoad={(e) => e.target.classList.add('loaded')} />
                 : <div style={{ width: 72, height: 72, background: '#0d0d0f', borderRadius: 12 }} />}
               <div className="info">
                 <strong>{l.p.sku}</strong>
