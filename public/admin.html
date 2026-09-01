@@ -14,30 +14,32 @@
   <style>
     /* ========== Design tokens — Black Diamond ERP ========== */
     :root {
+      /* Black Diamond OPS — qora + oltin */
       --bg: #0a0a0b;
-      --bg-mid: #0e0e10;
-      --bg-elevated: #141517;
-      --card: #16171a;
-      --card-hover: #1c1d21;
-      --border: #2a2b2e;
-      --border-subtle: #222326;
-      --text: #eceef0;
-      --muted: #9a9ba0;
-      --accent: #e8541f;
-      --accent-hover: #ff6b35;
-      --accent-muted: rgba(232, 84, 31, 0.14);
-      --danger: #e5484d;
-      --danger-bg: rgba(229, 72, 77, 0.12);
-      --warning: #f5a623;
-      --warning-bg: rgba(245, 166, 35, 0.12);
-      --success: #3fb950;
-      --success-bg: rgba(63, 185, 80, 0.12);
-      --info: #58a6ff;
-      --info-bg: rgba(88, 166, 255, 0.12);
-      --radius-sm: 6px;
-      --radius: 10px;
-      --radius-lg: 14px;
-      --shadow: 0 8px 28px rgba(0,0,0,0.4);
+      --bg-mid: #0e0c0a;
+      --bg-elevated: #141210;
+      --card: #141210;
+      --card-hover: #1a1814;
+      --border: #2e2a22;
+      --border-subtle: #2a261e;
+      --text: #f5f0e6;
+      --muted: #8a8270;
+      --accent: #c9a227;
+      --accent-hover: #d4b03a;
+      --accent-muted: rgba(201, 162, 39, 0.14);
+      --accent-text: #1a1408;
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.12);
+      --warning: #eab308;
+      --warning-bg: rgba(234, 179, 8, 0.12);
+      --success: #22c55e;
+      --success-bg: rgba(34, 197, 94, 0.12);
+      --info: #38bdf8;
+      --info-bg: rgba(56, 189, 248, 0.12);
+      --radius-sm: 10px;
+      --radius: 14px;
+      --radius-lg: 16px;
+      --shadow: 0 8px 28px rgba(0,0,0,0.45);
       --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
       --fs-label: 0.6875rem;
@@ -67,8 +69,8 @@
       font-family: var(--font);
       font-size: var(--fs-body-lg);
       background:
-        radial-gradient(1200px 600px at 10% -10%, #16141a 0%, transparent 55%),
-        radial-gradient(900px 500px at 100% 0%, #121015 0%, transparent 50%),
+        radial-gradient(1200px 600px at 10% -10%, #1a1608 0%, transparent 55%),
+        radial-gradient(900px 500px at 100% 0%, #141210 0%, transparent 50%),
         var(--bg);
       color: var(--text);
       min-height: 100vh;
@@ -99,7 +101,7 @@
       font-size: 0.625rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
     }
     .sidebar .brand-title {
-      color: var(--text); font-weight: 650; font-size: 0.95rem; letter-spacing: -0.01em;
+      color: var(--accent); font-weight: 650; font-size: 0.95rem; letter-spacing: -0.01em;
     }
     .side-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
     .side-nav button {
@@ -212,10 +214,19 @@
       display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px;
     }
     .kpi, .dash-kpi {
-      background: var(--bg-elevated);
+      position: relative;
+      overflow: hidden;
+      background: var(--card);
       border-radius: var(--radius);
-      padding: 12px 14px;
-      border: 1px solid var(--border-subtle);
+      padding: 14px 14px 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+    }
+    .kpi::before, .dash-kpi::before {
+      content: "";
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0.75;
     }
     .kpi .label, .dash-kpi .label {
       font-size: var(--fs-label); color: var(--muted);
@@ -352,7 +363,7 @@
 
     /* Buttons */
     .btn {
-      background: var(--accent); color: #fff; border: none;
+      background: var(--accent); color: var(--accent-text); border: none;
       padding: 9px 16px; border-radius: var(--radius-sm);
       font-weight: 600; cursor: pointer; font-size: var(--fs-body-lg);
       transition: background 0.12s ease, transform 0.08s ease;
@@ -459,7 +470,7 @@
     }
     .login-card .btn {
       width: 100%; padding: 12px; border: none; border-radius: var(--radius-sm);
-      font-weight: 700; background: var(--accent); color: #fff; cursor: pointer;
+      font-weight: 700; background: var(--accent); color: var(--accent-text); cursor: pointer;
     }
     .login-card .btn:hover { background: var(--accent-hover); }
     .login-card .err { color: #ff8a8e; font-size: 0.85rem; margin-bottom: 10px; }
