@@ -5,234 +5,466 @@
   <meta name="robots" content="noindex, nofollow" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Briket ERP - Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7.26.0/babel.min.js"></script>
   <style>
+    /* ========== Design tokens — Black Diamond ERP ========== */
     :root {
       --bg: #0a0a0b;
+      --bg-mid: #0e0e10;
       --bg-elevated: #141517;
-      --card: #1a1b1e;
+      --card: #16171a;
+      --card-hover: #1c1d21;
       --border: #2a2b2e;
+      --border-subtle: #222326;
       --text: #eceef0;
       --muted: #9a9ba0;
       --accent: #e8541f;
       --accent-hover: #ff6b35;
-      --danger: var(--danger);
+      --accent-muted: rgba(232, 84, 31, 0.14);
+      --danger: #e5484d;
+      --danger-bg: rgba(229, 72, 77, 0.12);
       --warning: #f5a623;
+      --warning-bg: rgba(245, 166, 35, 0.12);
       --success: #3fb950;
-      --radius: 12px;
-      --shadow: 0 8px 28px rgba(0,0,0,0.45);
+      --success-bg: rgba(63, 185, 80, 0.12);
+      --info: #58a6ff;
+      --info-bg: rgba(88, 166, 255, 0.12);
+      --radius-sm: 6px;
+      --radius: 10px;
+      --radius-lg: 14px;
+      --shadow: 0 8px 28px rgba(0,0,0,0.4);
+      --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+      --fs-label: 0.6875rem;
+      --fs-body: 0.8125rem;
+      --fs-body-lg: 0.875rem;
+      --fs-title: 1rem;
+      --fs-kpi: 1.25rem;
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --row-h: 38px;
+      --sidebar-w: 232px;
+      --focus-ring: 0 0 0 3px var(--accent-muted);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-text-size-adjust: 100%; }
     body {
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.45;
+      font-family: var(--font);
+      font-size: var(--fs-body-lg);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #16141a 0%, transparent 55%),
+        radial-gradient(900px 500px at 100% 0%, #121015 0%, transparent 50%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input, select, textarea { font-family: inherit; }
+    button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
     }
     .shell { min-height: 100vh; }
+
+    /* ---------- Sidebar ---------- */
     .sidebar {
       display: none;
-      position: fixed; inset: 0 auto 0 0; width: 220px;
-      background: var(--card); border-right: 1px solid var(--border);
-      padding: 16px 12px; z-index: 20; flex-direction: column;
+      position: fixed; inset: 0 auto 0 0; width: var(--sidebar-w);
+      background: var(--bg-elevated);
+      border-right: 1px solid var(--border-subtle);
+      padding: var(--space-4) var(--space-3);
+      z-index: 20; flex-direction: column;
+    }
+    .sidebar .brand-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 4px 8px 16px;
     }
     .sidebar .brand-kicker {
-      font-size: 0.65rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+      font-size: 0.625rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
     }
     .sidebar .brand-title {
-      color: var(--accent); font-weight: 700; font-size: 1.05rem; margin: 4px 0 16px;
+      color: var(--text); font-weight: 650; font-size: 0.95rem; letter-spacing: -0.01em;
     }
-    .side-nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
-    .side-nav button, .bottom-nav button {
+    .side-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+    .side-nav button {
+      position: relative;
+      display: flex; align-items: center; gap: 10px;
       background: transparent; border: none; color: var(--muted);
-      text-align: left; padding: 11px 12px; border-radius: 8px;
-      cursor: pointer; font-size: 0.88rem; font-weight: 500;
+      text-align: left; padding: 10px 12px 10px 14px;
+      border-radius: var(--radius-sm);
+      cursor: pointer; font-size: var(--fs-body-lg); font-weight: 500;
+      transition: background 0.12s ease, color 0.12s ease;
     }
-    .side-nav button.active, .bottom-nav button.active {
-      background: var(--accent); color: #111; font-weight: 600;
+    .side-nav button .nav-ico {
+      width: 18px; height: 18px; flex-shrink: 0; opacity: 0.85;
     }
-    .side-nav button:hover:not(.active) { background: #12151b; color: var(--text); }
+    .side-nav button .nav-ico svg { width: 18px; height: 18px; display: block; }
+    .side-nav button:hover:not(.active) {
+      background: rgba(255,255,255,0.04); color: var(--text);
+    }
+    .side-nav button.active {
+      background: var(--accent-muted);
+      color: var(--text);
+      font-weight: 600;
+    }
+    .side-nav button.active::before {
+      content: "";
+      position: absolute; left: 0; top: 8px; bottom: 8px; width: 2.5px;
+      border-radius: 2px; background: var(--accent);
+    }
+    .side-nav button:focus-visible {
+      outline: none; box-shadow: var(--focus-ring);
+    }
     .main {
       padding: 12px 14px 88px;
-      max-width: 1120px; margin: 0 auto;
+      max-width: 1200px; margin: 0 auto;
     }
     .mobile-top {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 0 12px; border-bottom: 1px solid var(--border); margin-bottom: 12px;
+      padding: 10px 0 12px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 12px;
     }
-    .mobile-top h1 { font-size: 1rem; color: var(--accent); margin: 0; }
+    .mobile-top h1 { font-size: var(--fs-title); color: var(--text); margin: 0; font-weight: 650; }
+
+    /* Segment (sub-tabs) */
     .segment {
-      display: flex; flex-wrap: wrap; gap: 4px;
-      background: #12151b; border: 1px solid var(--border);
-      border-radius: 10px; padding: 4px; margin-bottom: 14px;
+      display: flex; flex-wrap: wrap; gap: 2px;
+      background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+      border-radius: var(--radius); padding: 3px; margin-bottom: 14px;
     }
     .segment button {
       flex: 1; min-width: 72px; border: none; background: transparent;
-      color: var(--muted); padding: 9px 10px; border-radius: 8px;
-      cursor: pointer; font-size: 0.82rem; font-weight: 500;
+      color: var(--muted); padding: 8px 10px; border-radius: var(--radius-sm);
+      cursor: pointer; font-size: 0.8rem; font-weight: 500;
+      transition: background 0.12s ease, color 0.12s ease;
     }
     .segment button.active {
-      background: var(--accent); color: #111; font-weight: 600;
+      background: var(--card-hover); color: var(--text); font-weight: 600;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.04);
     }
+    .segment button:hover:not(.active) { color: var(--text); }
+    .segment button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+    /* Bottom nav */
     .bottom-nav {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
       display: grid; grid-template-columns: repeat(5, 1fr);
-      background: var(--card); border-top: 1px solid var(--border);
+      background: rgba(20, 21, 23, 0.92);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--border-subtle);
       padding-bottom: env(safe-area-inset-bottom);
     }
     .bottom-nav button {
-      text-align: center; font-size: 0.65rem; padding: 8px 4px 10px;
+      text-align: center; font-size: 0.62rem; padding: 8px 4px 10px;
       display: flex; flex-direction: column; align-items: center; gap: 3px;
       min-height: 56px; justify-content: center;
+      background: transparent; border: none; color: var(--muted);
+      cursor: pointer; font-weight: 500;
     }
-    .bottom-nav .ico { font-size: 0.95rem; line-height: 1; opacity: 0.9; }
+    .bottom-nav button.active { color: var(--accent); }
+    .bottom-nav button .nav-ico { width: 20px; height: 20px; opacity: 0.9; }
+    .bottom-nav button .nav-ico svg { width: 20px; height: 20px; display: block; }
+    .bottom-nav button:focus-visible { outline: none; box-shadow: inset var(--focus-ring); }
+
     @media (min-width: 860px) {
       .sidebar { display: flex; }
-      .main { margin-left: 220px; padding: 22px 28px 28px; max-width: none; }
+      .main { margin-left: var(--sidebar-w); padding: 22px 28px 28px; max-width: none; }
       .mobile-top { display: none; }
       .bottom-nav { display: none; }
     }
-    /* legacy nav kept inert */
     .nav { display: none; }
+
+    /* Cards */
     .card {
-      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-      padding: 14px; margin-bottom: 12px;
+      background: var(--card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      margin-bottom: 12px;
     }
-    .card h2 { font-size: 0.92rem; margin-bottom: 10px; color: var(--accent); }
+    .card h2 {
+      font-size: 0.8125rem; margin-bottom: 12px;
+      color: var(--muted); font-weight: 600;
+      letter-spacing: 0.02em; text-transform: uppercase;
+    }
+    .card.tight { padding: 12px 14px; margin-bottom: 10px; }
+    .card.tight h2 { font-size: 0.75rem; margin-bottom: 8px; }
+    .card.tight table { font-size: 0.75rem; }
+    .card.tight th, .card.tight td { padding: 6px 8px; height: auto; }
+
+    /* KPI */
     .kpi-grid {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px;
     }
-    .kpi {
-      background: #12151b; border-radius: 10px; padding: 12px; border: 1px solid var(--border);
+    .kpi, .dash-kpi {
+      background: var(--bg-elevated);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      border: 1px solid var(--border-subtle);
     }
-    .kpi .label { font-size: 0.72rem; color: var(--muted); }
-    .kpi .value { font-size: 1.15rem; font-weight: 700; margin-top: 4px; }
-    .table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -2px; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 480px; }
-    th, td { text-align: left; padding: 7px 5px; border-bottom: 1px solid var(--border); vertical-align: top; }
-    th { color: var(--muted); font-weight: 500; font-size: 0.72rem; }
+    .kpi .label, .dash-kpi .label {
+      font-size: var(--fs-label); color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500;
+    }
+    .kpi .value, .dash-kpi .value {
+      font-size: var(--fs-kpi); font-weight: 700; margin-top: 4px;
+      line-height: 1.2; font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+    }
+    .kpi .trend, .dash-kpi .trend {
+      margin-top: 6px; font-size: 0.7rem; color: var(--muted);
+      min-height: 1em;
+    }
+    .dash-kpis {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .dash-kpi-danger {
+      border-color: rgba(229, 72, 77, 0.45);
+      background: var(--danger-bg);
+    }
+    .dash-meta {
+      display: flex; flex-wrap: wrap; gap: 6px 14px;
+      margin-bottom: 12px; padding: 10px 12px;
+      background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      font-size: 0.75rem; color: var(--muted);
+    }
+    .dash-meta strong { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .dash-alert {
+      font-size: 0.78rem; padding: 8px 12px; border-radius: var(--radius-sm); margin-bottom: 6px;
+      border: 1px solid transparent;
+    }
+    .dash-alert.danger { background: var(--danger-bg); color: #ff8a8e; border-color: rgba(229,72,77,0.25); }
+    .dash-alert.warn { background: var(--warning-bg); color: #ffc857; border-color: rgba(245,166,35,0.25); }
+    .dash-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;
+    }
+    .neg {
+      color: #ff8a8e; font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .neg::before { content: "↓ "; font-weight: 600; opacity: 0.9; }
+    @media (max-width: 700px) {
+      .dash-kpis { grid-template-columns: 1fr 1fr; }
+      .dash-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Tables — dense enterprise */
+    .table-wrap {
+      width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;
+      border-radius: var(--radius-sm);
+    }
+    table {
+      width: 100%; border-collapse: collapse;
+      font-size: var(--fs-body);
+      min-width: 480px;
+    }
+    th, td {
+      text-align: left;
+      padding: 0 10px;
+      height: var(--row-h);
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: middle;
+      font-variant-numeric: tabular-nums;
+    }
+    th {
+      color: var(--muted); font-weight: 550; font-size: var(--fs-label);
+      text-transform: uppercase; letter-spacing: 0.04em;
+      background: var(--bg-elevated);
+      position: sticky; top: 0; z-index: 1;
+    }
+    tbody tr:hover { background: rgba(255,255,255,0.02); }
+    .order-row-code {
+      font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted);
+      max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* Forms */
     input, select, textarea {
-      width: 100%; background: #12151b; border: 1px solid var(--border); color: var(--text);
-      padding: 8px 10px; border-radius: 8px; font-size: 0.88rem; margin-bottom: 8px;
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 9px 11px;
+      border-radius: var(--radius-sm);
+      font-size: var(--fs-body-lg);
+      margin-bottom: 8px;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease;
     }
-    label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 2px; }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: var(--focus-ring);
+    }
+    label {
+      font-size: var(--fs-label); color: var(--muted);
+      display: block; margin-bottom: 4px;
+      font-weight: 500; letter-spacing: 0.02em;
+    }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
     @media (max-width: 700px) {
       .form-row, .form-row-3 { grid-template-columns: 1fr; }
     }
-    .btn {
-      background: var(--accent); color: #111; border: none; padding: 9px 15px;
-      border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.88rem;
+    .field-error {
+      font-size: 0.72rem; color: #ff8a8e; margin: -4px 0 8px;
     }
-    .btn:disabled { opacity: 0.5; }
+
+    /* Buttons */
+    .btn {
+      background: var(--accent); color: #fff; border: none;
+      padding: 9px 16px; border-radius: var(--radius-sm);
+      font-weight: 600; cursor: pointer; font-size: var(--fs-body-lg);
+      transition: background 0.12s ease, transform 0.08s ease;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn:active { transform: translateY(1px); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
     .btn-ghost {
       background: transparent; border: 1px solid var(--border); color: var(--text);
-      padding: 5px 9px; border-radius: 6px; cursor: pointer; font-size: 0.78rem;
+      padding: 5px 10px; border-radius: var(--radius-sm); cursor: pointer;
+      font-size: 0.78rem; font-weight: 500;
+      transition: border-color 0.12s ease, background 0.12s ease;
     }
-    .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
-    .msg { padding: 9px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.85rem; }
-    .msg.ok { background: #14301f; color: #81c995; }
-    .msg.err { background: rgba(229,72,77,0.15); color: var(--danger); }
+    .btn-ghost:hover { border-color: var(--muted); background: rgba(255,255,255,0.03); }
+    .btn-sm { padding: 4px 8px; font-size: 0.72rem; }
+
+    /* Messages */
+    .msg {
+      padding: 10px 12px; border-radius: var(--radius-sm);
+      margin-bottom: 10px; font-size: 0.84rem;
+      border: 1px solid transparent;
+    }
+    .msg.ok { background: var(--success-bg); color: #7ee787; border-color: rgba(63,185,80,0.25); }
+    .msg.err { background: var(--danger-bg); color: #ff8a8e; border-color: rgba(229,72,77,0.25); }
     .muted { color: var(--muted); font-size: 0.8rem; }
+
+    /* Badges — 4 semantic states */
     .badge {
-      display: inline-block; padding: 2px 7px; border-radius: 99px; font-size: 0.68rem;
-      background: #2a2f3a; color: var(--muted);
+      display: inline-flex; align-items: center;
+      padding: 2px 8px; border-radius: 99px;
+      font-size: 0.68rem; font-weight: 550; letter-spacing: 0.01em;
+      background: rgba(255,255,255,0.06); color: var(--muted);
+      border: 1px solid transparent;
     }
-    .badge.active, .badge.paid { background: #14301f; color: #81c995; }
-    .badge.closed { background: #2a2f3a; color: var(--muted); }
-    .badge.partial { background: #3d2e0a; color: #fdd663; }
-    .badge.pending, .badge.confirmed { background: #1a2a3a; color: #8ab4f8; }
-    .badge.rejected, .badge.cancelled { background: rgba(229,72,77,0.15); color: var(--danger); }
-    .empty { text-align: center; padding: 20px; color: var(--muted); }
-    /* Dashboard — ixcham (Linear / Vercel uslubi) */
-    .dash-kpis {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
-      margin-bottom: 10px;
+    .badge.active, .badge.paid, .badge.success,
+    .badge.confirmed {
+      background: var(--success-bg); color: #7ee787; border-color: rgba(63,185,80,0.2);
     }
-    .dash-kpi {
-      background: #12151b; border: 1px solid var(--border); border-radius: 10px;
-      padding: 10px 12px;
+    .badge.closed, .badge.neutral {
+      background: rgba(255,255,255,0.05); color: var(--muted);
     }
-    .dash-kpi .label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
-    .dash-kpi .value { font-size: 1.05rem; font-weight: 700; margin-top: 2px; line-height: 1.25; }
-    .dash-meta {
-      display: flex; flex-wrap: wrap; gap: 6px 12px;
-      margin-bottom: 10px; padding: 8px 10px;
-      background: #12151b; border: 1px solid var(--border); border-radius: 10px;
-      font-size: 0.75rem; color: var(--muted);
+    .badge.partial, .badge.pending, .badge.warning {
+      background: var(--warning-bg); color: #ffc857; border-color: rgba(245,166,35,0.2);
     }
-    .dash-meta strong { color: var(--text); font-weight: 600; }
-    .dash-alert {
-      font-size: 0.78rem; padding: 6px 10px; border-radius: 8px; margin-bottom: 6px;
+    .badge.rejected, .badge.cancelled, .badge.danger {
+      background: var(--danger-bg); color: #ff8a8e; border-color: rgba(229,72,77,0.2);
     }
-    .dash-alert.danger { background: rgba(229,72,77,0.15); color: var(--danger); }
-    .dash-alert.warn { background: #3d2e0a; color: #fdd663; }
-    .dash-grid {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;
+    .badge.info {
+      background: var(--info-bg); color: #79b8ff; border-color: rgba(88,166,255,0.2);
     }
-    .card.tight { padding: 12px; margin-bottom: 10px; }
-    .card.tight h2 { font-size: 0.82rem; margin-bottom: 8px; }
-    .card.tight table { font-size: 0.75rem; }
-    .card.tight th, .card.tight td { padding: 5px 4px; }
-    .order-row-code { font-family: ui-monospace, monospace; font-size: 0.7rem; color: var(--muted); max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .neg { color: var(--danger); font-weight: 700; }
-    @media (max-width: 700px) {
-      .dash-kpis { grid-template-columns: 1fr 1fr; }
-      .dash-grid { grid-template-columns: 1fr; }
+
+    .empty {
+      text-align: center; padding: 28px 16px; color: var(--muted);
+      font-size: 0.84rem;
     }
+    .empty-title { color: var(--text); font-weight: 600; margin-bottom: 4px; font-size: 0.9rem; }
+
     .settings-bar { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
     .settings-bar > div { flex: 1; min-width: 160px; }
-    .line-items { border: 1px dashed var(--border); border-radius: 8px; padding: 10px; margin-bottom: 10px; }
-    .line-row { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 6px; align-items: end; margin-bottom: 6px; }
+    .line-items {
+      border: 1px dashed var(--border); border-radius: var(--radius);
+      padding: 10px; margin-bottom: 10px;
+    }
+    .line-row {
+      display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 6px;
+      align-items: end; margin-bottom: 6px;
+    }
     @media (max-width: 600px) { .line-row { grid-template-columns: 1fr 1fr; } }
     .total-box {
-      background: #12151b; border-radius: 8px; padding: 10px 12px; margin: 8px 0;
+      background: var(--bg-elevated); border-radius: var(--radius-sm);
+      padding: 10px 12px; margin: 8px 0;
       display: flex; justify-content: space-between; font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      border: 1px solid var(--border-subtle);
     }
 
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
+    /* Login */
     .login-wrap {
       min-height: 100vh; display: flex; align-items: center; justify-content: center;
-      padding: 24px; background: var(--bg);
+      padding: 24px;
+      background:
+        radial-gradient(800px 400px at 50% 0%, #1a1210 0%, transparent 60%),
+        var(--bg);
     }
     .login-card {
-      width: 100%; max-width: 380px; background: var(--card); border: 1px solid var(--border);
-      border-radius: 16px; padding: 28px 24px; box-shadow: var(--shadow);
+      width: 100%; max-width: 380px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px 24px;
+      box-shadow: var(--shadow);
     }
-    .login-card h1 { font-size: 1.15rem; color: var(--accent); margin-bottom: 4px; }
+    .login-card h1 { font-size: 1.1rem; color: var(--text); margin-bottom: 4px; font-weight: 650; }
     .login-card p { font-size: 0.8rem; color: var(--muted); margin-bottom: 18px; }
-    .login-card label { display: block; font-size: 0.75rem; color: var(--muted); margin-bottom: 6px; }
+    .login-card label { display: block; font-size: var(--fs-label); color: var(--muted); margin-bottom: 6px; }
     .login-card input {
-      width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border);
-      background: var(--bg-elevated); color: var(--text); font-size: 0.95rem; margin-bottom: 14px;
+      width: 100%; padding: 12px 14px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); background: var(--bg); color: var(--text);
+      font-size: 0.95rem; margin-bottom: 14px;
     }
-    .login-card input:focus { outline: none; border-color: var(--accent); }
+    .login-card input:focus {
+      outline: none; border-color: var(--accent); box-shadow: var(--focus-ring);
+    }
     .login-card .btn {
-      width: 100%; padding: 13px; border: none; border-radius: 10px; font-weight: 700;
-      background: var(--accent); color: #fff; cursor: pointer;
+      width: 100%; padding: 12px; border: none; border-radius: var(--radius-sm);
+      font-weight: 700; background: var(--accent); color: #fff; cursor: pointer;
     }
     .login-card .btn:hover { background: var(--accent-hover); }
-    .login-card .err { color: var(--danger); font-size: 0.85rem; margin-bottom: 10px; }
+    .login-card .err { color: #ff8a8e; font-size: 0.85rem; margin-bottom: 10px; }
     .logout-btn {
-      margin-top: 8px; width: 100%; padding: 8px; border-radius: 8px;
-      border: 1px solid var(--border); background: transparent; color: var(--muted);
+      margin-top: 8px; width: 100%; padding: 8px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle); background: transparent; color: var(--muted);
       font-size: 0.75rem; cursor: pointer;
     }
+    .logout-btn:hover { color: var(--text); border-color: var(--border); }
 
-    .dash-kpi-danger { border-color: var(--danger); background: rgba(229,72,77,0.08); }
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; padding: 16px;
+    }
+    .modal-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 20px; max-width: 400px; width: 100%;
+      box-shadow: var(--shadow);
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .modal-backdrop { animation: fadeIn 0.15s ease; }
+      .modal-card { animation: riseIn 0.18s ease; }
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes riseIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   </style>
 </head>
 <body>
@@ -246,26 +478,58 @@
       return Number(n || 0).toLocaleString("uz-UZ");
     }
 
+    // Sessiya muddati: 12 soat (frontend himoya; httpOnly cookie — backend taklifi)
+    const SESSION_MS = 12 * 60 * 60 * 1000;
+
     function useApi() {
       const [apiBase, setApiBase] = useState(function () {
         return localStorage.getItem("erp_api") || DEFAULT_API;
       });
       const [adminKey, setAdminKey] = useState(function () {
-        return localStorage.getItem("erp_key") || "";
+        const key = localStorage.getItem("erp_key") || "";
+        const at = Number(localStorage.getItem("erp_key_at") || 0);
+        if (key && at && Date.now() - at > SESSION_MS) {
+          localStorage.removeItem("erp_key");
+          localStorage.removeItem("erp_key_at");
+          localStorage.removeItem("erp_operator");
+          return "";
+        }
+        return key;
+      });
+      const [operatorName, setOperatorName] = useState(function () {
+        return localStorage.getItem("erp_operator") || "";
       });
 
-      function saveSettings(base, key) {
+      function saveSettings(base, key, operator) {
         setApiBase(base);
         setAdminKey(key);
+        if (operator !== undefined) setOperatorName(operator || "");
         localStorage.setItem("erp_api", base);
         localStorage.setItem("erp_key", key);
+        localStorage.setItem("erp_key_at", String(Date.now()));
+        if (operator !== undefined) {
+          if (operator) localStorage.setItem("erp_operator", operator);
+          else localStorage.removeItem("erp_operator");
+        }
       }
 
       const api = useCallback(async function (path, opts) {
         opts = opts || {};
-        const headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {});
+        // Sessiya muddati tekshiruvi
+        const at = Number(localStorage.getItem("erp_key_at") || 0);
+        if (adminKey && at && Date.now() - at > SESSION_MS) {
+          setAdminKey("");
+          localStorage.removeItem("erp_key");
+          localStorage.removeItem("erp_key_at");
+          const err = new Error("Sessiya muddati tugadi — qayta kiring");
+          err.code = 401;
+          throw err;
+        }
+        const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
         if (adminKey) headers["x-admin-key"] = adminKey;
-        const res = await fetch(apiBase.replace(/\/$/, "") + path, Object.assign({}, opts, { headers: headers }));
+        const op = operatorName || localStorage.getItem("erp_operator") || "";
+        if (op) headers["x-operator-name"] = op;
+        const res = await fetch(apiBase.replace(/\/$/, "") + path, { ...opts, headers: headers });
         const data = await res.json().catch(function () { return {}; });
         if (res.status === 401) {
           const err = new Error(data.error || "Unauthorized");
@@ -276,18 +540,31 @@
           throw new Error(data.error || res.statusText || "Xato");
         }
         return data;
-      }, [apiBase, adminKey]);
+      }, [apiBase, adminKey, operatorName]);
 
       function logout() {
         setAdminKey("");
+        setOperatorName("");
         localStorage.removeItem("erp_key");
+        localStorage.removeItem("erp_key_at");
+        localStorage.removeItem("erp_operator");
+        // Backendda /api/auth/logout bo'lsa — shu yerga qo'shiladi (hozir yo'q)
       }
 
-      return { api: api, apiBase: apiBase, adminKey: adminKey, saveSettings: saveSettings, logout: logout };
+      return {
+        api: api,
+        apiBase: apiBase,
+        adminKey: adminKey,
+        operatorName: operatorName,
+        saveSettings: saveSettings,
+        logout: logout
+      };
     }
 
     function LoginScreen(props) {
       const [key, setKey] = useState("");
+      const [name, setName] = useState("");
+      const [showKey, setShowKey] = useState(false);
       const [err, setErr] = useState("");
       const [busy, setBusy] = useState(false);
 
@@ -297,12 +574,19 @@
           setErr("Admin kalitini kiriting");
           return;
         }
+        if (!name.trim()) {
+          setErr("Ismingizni kiriting (audit uchun)");
+          return;
+        }
         setBusy(true);
         setErr("");
         try {
           const base = (props.apiBase || window.location.origin).replace(/\/$/, "");
           const res = await fetch(base + "/api/dashboard", {
-            headers: { "x-admin-key": key.trim() }
+            headers: {
+              "x-admin-key": key.trim(),
+              "x-operator-name": name.trim()
+            }
           });
           const data = await res.json().catch(function () { return {}; });
           if (!res.ok) {
@@ -310,7 +594,7 @@
             setBusy(false);
             return;
           }
-          props.onLogin(key.trim());
+          props.onLogin(key.trim(), name.trim());
         } catch (ex) {
           setErr(ex.message || "Ulanish xatosi");
         }
@@ -326,15 +610,37 @@
             </div>
             <p>Operatsion panel — faqat xodimlar uchun</p>
             {err ? <div className="err">{err}</div> : null}
-            <label htmlFor="f-1">Admin kaliti (ADMIN_KEY)</label>
-            <input id="f-1"
-              type="password"
-              value={key}
-              onChange={function (e) { setKey(e.target.value); }}
-              placeholder="Kalitni kiriting"
-              autoComplete="current-password"
+            <label htmlFor="f-op">Ism (operator)</label>
+            <input
+              id="f-op"
+              type="text"
+              value={name}
+              onChange={function (e) { setName(e.target.value); }}
+              placeholder="Masalan: Dilshod"
+              autoComplete="name"
               autoFocus
             />
+            <label htmlFor="f-1">Admin kaliti (ADMIN_KEY)</label>
+            <div style={{ position: "relative", marginBottom: 14 }}>
+              <input
+                id="f-1"
+                type={showKey ? "text" : "password"}
+                value={key}
+                onChange={function (e) { setKey(e.target.value); }}
+                placeholder="Kalitni kiriting"
+                autoComplete="current-password"
+                style={{ marginBottom: 0, paddingRight: 44 }}
+              />
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                onClick={function () { setShowKey(function (v) { return !v; }); }}
+                style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)" }}
+                aria-label={showKey ? "Yashirish" : "Ko'rsatish"}
+              >
+                {showKey ? "Yashir" : "Ko'r"}
+              </button>
+            </div>
             <button className="btn" type="submit" disabled={busy}>
               {busy ? "Tekshirilmoqda..." : "Kirish"}
             </button>
@@ -347,11 +653,10 @@
     function ConfirmModal(props) {
       if (!props.open) return null;
       return (
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",
-          display:"flex",alignItems:"center",justifyContent:"center",zIndex:100}}>
-          <div className="card" style={{maxWidth:340,margin:0}}>
-            <p style={{marginBottom:14}}>{props.text}</p>
-            <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-card">
+            <p style={{ marginBottom: 14, fontSize: "0.9rem" }}>{props.text}</p>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button className="btn-ghost" type="button" onClick={props.onCancel}>Bekor</button>
               <button className="btn" type="button" onClick={props.onConfirm}>Tasdiqlash</button>
             </div>
@@ -446,23 +751,28 @@
           <div className="dash-kpis" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
             <div className="dash-kpi">
               <div className="label">Bugungi foyda</div>
-              <div className={"value" + (foyda < 0 ? " neg" : "")} style={{ fontSize: "1.15rem" }}>{money(foyda)}</div>
+              <div className={"value" + (foyda < 0 ? " neg" : "")}>{money(foyda)}</div>
+              <div className="trend">— bugungi</div>
             </div>
             <div className="dash-kpi">
               <div className="label">Bugungi savdo</div>
               <div className="value">{money(data.bugungi_savdo)}</div>
+              <div className="trend">— bugungi</div>
             </div>
             <div className="dash-kpi">
               <div className="label">Bugungi naqd</div>
               <div className="value">{money(data.bugungi_naqd_tushum)}</div>
+              <div className="trend">— tushum</div>
             </div>
             <div className="dash-kpi">
               <div className="label">Bugungi xarajat</div>
               <div className="value">{money(data.bugungi_xarajat)}</div>
+              <div className="trend">— chiqim</div>
             </div>
             <div className={"dash-kpi" + (Number(data.jami_qarz) > 3000000 ? " dash-kpi-danger" : "")}>
               <div className="label">Qarz</div>
-              <div className="value">{money(data.jami_qarz)}</div>
+              <div className={"value" + (Number(data.jami_qarz) > 3000000 ? " neg" : "")}>{money(data.jami_qarz)}</div>
+              <div className="trend">jami qarz</div>
             </div>
           </div>
 
@@ -492,7 +802,10 @@
             <div className="card tight">
               <h2>Tayyor mahsulot</h2>
               {skuStock.length === 0 ? (
-                <div className="empty" style={{ padding: 12 }}>Qoldiq yo‘q</div>
+                <div className="empty">
+                  <div className="empty-title">Tayyor mahsulot yo‘q</div>
+                  Qadoqlash bo‘limidan birinchi partiyani qadoqlang
+                </div>
               ) : (
                 <div className="table-wrap">
                 <table>
@@ -527,7 +840,10 @@
             <div className="card tight">
               <h2>Material</h2>
               {mats.length === 0 ? (
-                <div className="empty" style={{ padding: 12 }}>Yo‘q</div>
+                <div className="empty">
+                  <div className="empty-title">Material yo‘q</div>
+                  Katalog → Material dan qo‘shing
+                </div>
               ) : (
                 <div className="table-wrap">
                 <table>
@@ -555,7 +871,10 @@
           <div className="card tight" style={{ marginTop: 10 }}>
             <h2>Faol partiyalar</h2>
             {batches.length === 0 ? (
-              <div className="empty" style={{ padding: 12 }}>Faol partiya yo‘q</div>
+              <div className="empty">
+                <div className="empty-title">Faol partiya yo‘q</div>
+                Ishlab chiqarish → Partiya dan yangi partiya oching
+              </div>
             ) : (
               <div className="table-wrap">
               <table>
@@ -582,7 +901,10 @@
           <div className="card tight" style={{ marginTop: 10 }}>
             <h2>So‘nggi buyurtmalar</h2>
             {orders.length === 0 ? (
-              <div className="empty" style={{ padding: 12 }}>Buyurtma yo‘q</div>
+              <div className="empty">
+                <div className="empty-title">Buyurtma yo‘q</div>
+                Savdo → Buyurtma yoki mijoz ilovasidan keladi
+              </div>
             ) : (
               <div className="table-wrap">
               <table>
@@ -614,24 +936,31 @@
       const [materials, setMaterials] = useState([]);
       const [products, setProducts] = useState([]);
       const [err, setErr] = useState("");
+      const [loading, setLoading] = useState(true);
 
       useEffect(function () {
+        setLoading(true);
         Promise.all([api("/api/stock/materials"), api("/api/stock/products")])
           .then(function (arr) {
             setMaterials(arr[0].data || []);
             setProducts(arr[1].data || []);
           })
-          .catch(function (e) { setErr(e.message); });
+          .catch(function (e) { setErr(e.message); })
+          .finally(function () { setLoading(false); });
       }, [api]);
 
       if (err) return <div className="msg err">{err}</div>;
+      if (loading) return <div className="muted">Yuklanmoqda...</div>;
 
       return (
         <div>
           <div className="card">
             <h2>Material qoldiq</h2>
             {materials.length === 0 ? (
-              <div className="empty">Bosh</div>
+              <div className="empty">
+                <div className="empty-title">Material qoldiq yo‘q</div>
+                Katalog → Material dan qo‘shing
+              </div>
             ) : (
               <div className="table-wrap"><table>
                 <thead>
@@ -783,19 +1112,19 @@
               <div className="form-row">
                 <div>
                   <label htmlFor="f-2">SKU</label>
-                  <input id="f-2" value={form.sku} onChange={function (e) { setForm(Object.assign({}, form, { sku: e.target.value })); }} required />
+                  <input id="f-2" value={form.sku} onChange={function (e) { setForm({ ...form, sku: e.target.value }); }} required />
                 </div>
                 <div>
                   <label htmlFor="f-3">Ogirlik (kg)</label>
-                  <input id="f-3" type="number" step="0.1" value={form.weight_kg} onChange={function (e) { setForm(Object.assign({}, form, { weight_kg: e.target.value })); }} />
+                  <input id="f-3" type="number" step="0.1" value={form.weight_kg} onChange={function (e) { setForm({ ...form, weight_kg: e.target.value }); }} />
                 </div>
                 <div>
                   <label htmlFor="f-4">Narx</label>
-                  <input id="f-4" type="number" value={form.price} onChange={function (e) { setForm(Object.assign({}, form, { price: e.target.value })); }} />
+                  <input id="f-4" type="number" value={form.price} onChange={function (e) { setForm({ ...form, price: e.target.value }); }} />
                 </div>
                 <div>
                   <label htmlFor="f-5">Tavsif</label>
-                  <input id="f-5" value={form.description} onChange={function (e) { setForm(Object.assign({}, form, { description: e.target.value })); }} />
+                  <input id="f-5" value={form.description} onChange={function (e) { setForm({ ...form, description: e.target.value }); }} />
                 </div>
               </div>
               <button className="btn" type="submit">Qoshish</button>
@@ -809,23 +1138,23 @@
                 <div className="form-row">
                   <div>
                     <label htmlFor="f-6">SKU</label>
-                    <input id="f-6" value={editForm.sku} onChange={function (e) { setEditForm(Object.assign({}, editForm, { sku: e.target.value })); }} required />
+                    <input id="f-6" value={editForm.sku} onChange={function (e) { setEditForm({ ...editForm, sku: e.target.value }); }} required />
                   </div>
                   <div>
                     <label htmlFor="f-7">Ogirlik (kg)</label>
-                    <input id="f-7" type="number" step="0.1" value={editForm.weight_kg} onChange={function (e) { setEditForm(Object.assign({}, editForm, { weight_kg: e.target.value })); }} />
+                    <input id="f-7" type="number" step="0.1" value={editForm.weight_kg} onChange={function (e) { setEditForm({ ...editForm, weight_kg: e.target.value }); }} />
                   </div>
                   <div>
                     <label htmlFor="f-8">Narx</label>
-                    <input id="f-8" type="number" value={editForm.price} onChange={function (e) { setEditForm(Object.assign({}, editForm, { price: e.target.value })); }} />
+                    <input id="f-8" type="number" value={editForm.price} onChange={function (e) { setEditForm({ ...editForm, price: e.target.value }); }} />
                   </div>
                   <div>
                     <label htmlFor="f-9">Tavsif</label>
-                    <input id="f-9" value={editForm.description} onChange={function (e) { setEditForm(Object.assign({}, editForm, { description: e.target.value })); }} />
+                    <input id="f-9" value={editForm.description} onChange={function (e) { setEditForm({ ...editForm, description: e.target.value }); }} />
                   </div>
                   <div>
                     <label htmlFor="f-10">Holat</label>
-                    <select id="f-10" value={editForm.is_active ? "1" : "0"} onChange={function (e) { setEditForm(Object.assign({}, editForm, { is_active: e.target.value === "1" })); }}>
+                    <select id="f-10" value={editForm.is_active ? "1" : "0"} onChange={function (e) { setEditForm({ ...editForm, is_active: e.target.value === "1" }); }}>
                       <option value="1">Faol</option>
                       <option value="0">Nofaol</option>
                     </select>
@@ -938,19 +1267,19 @@
               <div className="form-row">
                 <div>
                   <label htmlFor="f-11">Nomi</label>
-                  <input id="f-11" value={form.name} onChange={function (e) { setForm(Object.assign({}, form, { name: e.target.value })); }} required />
+                  <input id="f-11" value={form.name} onChange={function (e) { setForm({ ...form, name: e.target.value }); }} required />
                 </div>
                 <div>
                   <label htmlFor="f-12">Birlik</label>
-                  <input id="f-12" value={form.unit} onChange={function (e) { setForm(Object.assign({}, form, { unit: e.target.value })); }} />
+                  <input id="f-12" value={form.unit} onChange={function (e) { setForm({ ...form, unit: e.target.value }); }} />
                 </div>
                 <div>
                   <label htmlFor="f-13">Narx</label>
-                  <input id="f-13" type="number" value={form.price} onChange={function (e) { setForm(Object.assign({}, form, { price: e.target.value })); }} />
+                  <input id="f-13" type="number" value={form.price} onChange={function (e) { setForm({ ...form, price: e.target.value }); }} />
                 </div>
                 <div>
                   <label htmlFor="f-14">Boshlangich zaxira</label>
-                  <input id="f-14" type="number" value={form.initial_stock} onChange={function (e) { setForm(Object.assign({}, form, { initial_stock: e.target.value })); }} />
+                  <input id="f-14" type="number" value={form.initial_stock} onChange={function (e) { setForm({ ...form, initial_stock: e.target.value }); }} />
                 </div>
               </div>
               <button className="btn" type="submit">Qoshish</button>
@@ -962,7 +1291,7 @@
               <div className="form-row">
                 <div>
                   <label htmlFor="f-15">Material</label>
-                  <select id="f-15" value={mov.material_id} onChange={function (e) { setMov(Object.assign({}, mov, { material_id: e.target.value })); }} required>
+                  <select id="f-15" value={mov.material_id} onChange={function (e) { setMov({ ...mov, material_id: e.target.value }); }} required>
                     <option value="">Tanlang</option>
                     {list.filter(function (m) { return m.is_active; }).map(function (m) {
                       return <option key={m.id} value={m.id}>{m.name}</option>;
@@ -971,15 +1300,15 @@
                 </div>
                 <div>
                   <label htmlFor="f-16">Miqdor</label>
-                  <input id="f-16" type="number" step="0.01" value={mov.qty} onChange={function (e) { setMov(Object.assign({}, mov, { qty: e.target.value })); }} required />
+                  <input id="f-16" type="number" step="0.01" value={mov.qty} onChange={function (e) { setMov({ ...mov, qty: e.target.value }); }} required />
                 </div>
                 <div>
                   <label htmlFor="f-17">Birlik narx</label>
-                  <input id="f-17" type="number" value={mov.unit_price} onChange={function (e) { setMov(Object.assign({}, mov, { unit_price: e.target.value })); }} />
+                  <input id="f-17" type="number" value={mov.unit_price} onChange={function (e) { setMov({ ...mov, unit_price: e.target.value }); }} />
                 </div>
                 <div>
                   <label htmlFor="f-18">Izoh</label>
-                  <input id="f-18" value={mov.note} onChange={function (e) { setMov(Object.assign({}, mov, { note: e.target.value })); }} />
+                  <input id="f-18" value={mov.note} onChange={function (e) { setMov({ ...mov, note: e.target.value }); }} />
                 </div>
               </div>
               <button className="btn" type="submit">Kirim qilish</button>
@@ -1057,27 +1386,27 @@
               <div className="form-row-3">
                 <div>
                   <label htmlFor="f-19">Qop soni *</label>
-                  <input id="f-19" type="number" value={form.bags_count} onChange={function (e) { setForm(Object.assign({}, form, { bags_count: e.target.value })); }} required />
+                  <input id="f-19" type="number" value={form.bags_count} onChange={function (e) { setForm({ ...form, bags_count: e.target.value }); }} required />
                 </div>
                 <div>
                   <label htmlFor="f-20">1 qop narxi *</label>
-                  <input id="f-20" type="number" value={form.bag_price} onChange={function (e) { setForm(Object.assign({}, form, { bag_price: e.target.value })); }} required />
+                  <input id="f-20" type="number" value={form.bag_price} onChange={function (e) { setForm({ ...form, bag_price: e.target.value }); }} required />
                 </div>
                 <div>
                   <label htmlFor="f-21">Quruq kg *</label>
-                  <input id="f-21" type="number" step="0.1" value={form.dry_kg} onChange={function (e) { setForm(Object.assign({}, form, { dry_kg: e.target.value })); }} required />
+                  <input id="f-21" type="number" step="0.1" value={form.dry_kg} onChange={function (e) { setForm({ ...form, dry_kg: e.target.value }); }} required />
                 </div>
                 <div>
                   <label htmlFor="f-22">Ishchilar</label>
-                  <input id="f-22" type="number" value={form.workers_count} onChange={function (e) { setForm(Object.assign({}, form, { workers_count: e.target.value })); }} />
+                  <input id="f-22" type="number" value={form.workers_count} onChange={function (e) { setForm({ ...form, workers_count: e.target.value }); }} />
                 </div>
                 <div>
                   <label htmlFor="f-23">Press ish haqi</label>
-                  <input id="f-23" type="number" value={form.press_wage} onChange={function (e) { setForm(Object.assign({}, form, { press_wage: e.target.value })); }} />
+                  <input id="f-23" type="number" value={form.press_wage} onChange={function (e) { setForm({ ...form, press_wage: e.target.value }); }} />
                 </div>
                 <div>
                   <label htmlFor="f-24">Izoh</label>
-                  <input id="f-24" value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
+                  <input id="f-24" value={form.note} onChange={function (e) { setForm({ ...form, note: e.target.value }); }} />
                 </div>
               </div>
               <button className="btn" type="submit">Partiya yaratish</button>
@@ -1115,6 +1444,7 @@
     // ---------- Packaging ----------
     function Packaging(props) {
       const api = props.api;
+      const PAGE = 40;
       const [list, setList] = useState([]);
       const [products, setProducts] = useState([]);
       const [batches, setBatches] = useState([]);
@@ -1122,22 +1452,47 @@
         product_id: "", qty: "", unit_wage: "700", workers_count: "1", batch_id: ""
       });
       const [msg, setMsg] = useAutoMsg();
+      const [loading, setLoading] = useState(true);
+      const [loadingMore, setLoadingMore] = useState(false);
+      const [offset, setOffset] = useState(0);
+      const [hasMore, setHasMore] = useState(true);
 
       const load = useCallback(function () {
+        setLoading(true);
+        setOffset(0);
         Promise.all([
-          api("/api/packaging?limit=40"),
+          api("/api/packaging?limit=" + PAGE + "&offset=0"),
           api("/api/products"),
           api("/api/batches?status=active")
         ])
           .then(function (arr) {
-            setList(arr[0].data || []);
+            const rows = arr[0].data || [];
+            setList(rows);
+            setHasMore(rows.length >= PAGE);
             setProducts(arr[1].data || []);
             setBatches(arr[2].data || []);
           })
-          .catch(function (e) { setMsg({ text: e.message, type: "err" }); });
+          .catch(function (e) { setMsg({ text: e.message, type: "err" }); })
+          .finally(function () { setLoading(false); });
       }, [api]);
 
       useEffect(function () { load(); }, [load]);
+
+      async function loadMore() {
+        if (loadingMore || !hasMore) return;
+        setLoadingMore(true);
+        const next = offset + PAGE;
+        try {
+          const r = await api("/api/packaging?limit=" + PAGE + "&offset=" + next);
+          const rows = r.data || [];
+          setList(function (prev) { return prev.concat(rows); });
+          setOffset(next);
+          setHasMore(rows.length >= PAGE);
+        } catch (e) {
+          setMsg({ text: e.message, type: "err" });
+        }
+        setLoadingMore(false);
+      }
 
       async function submit(e) {
         e.preventDefault();
@@ -1153,7 +1508,7 @@
             })
           });
           setMsg({ text: "Qadoqlandi", type: "ok" });
-          setForm(Object.assign({}, form, { qty: "" }));
+          setForm({ ...form, qty: "" });
           load();
         } catch (err) {
           setMsg({ text: err.message, type: "err" });
@@ -1169,7 +1524,7 @@
               <div className="form-row">
                 <div>
                   <label htmlFor="f-25">Mahsulot *</label>
-                  <select id="f-25" value={form.product_id} onChange={function (e) { setForm(Object.assign({}, form, { product_id: e.target.value })); }} required>
+                  <select id="f-25" value={form.product_id} onChange={function (e) { setForm({ ...form, product_id: e.target.value }); }} required>
                     <option value="">Tanlang</option>
                     {products.map(function (p) {
                       return <option key={p.id} value={p.id}>{p.sku} ({p.weight_kg} kg)</option>;
@@ -1178,19 +1533,19 @@
                 </div>
                 <div>
                   <label htmlFor="f-26">Dona *</label>
-                  <input id="f-26" type="number" value={form.qty} onChange={function (e) { setForm(Object.assign({}, form, { qty: e.target.value })); }} required />
+                  <input id="f-26" type="number" value={form.qty} onChange={function (e) { setForm({ ...form, qty: e.target.value }); }} required />
                 </div>
                 <div>
                   <label htmlFor="f-27">1 dona ish haqi</label>
-                  <input id="f-27" type="number" value={form.unit_wage} onChange={function (e) { setForm(Object.assign({}, form, { unit_wage: e.target.value })); }} />
+                  <input id="f-27" type="number" value={form.unit_wage} onChange={function (e) { setForm({ ...form, unit_wage: e.target.value }); }} />
                 </div>
                 <div>
                   <label htmlFor="f-28">Ishchilar</label>
-                  <input id="f-28" type="number" value={form.workers_count} onChange={function (e) { setForm(Object.assign({}, form, { workers_count: e.target.value })); }} />
+                  <input id="f-28" type="number" value={form.workers_count} onChange={function (e) { setForm({ ...form, workers_count: e.target.value }); }} />
                 </div>
                 <div>
                   <label htmlFor="f-29">Partiya (bosh = FIFO)</label>
-                  <select id="f-29" value={form.batch_id} onChange={function (e) { setForm(Object.assign({}, form, { batch_id: e.target.value })); }}>
+                  <select id="f-29" value={form.batch_id} onChange={function (e) { setForm({ ...form, batch_id: e.target.value }); }}>
                     <option value="">Avto (FIFO)</option>
                     {batches.map(function (b) {
                       return <option key={b.id} value={b.id}>{b.batch_code} - {b.remaining_kg} kg</option>;
@@ -1203,24 +1558,35 @@
           </div>
           <div className="card">
             <h2>Songgi qadoqlar</h2>
-            <div className="table-wrap"><table>
-              <thead>
-                <tr><th>SKU</th><th>Dona</th><th>kg</th><th>Partiya</th><th>Ish haqi</th></tr>
-              </thead>
-              <tbody>
-                {list.map(function (p) {
-                  return (
-                    <tr key={p.id}>
-                      <td>{p.sku}</td>
-                      <td>{p.qty}</td>
-                      <td>{p.kg}</td>
-                      <td>{p.batch_code || "-"}</td>
-                      <td>{money(p.total_wage)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table></div>
+            {loading ? (
+              <div className="muted">Yuklanmoqda...</div>
+            ) : (
+              <div className="table-wrap"><table>
+                <thead>
+                  <tr><th>SKU</th><th>Dona</th><th>kg</th><th>Partiya</th><th>Ish haqi</th></tr>
+                </thead>
+                <tbody>
+                  {list.map(function (p) {
+                    return (
+                      <tr key={p.id}>
+                        <td>{p.sku}</td>
+                        <td>{p.qty}</td>
+                        <td>{p.kg}</td>
+                        <td>{p.batch_code || "-"}</td>
+                        <td>{money(p.total_wage)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table></div>
+            )}
+            {!loading && hasMore ? (
+              <div style={{ marginTop: 12, textAlign: "center" }}>
+                <button type="button" className="btn-ghost" disabled={loadingMore} onClick={loadMore}>
+                  {loadingMore ? "Yuklanmoqda..." : "Yana yuklash"}
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       );
@@ -1270,19 +1636,19 @@
               <div className="form-row">
                 <div>
                   <label htmlFor="f-30">Ism *</label>
-                  <input id="f-30" value={form.name} onChange={function (e) { setForm(Object.assign({}, form, { name: e.target.value })); }} required />
+                  <input id="f-30" value={form.name} onChange={function (e) { setForm({ ...form, name: e.target.value }); }} required />
                 </div>
                 <div>
                   <label htmlFor="f-31">Telefon</label>
-                  <input id="f-31" value={form.phone} onChange={function (e) { setForm(Object.assign({}, form, { phone: e.target.value })); }} />
+                  <input id="f-31" value={form.phone} onChange={function (e) { setForm({ ...form, phone: e.target.value }); }} />
                 </div>
                 <div>
                   <label htmlFor="f-32">Manzil</label>
-                  <input id="f-32" value={form.address} onChange={function (e) { setForm(Object.assign({}, form, { address: e.target.value })); }} />
+                  <input id="f-32" value={form.address} onChange={function (e) { setForm({ ...form, address: e.target.value }); }} />
                 </div>
                 <div>
                   <label htmlFor="f-33">Kredit limiti</label>
-                  <input id="f-33" type="number" value={form.credit_limit} onChange={function (e) { setForm(Object.assign({}, form, { credit_limit: e.target.value })); }} />
+                  <input id="f-33" type="number" value={form.credit_limit} onChange={function (e) { setForm({ ...form, credit_limit: e.target.value }); }} />
                 </div>
               </div>
               <button className="btn" type="submit">Qoshish</button>
@@ -1450,15 +1816,15 @@
                 </div>
                 <div>
                   <label htmlFor="f-35">Ism *</label>
-                  <input id="f-35" value={form.customer_name} onChange={function (e) { setForm(Object.assign({}, form, { customer_name: e.target.value })); }} required />
+                  <input id="f-35" value={form.customer_name} onChange={function (e) { setForm({ ...form, customer_name: e.target.value }); }} required />
                 </div>
                 <div>
                   <label htmlFor="f-36">Telefon</label>
-                  <input id="f-36" value={form.phone} onChange={function (e) { setForm(Object.assign({}, form, { phone: e.target.value })); }} />
+                  <input id="f-36" value={form.phone} onChange={function (e) { setForm({ ...form, phone: e.target.value }); }} />
                 </div>
                 <div>
                   <label htmlFor="f-37">Tolangan</label>
-                  <input id="f-37" type="number" value={form.paid_amount} onChange={function (e) { setForm(Object.assign({}, form, { paid_amount: e.target.value })); }} />
+                  <input id="f-37" type="number" value={form.paid_amount} onChange={function (e) { setForm({ ...form, paid_amount: e.target.value }); }} />
                 </div>
               </div>
               <div className="line-items">
@@ -1512,7 +1878,7 @@
               </div>
               <div>
                 <label htmlFor="f-41">Izoh</label>
-                <input id="f-41" value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
+                <input id="f-41" value={form.note} onChange={function (e) { setForm({ ...form, note: e.target.value }); }} />
               </div>
               <button className="btn" type="submit">Buyurtma yaratish</button>
             </form>
@@ -1697,7 +2063,7 @@
                   <select id="f-42"
                     value={form.customer_id}
                     onChange={function (e) {
-                      setForm(Object.assign({}, form, { customer_id: e.target.value, order_id: "" }));
+                      setForm({ ...form, customer_id: e.target.value, order_id: "" });
                     }}
                   >
                     <option value="">-</option>
@@ -1708,7 +2074,7 @@
                 </div>
                 <div>
                   <label htmlFor="f-43">Buyurtma (ixtiyoriy)</label>
-                  <select id="f-43" value={form.order_id} onChange={function (e) { setForm(Object.assign({}, form, { order_id: e.target.value })); }}>
+                  <select id="f-43" value={form.order_id} onChange={function (e) { setForm({ ...form, order_id: e.target.value }); }}>
                     <option value="">Barcha qarzlarga (FIFO)</option>
                     {orders
                       .filter(function (o) {
@@ -1725,11 +2091,11 @@
                 </div>
                 <div>
                   <label htmlFor="f-44">Summa *</label>
-                  <input id="f-44" type="number" value={form.amount} onChange={function (e) { setForm(Object.assign({}, form, { amount: e.target.value })); }} required />
+                  <input id="f-44" type="number" value={form.amount} onChange={function (e) { setForm({ ...form, amount: e.target.value }); }} required />
                 </div>
                 <div>
                   <label htmlFor="f-45">Usul</label>
-                  <select id="f-45" value={form.method} onChange={function (e) { setForm(Object.assign({}, form, { method: e.target.value })); }}>
+                  <select id="f-45" value={form.method} onChange={function (e) { setForm({ ...form, method: e.target.value }); }}>
                     <option value="cash">Naqd</option>
                     <option value="card">Karta</option>
                     <option value="transfer">Otkazma</option>
@@ -1737,7 +2103,7 @@
                 </div>
                 <div>
                   <label htmlFor="f-46">Izoh</label>
-                  <input id="f-46" value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
+                  <input id="f-46" value={form.note} onChange={function (e) { setForm({ ...form, note: e.target.value }); }} />
                 </div>
               </div>
               <button className="btn" type="submit">Tolov qabul qilish</button>
@@ -1813,18 +2179,18 @@
               <div className="form-row">
                 <div>
                   <label htmlFor="f-47">Kategoriya *</label>
-                  <input id="f-47" list="exp-cats" value={form.category} onChange={function (e) { setForm(Object.assign({}, form, { category: e.target.value })); }} required />
+                  <input id="f-47" list="exp-cats" value={form.category} onChange={function (e) { setForm({ ...form, category: e.target.value }); }} required />
                   <datalist id="exp-cats">
                     {cats.map(function (c) { return <option key={c} value={c} />; })}
                   </datalist>
                 </div>
                 <div>
                   <label htmlFor="f-48">Summa *</label>
-                  <input id="f-48" type="number" value={form.amount} onChange={function (e) { setForm(Object.assign({}, form, { amount: e.target.value })); }} required />
+                  <input id="f-48" type="number" value={form.amount} onChange={function (e) { setForm({ ...form, amount: e.target.value }); }} required />
                 </div>
                 <div>
                   <label htmlFor="f-49">Usul</label>
-                  <select id="f-49" value={form.payment_method} onChange={function (e) { setForm(Object.assign({}, form, { payment_method: e.target.value })); }}>
+                  <select id="f-49" value={form.payment_method} onChange={function (e) { setForm({ ...form, payment_method: e.target.value }); }}>
                     <option value="cash">Naqd</option>
                     <option value="card">Karta</option>
                     <option value="transfer">Otkazma</option>
@@ -1832,7 +2198,7 @@
                 </div>
                 <div>
                   <label htmlFor="f-50">Izoh</label>
-                  <input id="f-50" value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
+                  <input id="f-50" value={form.note} onChange={function (e) { setForm({ ...form, note: e.target.value }); }} />
                 </div>
               </div>
               <button className="btn" type="submit">Saqlash</button>
@@ -1871,14 +2237,78 @@
       const adminKey = apiHook.adminKey;
       const saveSettings = apiHook.saveSettings;
       const logout = apiHook.logout;
+      const operatorName = apiHook.operatorName || "";
 
       if (!adminKey) {
         return (
           <LoginScreen
             apiBase={apiBase}
-            onLogin={function (k) { saveSettings(apiBase || window.location.origin, k); }}
+            onLogin={function (k, opName) {
+              saveSettings(apiBase || window.location.origin, k, opName || "");
+            }}
           />
         );
+      }
+
+      // Lucide-style line icons (inline SVG)
+      function NavIcon(props) {
+        const n = props.name;
+        const common = {
+          viewBox: "0 0 24 24",
+          fill: "none",
+          stroke: "currentColor",
+          strokeWidth: 1.75,
+          strokeLinecap: "round",
+          strokeLinejoin: "round",
+          "aria-hidden": true
+        };
+        if (n === "layout") {
+          return (
+            <svg {...common}>
+              <rect x="3" y="3" width="7" height="9" rx="1" />
+              <rect x="14" y="3" width="7" height="5" rx="1" />
+              <rect x="14" y="12" width="7" height="9" rx="1" />
+              <rect x="3" y="16" width="7" height="5" rx="1" />
+            </svg>
+          );
+        }
+        if (n === "factory") {
+          return (
+            <svg {...common}>
+              <path d="M3 21h18" />
+              <path d="M5 21V10l4 3V10l4 3V7l4 3v11" />
+            </svg>
+          );
+        }
+        if (n === "cart") {
+          return (
+            <svg {...common}>
+              <circle cx="9" cy="20" r="1" />
+              <circle cx="17" cy="20" r="1" />
+              <path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H7" />
+            </svg>
+          );
+        }
+        if (n === "users") {
+          return (
+            <svg {...common}>
+              <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+              <circle cx="9.5" cy="7" r="3" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a3 3 0 0 1 0 5.74" />
+            </svg>
+          );
+        }
+        if (n === "catalog") {
+          return (
+            <svg {...common}>
+              <path d="M4 6h16" />
+              <path d="M4 12h16" />
+              <path d="M4 18h10" />
+            </svg>
+          );
+        }
+        return null;
       }
 
       const modules = [
@@ -1886,14 +2316,14 @@
           id: "boshqaruv",
           label: "Boshqaruv",
           short: "Bosh",
-          ico: "BD",
+          ico: "layout",
           tabs: [{ id: "dashboard", label: "Dashboard" }]
         },
         {
           id: "ishlab",
           label: "Ishlab chiqarish",
           short: "Ishlab",
-          ico: "IC",
+          ico: "factory",
           tabs: [
             { id: "batches", label: "Partiya" },
             { id: "packaging", label: "Qadoq" },
@@ -1904,7 +2334,7 @@
           id: "savdo",
           label: "Savdo",
           short: "Savdo",
-          ico: "SV",
+          ico: "cart",
           tabs: [
             { id: "orders", label: "Buyurtma" },
             { id: "payments", label: "Tolov" },
@@ -1915,14 +2345,14 @@
           id: "hamkor",
           label: "Hamkorlar",
           short: "Hamkor",
-          ico: "HM",
+          ico: "users",
           tabs: [{ id: "customers", label: "Mijoz" }]
         },
         {
           id: "katalog",
           label: "Katalog",
           short: "Katalog",
-          ico: "KT",
+          ico: "catalog",
           tabs: [
             { id: "products", label: "SKU" },
             { id: "materials", label: "Material" },
@@ -1935,6 +2365,8 @@
       const [tab, setTab] = useState("dashboard");
       const [tmpApi, setTmpApi] = useState(apiBase);
       const [tmpKey, setTmpKey] = useState(adminKey);
+      const [tmpOp, setTmpOp] = useState(operatorName);
+      const [showTmpKey, setShowTmpKey] = useState(false);
 
       const currentModule = modules.find(function (m) { return m.id === moduleId; }) || modules[0];
 
@@ -1971,21 +2403,49 @@
               </div>
               <div>
                 <label htmlFor="f-52">Admin key</label>
-                <input id="f-52" value={tmpKey} onChange={function (e) { setTmpKey(e.target.value); }} placeholder="ADMIN_KEY" />
+                <div style={{ position: "relative" }}>
+                  <input
+                    id="f-52"
+                    type={showTmpKey ? "text" : "password"}
+                    value={tmpKey}
+                    onChange={function (e) { setTmpKey(e.target.value); }}
+                    placeholder="ADMIN_KEY"
+                    autoComplete="off"
+                    style={{ paddingRight: 72, marginBottom: 0 }}
+                  />
+                  <button
+                    type="button"
+                    className="btn-ghost btn-sm"
+                    style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)" }}
+                    onClick={function () { setShowTmpKey(function (v) { return !v; }); }}
+                  >
+                    {showTmpKey ? "Yashir" : "Ko'r"}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label htmlFor="f-53">Operator ismi</label>
+                <input
+                  id="f-53"
+                  value={tmpOp}
+                  onChange={function (e) { setTmpOp(e.target.value); }}
+                  placeholder="Ism"
+                />
               </div>
               <button
                 className="btn"
                 type="button"
                 onClick={function () {
-                  saveSettings(tmpApi, tmpKey);
-                  alert("Saqlandi. Sahifani yangilang.");
+                  saveSettings(tmpApi, tmpKey, tmpOp);
+                  alert("Saqlandi. Sessiya 12 soat amal qiladi.");
                 }}
               >
                 Saqlash
               </button>
             </div>
             <p className="muted" style={{ marginTop: 10 }}>
-              API: {apiBase || "(bo'sh)"}
+              API: {apiBase || "(bo'sh)"} · Operator: {operatorName || "—"} · Kalit localStorage da, 12 soatdan keyin eskiradi.
+              Ideal: httpOnly cookie + server session (backend).
             </p>
           </div>
         );
@@ -1994,14 +2454,14 @@
       return (
         <div className="shell">
           <aside className="sidebar">
-            <div>
-              <div style={{display:"flex",alignItems:"center"}}>
-              <img src="/bd_logo.jpg" alt="Black Diamond" style={{width:32,height:32,borderRadius:6,objectFit:"cover",marginRight:8}} />
-              <div><div className="brand-kicker">Black Diamond</div>
-              <div className="brand-title">Briket ERP</div></div>
+            <div className="brand-row">
+              <img src="/bd_logo.jpg" alt="" width={32} height={32} style={{ borderRadius: 6, objectFit: "cover" }} />
+              <div>
+                <div className="brand-kicker">Black Diamond</div>
+                <div className="brand-title">Briket ERP</div>
+              </div>
             </div>
-            </div>
-            <nav className="side-nav">
+            <nav className="side-nav" aria-label="Asosiy bo'limlar">
               {modules.map(function (m) {
                 return (
                   <button
@@ -2009,13 +2469,17 @@
                     type="button"
                     className={moduleId === m.id ? "active" : ""}
                     onClick={function () { openModule(m.id); }}
+                    aria-current={moduleId === m.id ? "page" : undefined}
                   >
+                    <span className="nav-ico"><NavIcon name={m.ico} /></span>
                     {m.label}
                   </button>
                 );
               })}
             </nav>
-            <p className="muted" style={{ fontSize: "0.7rem", marginTop: 12 }}>Operator paneli</p>
+            <p className="muted" style={{ fontSize: "0.7rem", marginTop: 12, paddingLeft: 8 }}>
+              {operatorName ? ("Operator: " + operatorName) : "Operator paneli"}
+            </p>
             <button type="button" className="logout-btn" onClick={logout}>Chiqish</button>
           </aside>
 
@@ -2045,7 +2509,7 @@
             {content}
           </div>
 
-          <nav className="bottom-nav">
+          <nav className="bottom-nav" aria-label="Mobil menyu">
             {modules.map(function (m) {
               return (
                 <button
@@ -2053,8 +2517,9 @@
                   type="button"
                   className={moduleId === m.id ? "active" : ""}
                   onClick={function () { openModule(m.id); }}
+                  aria-current={moduleId === m.id ? "page" : undefined}
                 >
-                  <span className="ico">{m.ico}</span>
+                  <span className="nav-ico"><NavIcon name={m.ico} /></span>
                   {m.short}
                 </button>
               );

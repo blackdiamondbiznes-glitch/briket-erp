@@ -130,7 +130,14 @@ app.delete('/api/batches/:id', async (req, res) => {
 app.get('/api/packaging', async (req, res) => {
   try {
     const limit = Math.min(num(req.query.limit, 50), 200);
-    const r = await pool.query(`SELECT p.*, pr.sku, b.batch_code FROM packaging p LEFT JOIN products pr ON pr.id = p.product_id LEFT JOIN batches b ON b.id = p.batch_id ORDER BY p.id DESC LIMIT $1`, [limit]);
+    const offset = Math.max(0, num(req.query.offset, 0));
+    const r = await pool.query(
+      `SELECT p.*, pr.sku, b.batch_code FROM packaging p
+       LEFT JOIN products pr ON pr.id = p.product_id
+       LEFT JOIN batches b ON b.id = p.batch_id
+       ORDER BY p.id DESC LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
     res.json({ ok: true, count: r.rows.length, data: r.rows });
   } catch (err) { sendError(res, err); }
 });
