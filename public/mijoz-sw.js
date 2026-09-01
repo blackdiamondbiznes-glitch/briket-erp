@@ -1,5 +1,6 @@
-const CACHE = "bd-mijoz-v1";
-const ASSETS = ["/mijoz", "/mijoz-manifest.webmanifest", "/mijoz-icon.svg"];
+// Har deploy'da versiyani oshiring
+const CACHE = "bd-mijoz-v2";
+const ASSETS = ["/mijoz", "/mijoz-manifest.webmanifest", "/mijoz-icon.svg", "/bd_logo.jpg"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
@@ -8,7 +9,11 @@ self.addEventListener("install", (e) => {
 });
 
 self.addEventListener("activate", (e) => {
-  e.waitUntil(self.clients.claim());
+  e.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener("fetch", (e) => {
