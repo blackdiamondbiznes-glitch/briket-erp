@@ -232,9 +232,20 @@
     }
     .dash-kpis {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
       margin-bottom: 12px;
+    }
+    .dash-kpis.cols-5 {
+      grid-template-columns: 1fr 1fr;
+    }
+    @media (min-width: 720px) {
+      .dash-kpis { grid-template-columns: repeat(4, 1fr); gap: 10px; }
+      .dash-kpis.cols-5 { grid-template-columns: repeat(5, 1fr); }
+    }
+    @media (max-width: 380px) {
+      .dash-kpis, .dash-kpis.cols-5 { grid-template-columns: 1fr; }
+      .dash-kpi .value { font-size: 1.05rem; }
     }
     .dash-kpi-danger {
       border-color: rgba(229, 72, 77, 0.45);
@@ -263,8 +274,19 @@
     }
     .neg::before { content: "↓ "; font-weight: 600; opacity: 0.9; }
     @media (max-width: 700px) {
-      .dash-kpis { grid-template-columns: 1fr 1fr; }
       .dash-grid { grid-template-columns: 1fr; }
+      .main { padding-left: 12px; padding-right: 12px; overflow-x: hidden; }
+      .dash-kpi { padding: 10px 12px; min-width: 0; }
+      .dash-kpi .value {
+        font-size: 1.05rem;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      .dash-meta {
+        gap: 6px 10px;
+        font-size: 0.7rem;
+      }
+      .table-wrap { margin: 0 -4px; }
     }
 
     /* Tables — dense enterprise */
@@ -748,7 +770,7 @@
             </div>
           </div>
 
-          <div className="dash-kpis" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
+          <div className="dash-kpis cols-5">
             <div className="dash-kpi">
               <div className="label">Bugungi foyda</div>
               <div className={"value" + (foyda < 0 ? " neg" : "")}>{money(foyda)}</div>
@@ -776,7 +798,7 @@
             </div>
           </div>
 
-          <div className="dash-meta muted" style={{ display: "flex", flexWrap: "wrap", gap: "10px 16px", fontSize: "0.75rem", margin: "8px 0 12px" }}>
+          <div className="dash-meta">
             <span>Oy savdo: <strong>{money(data.oylik_savdo || 0)}</strong></span>
             <span>Oy foyda: <strong>{money(data.oylik_foyda || 0)}</strong></span>
             <span>Oy naqd: <strong>{money(data.oylik_naqd_tushum || 0)}</strong></span>
