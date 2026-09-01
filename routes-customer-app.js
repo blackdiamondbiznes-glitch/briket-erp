@@ -10,6 +10,7 @@ const crypto = require('crypto');
 module.exports = function registerCustomerApp(app, pool, helpers) {
   const num = helpers.num;
   const sendError = helpers.sendError;
+  const SOLD_STATUSES_SQL = helpers.SOLD_STATUSES.map(function (s) { return "'" + s + "'"; }).join(',');
 
   function validateTelegramInitData(initData, botToken) {
     if (!initData || !botToken) return null;
@@ -136,7 +137,7 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
   });
 
   // Sotilgan holatlar — pending zaxiraga ta'sir qilmaydi (routes-stock bilan bir xil)
-  const SOLD_STATUSES = `('confirmed', 'paid', 'partial', 'closed')`;
+  const SOLD_STATUSES = `(${SOLD_STATUSES_SQL})`;
 
   app.get('/api/customer/catalog', async (req, res) => {
     try {
@@ -152,7 +153,7 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
           SELECT oi.product_id, SUM(oi.qty) AS sold_qty
           FROM order_items oi
           JOIN orders o ON o.id = oi.order_id
-          WHERE o.status IN ${SOLD_STATUSES}
+          WHERE o.status IN (${SOLD_STATUSES_SQL})
           GROUP BY oi.product_id
         ) sold ON sold.product_id = p.id
         WHERE p.is_active = true
@@ -250,7 +251,7 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
         const dr = await client.query(
           `SELECT COALESCE(SUM(debt_amount), 0) AS total FROM orders
            WHERE customer_id = $1 AND debt_amount > 0
-             AND status IN ('confirmed','paid','partial','closed')`,
+             AND status IN (${SOLD_STATUSES_SQL})`,
           [customer.id]
         );
         const existing = num(dr.rows[0].total);
@@ -262,11 +263,12 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
         }
       }
 
+      const seqR = await client.query("SELECT nextval(pg_get_serial_sequence('orders','id')) AS seq");
       const code =
         'TG-' +
-        new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14) +
+        new Date().toISOString().slice(0, 10).replace(/-/g, '') +
         '-' +
-        Math.floor(10 + Math.random() * 90);
+        String(seqR.rows[0].seq).padStart(6, '0');
 
       await client.query('BEGIN');
       let ord;

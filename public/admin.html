@@ -10,8 +10,19 @@
   <script src="https://unpkg.com/@babel/standalone@7.26.0/babel.min.js"></script>
   <style>
     :root {
-      --bg: #0f1115; --card: #1a1d24; --border: #2a2f3a;
-      --text: #e8eaed; --muted: #9aa0a6; --accent: #c9a227;
+      --bg: #0a0a0b;
+      --bg-elevated: #141517;
+      --card: #1a1b1e;
+      --border: #2a2b2e;
+      --text: #eceef0;
+      --muted: #9a9ba0;
+      --accent: #e8541f;
+      --accent-hover: #ff6b35;
+      --danger: var(--danger);
+      --warning: #f5a623;
+      --success: #3fb950;
+      --radius: 12px;
+      --shadow: 0 8px 28px rgba(0,0,0,0.45);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -122,7 +133,7 @@
     .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
     .msg { padding: 9px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.85rem; }
     .msg.ok { background: #14301f; color: #81c995; }
-    .msg.err { background: #3c1518; color: #f28b82; }
+    .msg.err { background: rgba(229,72,77,0.15); color: var(--danger); }
     .muted { color: var(--muted); font-size: 0.8rem; }
     .badge {
       display: inline-block; padding: 2px 7px; border-radius: 99px; font-size: 0.68rem;
@@ -132,7 +143,7 @@
     .badge.closed { background: #2a2f3a; color: var(--muted); }
     .badge.partial { background: #3d2e0a; color: #fdd663; }
     .badge.pending, .badge.confirmed { background: #1a2a3a; color: #8ab4f8; }
-    .badge.rejected, .badge.cancelled { background: #3c1518; color: #f28b82; }
+    .badge.rejected, .badge.cancelled { background: rgba(229,72,77,0.15); color: var(--danger); }
     .empty { text-align: center; padding: 20px; color: var(--muted); }
     /* Dashboard — ixcham (Linear / Vercel uslubi) */
     .dash-kpis {
@@ -157,7 +168,7 @@
     .dash-alert {
       font-size: 0.78rem; padding: 6px 10px; border-radius: 8px; margin-bottom: 6px;
     }
-    .dash-alert.danger { background: #3c1518; color: #f28b82; }
+    .dash-alert.danger { background: rgba(229,72,77,0.15); color: var(--danger); }
     .dash-alert.warn { background: #3d2e0a; color: #fdd663; }
     .dash-grid {
       display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;
@@ -167,7 +178,7 @@
     .card.tight table { font-size: 0.75rem; }
     .card.tight th, .card.tight td { padding: 5px 4px; }
     .order-row-code { font-family: ui-monospace, monospace; font-size: 0.7rem; color: var(--muted); max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .neg { color: #f28b82; font-weight: 700; }
+    .neg { color: var(--danger); font-weight: 700; }
     @media (max-width: 700px) {
       .dash-kpis { grid-template-columns: 1fr 1fr; }
       .dash-grid { grid-template-columns: 1fr; }
@@ -182,32 +193,46 @@
       display: flex; justify-content: space-between; font-weight: 600;
     }
 
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+
     .login-wrap {
       min-height: 100vh; display: flex; align-items: center; justify-content: center;
-      padding: 24px; background: #0a0a0b;
+      padding: 24px; background: var(--bg);
     }
     .login-card {
-      width: 100%; max-width: 380px; background: #141210; border: 1px solid #2e2a22;
-      border-radius: 16px; padding: 28px 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+      width: 100%; max-width: 380px; background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 28px 24px; box-shadow: var(--shadow);
     }
-    .login-card h1 { font-size: 1.15rem; color: #e8d5a3; margin-bottom: 4px; }
-    .login-card p { font-size: 0.8rem; color: #8a8270; margin-bottom: 18px; }
-    .login-card label { display: block; font-size: 0.75rem; color: #b0a894; margin-bottom: 6px; }
+    .login-card h1 { font-size: 1.15rem; color: var(--accent); margin-bottom: 4px; }
+    .login-card p { font-size: 0.8rem; color: var(--muted); margin-bottom: 18px; }
+    .login-card label { display: block; font-size: 0.75rem; color: var(--muted); margin-bottom: 6px; }
     .login-card input {
-      width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid #3f3a30;
-      background: #1a1814; color: #f5f0e6; font-size: 0.95rem; margin-bottom: 14px;
+      width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--bg-elevated); color: var(--text); font-size: 0.95rem; margin-bottom: 14px;
     }
-    .login-card input:focus { outline: none; border-color: #c9a227; }
+    .login-card input:focus { outline: none; border-color: var(--accent); }
     .login-card .btn {
       width: 100%; padding: 13px; border: none; border-radius: 10px; font-weight: 700;
-      background: linear-gradient(180deg, #d4b03a, #c9a227); color: #1a1408; cursor: pointer;
+      background: var(--accent); color: #fff; cursor: pointer;
     }
-    .login-card .err { color: #fca5a5; font-size: 0.85rem; margin-bottom: 10px; }
+    .login-card .btn:hover { background: var(--accent-hover); }
+    .login-card .err { color: var(--danger); font-size: 0.85rem; margin-bottom: 10px; }
     .logout-btn {
       margin-top: 8px; width: 100%; padding: 8px; border-radius: 8px;
-      border: 1px solid #2e2a22; background: transparent; color: #8a8270;
+      border: 1px solid var(--border); background: transparent; color: var(--muted);
       font-size: 0.75rem; cursor: pointer;
     }
+
+    .dash-kpi-danger { border-color: var(--danger); background: rgba(229,72,77,0.08); }
   </style>
 </head>
 <body>
@@ -295,11 +320,14 @@
       return (
         <div className="login-wrap">
           <form className="login-card" onSubmit={submit}>
-            <h1>Black Diamond Admin</h1>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+              <img src="/bd_logo.jpg" alt="Black Diamond" style={{width:40,height:40,borderRadius:8,objectFit:"cover"}} />
+              <h1 style={{margin:0}}>Black Diamond Admin</h1>
+            </div>
             <p>Operatsion panel — faqat xodimlar uchun</p>
             {err ? <div className="err">{err}</div> : null}
-            <label>Admin kaliti (ADMIN_KEY)</label>
-            <input
+            <label htmlFor="f-1">Admin kaliti (ADMIN_KEY)</label>
+            <input id="f-1"
               type="password"
               value={key}
               onChange={function (e) { setKey(e.target.value); }}
@@ -313,6 +341,34 @@
           </form>
         </div>
       );
+    }
+
+
+    function ConfirmModal(props) {
+      if (!props.open) return null;
+      return (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",
+          display:"flex",alignItems:"center",justifyContent:"center",zIndex:100}}>
+          <div className="card" style={{maxWidth:340,margin:0}}>
+            <p style={{marginBottom:14}}>{props.text}</p>
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+              <button className="btn-ghost" type="button" onClick={props.onCancel}>Bekor</button>
+              <button className="btn" type="button" onClick={props.onConfirm}>Tasdiqlash</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function useAutoMsg() {
+      const [msg, setMsgRaw] = useState({});
+      function setMsg(m) {
+        setMsgRaw(m || {});
+        if (m && m.text) {
+          setTimeout(function () { setMsgRaw({}); }, 4000);
+        }
+      }
+      return [msg, setMsg];
     }
 
     function Msg(props) {
@@ -329,23 +385,42 @@
       const api = props.api;
       const [data, setData] = useState(null);
       const [err, setErr] = useState("");
+      const [lastUpdated, setLastUpdated] = useState(null);
 
       function load() {
         api("/api/dashboard")
-          .then(function (r) { setData(r.data); setErr(""); })
+          .then(function (r) {
+            setData(r.data);
+            setErr("");
+            setLastUpdated(new Date());
+          })
           .catch(function (e) { setErr(e.message); });
       }
 
-      useEffect(function () { load(); }, [api]);
+      useEffect(function () {
+        load();
+        const interval = setInterval(load, 60000);
+        return function () { clearInterval(interval); };
+      }, [api]);
 
       if (err) return <div className="msg err">{err}</div>;
-      if (!data) return <div className="muted">Yuklanmoqda...</div>;
+      if (!data) return (
+        <div className="dash-kpis">
+          {[1,2,3,4,5].map(function(i){
+            return <div key={i} className="dash-kpi" style={{opacity:0.4}}>
+              <div className="label">&nbsp;</div>
+              <div className="value">···</div>
+            </div>;
+          })}
+        </div>
+      );
 
       const alerts = data.alerts || [];
       const skuStock = data.sku_stock || [];
       const mats = data.material_stock || [];
       const batches = data.active_batches || [];
       const orders = data.recent_orders || [];
+      const foyda = Number(data.bugungi_foyda || 0);
 
       function shortCode(code) {
         if (!code) return "—";
@@ -356,35 +431,45 @@
 
       return (
         <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
             <h2 style={{ color: "var(--accent)", fontSize: "0.95rem", margin: 0 }}>Dashboard</h2>
-            <button className="btn-ghost" type="button" onClick={load}>Yangilash</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {lastUpdated ? (
+                <span className="muted" style={{ fontSize: "0.7rem" }}>
+                  Yangilangan: {lastUpdated.toLocaleTimeString("uz-UZ")}
+                </span>
+              ) : null}
+              <button className="btn-ghost" type="button" onClick={load}>Yangilash</button>
+            </div>
           </div>
 
-          {/* Asosiy 4 ko'rsatkich */}
-          <div className="dash-kpis">
+          <div className="dash-kpis" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
             <div className="dash-kpi">
-              <div className="label">Bugun savdo</div>
+              <div className="label">Bugungi foyda</div>
+              <div className={"value" + (foyda < 0 ? " neg" : "")} style={{ fontSize: "1.15rem" }}>{money(foyda)}</div>
+            </div>
+            <div className="dash-kpi">
+              <div className="label">Bugungi savdo</div>
               <div className="value">{money(data.bugungi_savdo)}</div>
             </div>
             <div className="dash-kpi">
-              <div className="label">Bugun qadoq</div>
-              <div className="value">{Number(data.bugungi_qadoq_kg || 0).toFixed(1)} kg</div>
+              <div className="label">Bugungi naqd</div>
+              <div className="value">{money(data.bugungi_naqd_tushum)}</div>
             </div>
             <div className="dash-kpi">
-              <div className="label">Bugun xarajat</div>
+              <div className="label">Bugungi xarajat</div>
               <div className="value">{money(data.bugungi_xarajat)}</div>
             </div>
-            <div className="dash-kpi">
+            <div className={"dash-kpi" + (Number(data.jami_qarz) > 3000000 ? " dash-kpi-danger" : "")}>
               <div className="label">Qarz</div>
               <div className="value">{money(data.jami_qarz)}</div>
             </div>
           </div>
 
-          {/* Oylik va ishlab chiqarish — bitta qator */}
-          <div className="dash-meta">
+          <div className="dash-meta muted" style={{ display: "flex", flexWrap: "wrap", gap: "10px 16px", fontSize: "0.75rem", margin: "8px 0 12px" }}>
             <span>Oy savdo: <strong>{money(data.oylik_savdo || 0)}</strong></span>
-            <span>Oy qadoq: <strong>{Number(data.oylik_qadoq_kg || 0).toFixed(1)} kg</strong></span>
+            <span>Oy foyda: <strong>{money(data.oylik_foyda || 0)}</strong></span>
+            <span>Oy naqd: <strong>{money(data.oylik_naqd_tushum || 0)}</strong></span>
             <span>Oy xarajat: <strong>{money(data.oylik_xarajat || 0)}</strong></span>
             <span>Partiya: <strong>{data.faol_partiya}</strong></span>
             <span>Quruq: <strong>{Number(data.quruq_qoldiq_kg || 0).toFixed(1)} kg</strong></span>
@@ -403,13 +488,13 @@
             </div>
           ) : null}
 
-          {/* Ombor + material yonma-yon */}
           <div className="dash-grid">
             <div className="card tight">
               <h2>Tayyor mahsulot</h2>
               {skuStock.length === 0 ? (
                 <div className="empty" style={{ padding: 12 }}>Qoldiq yo‘q</div>
               ) : (
+                <div className="table-wrap">
                 <table>
                   <thead>
                     <tr>
@@ -435,6 +520,7 @@
                     })}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
 
@@ -443,6 +529,7 @@
               {mats.length === 0 ? (
                 <div className="empty" style={{ padding: 12 }}>Yo‘q</div>
               ) : (
+                <div className="table-wrap">
                 <table>
                   <thead>
                     <tr><th>Nomi</th><th>Birlik</th><th>Qoldiq</th></tr>
@@ -460,71 +547,63 @@
                     })}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           </div>
 
-          <div className="dash-grid">
-            <div className="card tight">
-              <h2>Faol partiyalar</h2>
-              {batches.length === 0 ? (
-                <div className="empty" style={{ padding: 12 }}>Faol partiya yo‘q</div>
-              ) : (
-                <table>
-                  <thead>
-                    <tr><th>Kod</th><th>Quruq</th><th>Qolgan</th><th>%</th></tr>
-                  </thead>
-                  <tbody>
-                    {batches.map(function (b) {
-                      return (
-                        <tr key={b.id}>
-                          <td>{b.batch_code}</td>
-                          <td>{b.dry_kg}</td>
-                          <td><strong>{b.remaining_kg}</strong></td>
-                          <td>{b.loss_percent}%</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
+          <div className="card tight" style={{ marginTop: 10 }}>
+            <h2>Faol partiyalar</h2>
+            {batches.length === 0 ? (
+              <div className="empty" style={{ padding: 12 }}>Faol partiya yo‘q</div>
+            ) : (
+              <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Kod</th><th>Quruq</th><th>Qadoq</th><th>Qoldiq</th></tr>
+                </thead>
+                <tbody>
+                  {batches.map(function (b) {
+                    return (
+                      <tr key={b.id}>
+                        <td>{b.batch_code}</td>
+                        <td>{Number(b.dry_kg).toFixed(1)}</td>
+                        <td>{Number(b.packed_kg).toFixed(1)}</td>
+                        <td>{Number(b.remaining_kg).toFixed(1)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              </div>
+            )}
+          </div>
 
-            <div className="card tight">
-              <h2>So‘nggi buyurtmalar</h2>
-              {orders.length === 0 ? (
-                <div className="empty" style={{ padding: 12 }}>Buyurtma yo‘q</div>
-              ) : (
-                <table>
-                  <thead>
-                    <tr><th>Kod</th><th>Mijoz</th><th>Summa</th><th>Holat</th></tr>
-                  </thead>
-                  <tbody>
-                    {orders.map(function (o) {
-                      const st = orderStatusLabel(o.status);
-                      return (
-                        <tr key={o.id}>
-                          <td title={o.order_code} className="order-row-code">{shortCode(o.order_code)}</td>
-                          <td>{o.customer_name}</td>
-                          <td>
-                            {money(o.total_amount)}
-                            {Number(o.debt_amount) > 0 ? (
-                              <div className="muted" style={{ fontSize: "0.65rem" }}>qarz {money(o.debt_amount)}</div>
-                            ) : null}
-                          </td>
-                          <td>
-                            <span className={"badge " + st.cls}>{st.text}</span>
-                            {Number(o.paid_amount) > 0 && String(o.status) === "pending" ? (
-                              <div className="muted" style={{ fontSize: "0.65rem" }}>niyat {money(o.paid_amount)}</div>
-                            ) : null}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
+          <div className="card tight" style={{ marginTop: 10 }}>
+            <h2>So‘nggi buyurtmalar</h2>
+            {orders.length === 0 ? (
+              <div className="empty" style={{ padding: 12 }}>Buyurtma yo‘q</div>
+            ) : (
+              <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Kod</th><th>Mijoz</th><th>Summa</th><th>Holat</th></tr>
+                </thead>
+                <tbody>
+                  {orders.map(function (o) {
+                    return (
+                      <tr key={o.id}>
+                        <td title={o.order_code}>{shortCode(o.order_code)}</td>
+                        <td>{o.customer_name || "—"}</td>
+                        <td>{money(o.total_amount)}</td>
+                        <td><span className={"badge " + o.status}>{o.status}</span></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              </div>
+            )}
           </div>
         </div>
       );
@@ -554,7 +633,7 @@
             {materials.length === 0 ? (
               <div className="empty">Bosh</div>
             ) : (
-              <table>
+              <div className="table-wrap"><table>
                 <thead>
                   <tr><th>Nomi</th><th>Birlik</th><th>Kirim</th><th>Chiqim</th><th>Qoldiq</th></tr>
                 </thead>
@@ -571,7 +650,7 @@
                     );
                   })}
                 </tbody>
-              </table>
+              </table></div>
             )}
           </div>
           <div className="card">
@@ -579,7 +658,7 @@
             {products.length === 0 ? (
               <div className="empty">Bosh</div>
             ) : (
-              <table>
+              <div className="table-wrap"><table>
                 <thead>
                   <tr><th>SKU</th><th>Qadoq</th><th>Sotilgan</th><th>Qoldiq</th><th>kg</th></tr>
                 </thead>
@@ -596,7 +675,7 @@
                     );
                   })}
                 </tbody>
-              </table>
+              </table></div>
             )}
           </div>
         </div>
@@ -610,7 +689,7 @@
       const [form, setForm] = useState({ sku: "", weight_kg: "", price: "", description: "" });
       const [editId, setEditId] = useState(null);
       const [editForm, setEditForm] = useState({ sku: "", weight_kg: "", price: "", description: "", is_active: true });
-      const [msg, setMsg] = useState({});
+      const [msg, setMsg] = useAutoMsg();
 
       const load = useCallback(function () {
         api("/api/products?active=0")
@@ -676,15 +755,24 @@
         }
       }
 
+      const [confirmState, setConfirmState] = useState({ open: false, text: "", onConfirm: null });
+
       async function softDelete(id) {
-        if (!window.confirm("SKU ni nofaol qilish?")) return;
-        try {
-          await api("/api/products/" + id, { method: "DELETE" });
-          setMsg({ text: "SKU nofaol qilindi", type: "ok" });
-          load();
-        } catch (err) {
-          setMsg({ text: err.message, type: "err" });
-        }
+        setConfirmState({
+          open: true,
+          text: "SKU ni nofaol qilish?",
+          onConfirm: async function () {
+            setConfirmState({ open: false, text: "", onConfirm: null });
+            try {
+              await api("/api/products/" + id, { method: "DELETE" });
+              setMsg({ text: "SKU nofaol qilindi", type: "ok" });
+              load();
+            } catch (e) {
+              setMsg({ text: e.message, type: "err" });
+            }
+          }
+        });
+      }
       }
 
       return (
@@ -695,20 +783,20 @@
             <form onSubmit={submit}>
               <div className="form-row">
                 <div>
-                  <label>SKU</label>
-                  <input value={form.sku} onChange={function (e) { setForm(Object.assign({}, form, { sku: e.target.value })); }} required />
+                  <label htmlFor="f-2">SKU</label>
+                  <input id="f-2" value={form.sku} onChange={function (e) { setForm(Object.assign({}, form, { sku: e.target.value })); }} required />
                 </div>
                 <div>
-                  <label>Ogirlik (kg)</label>
-                  <input type="number" step="0.1" value={form.weight_kg} onChange={function (e) { setForm(Object.assign({}, form, { weight_kg: e.target.value })); }} />
+                  <label htmlFor="f-3">Ogirlik (kg)</label>
+                  <input id="f-3" type="number" step="0.1" value={form.weight_kg} onChange={function (e) { setForm(Object.assign({}, form, { weight_kg: e.target.value })); }} />
                 </div>
                 <div>
-                  <label>Narx</label>
-                  <input type="number" value={form.price} onChange={function (e) { setForm(Object.assign({}, form, { price: e.target.value })); }} />
+                  <label htmlFor="f-4">Narx</label>
+                  <input id="f-4" type="number" value={form.price} onChange={function (e) { setForm(Object.assign({}, form, { price: e.target.value })); }} />
                 </div>
                 <div>
-                  <label>Tavsif</label>
-                  <input value={form.description} onChange={function (e) { setForm(Object.assign({}, form, { description: e.target.value })); }} />
+                  <label htmlFor="f-5">Tavsif</label>
+                  <input id="f-5" value={form.description} onChange={function (e) { setForm(Object.assign({}, form, { description: e.target.value })); }} />
                 </div>
               </div>
               <button className="btn" type="submit">Qoshish</button>
@@ -721,24 +809,24 @@
               <form onSubmit={saveEdit}>
                 <div className="form-row">
                   <div>
-                    <label>SKU</label>
-                    <input value={editForm.sku} onChange={function (e) { setEditForm(Object.assign({}, editForm, { sku: e.target.value })); }} required />
+                    <label htmlFor="f-6">SKU</label>
+                    <input id="f-6" value={editForm.sku} onChange={function (e) { setEditForm(Object.assign({}, editForm, { sku: e.target.value })); }} required />
                   </div>
                   <div>
-                    <label>Ogirlik (kg)</label>
-                    <input type="number" step="0.1" value={editForm.weight_kg} onChange={function (e) { setEditForm(Object.assign({}, editForm, { weight_kg: e.target.value })); }} />
+                    <label htmlFor="f-7">Ogirlik (kg)</label>
+                    <input id="f-7" type="number" step="0.1" value={editForm.weight_kg} onChange={function (e) { setEditForm(Object.assign({}, editForm, { weight_kg: e.target.value })); }} />
                   </div>
                   <div>
-                    <label>Narx</label>
-                    <input type="number" value={editForm.price} onChange={function (e) { setEditForm(Object.assign({}, editForm, { price: e.target.value })); }} />
+                    <label htmlFor="f-8">Narx</label>
+                    <input id="f-8" type="number" value={editForm.price} onChange={function (e) { setEditForm(Object.assign({}, editForm, { price: e.target.value })); }} />
                   </div>
                   <div>
-                    <label>Tavsif</label>
-                    <input value={editForm.description} onChange={function (e) { setEditForm(Object.assign({}, editForm, { description: e.target.value })); }} />
+                    <label htmlFor="f-9">Tavsif</label>
+                    <input id="f-9" value={editForm.description} onChange={function (e) { setEditForm(Object.assign({}, editForm, { description: e.target.value })); }} />
                   </div>
                   <div>
-                    <label>Holat</label>
-                    <select value={editForm.is_active ? "1" : "0"} onChange={function (e) { setEditForm(Object.assign({}, editForm, { is_active: e.target.value === "1" })); }}>
+                    <label htmlFor="f-10">Holat</label>
+                    <select id="f-10" value={editForm.is_active ? "1" : "0"} onChange={function (e) { setEditForm(Object.assign({}, editForm, { is_active: e.target.value === "1" })); }}>
                       <option value="1">Faol</option>
                       <option value="0">Nofaol</option>
                     </select>
@@ -754,7 +842,7 @@
 
           <div className="card">
             <h2>Mahsulotlar ({list.length})</h2>
-            <table>
+            <div className="table-wrap"><table>
               <thead>
                 <tr><th>SKU</th><th>kg</th><th>Narx</th><th>Holat</th><th></th></tr>
               </thead>
@@ -781,7 +869,7 @@
                   );
                 })}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </div>
       );
@@ -792,7 +880,7 @@
       const [list, setList] = useState([]);
       const [form, setForm] = useState({ name: "", unit: "kg", price: "", initial_stock: "" });
       const [mov, setMov] = useState({ material_id: "", qty: "", unit_price: "", note: "" });
-      const [msg, setMsg] = useState({});
+      const [msg, setMsg] = useAutoMsg();
 
       const load = useCallback(function () {
         api("/api/materials?active=0")
@@ -850,20 +938,20 @@
             <form onSubmit={submitMat}>
               <div className="form-row">
                 <div>
-                  <label>Nomi</label>
-                  <input value={form.name} onChange={function (e) { setForm(Object.assign({}, form, { name: e.target.value })); }} required />
+                  <label htmlFor="f-11">Nomi</label>
+                  <input id="f-11" value={form.name} onChange={function (e) { setForm(Object.assign({}, form, { name: e.target.value })); }} required />
                 </div>
                 <div>
-                  <label>Birlik</label>
-                  <input value={form.unit} onChange={function (e) { setForm(Object.assign({}, form, { unit: e.target.value })); }} />
+                  <label htmlFor="f-12">Birlik</label>
+                  <input id="f-12" value={form.unit} onChange={function (e) { setForm(Object.assign({}, form, { unit: e.target.value })); }} />
                 </div>
                 <div>
-                  <label>Narx</label>
-                  <input type="number" value={form.price} onChange={function (e) { setForm(Object.assign({}, form, { price: e.target.value })); }} />
+                  <label htmlFor="f-13">Narx</label>
+                  <input id="f-13" type="number" value={form.price} onChange={function (e) { setForm(Object.assign({}, form, { price: e.target.value })); }} />
                 </div>
                 <div>
-                  <label>Boshlangich zaxira</label>
-                  <input type="number" value={form.initial_stock} onChange={function (e) { setForm(Object.assign({}, form, { initial_stock: e.target.value })); }} />
+                  <label htmlFor="f-14">Boshlangich zaxira</label>
+                  <input id="f-14" type="number" value={form.initial_stock} onChange={function (e) { setForm(Object.assign({}, form, { initial_stock: e.target.value })); }} />
                 </div>
               </div>
               <button className="btn" type="submit">Qoshish</button>
@@ -874,8 +962,8 @@
             <form onSubmit={submitIn}>
               <div className="form-row">
                 <div>
-                  <label>Material</label>
-                  <select value={mov.material_id} onChange={function (e) { setMov(Object.assign({}, mov, { material_id: e.target.value })); }} required>
+                  <label htmlFor="f-15">Material</label>
+                  <select id="f-15" value={mov.material_id} onChange={function (e) { setMov(Object.assign({}, mov, { material_id: e.target.value })); }} required>
                     <option value="">Tanlang</option>
                     {list.filter(function (m) { return m.is_active; }).map(function (m) {
                       return <option key={m.id} value={m.id}>{m.name}</option>;
@@ -883,16 +971,16 @@
                   </select>
                 </div>
                 <div>
-                  <label>Miqdor</label>
-                  <input type="number" step="0.01" value={mov.qty} onChange={function (e) { setMov(Object.assign({}, mov, { qty: e.target.value })); }} required />
+                  <label htmlFor="f-16">Miqdor</label>
+                  <input id="f-16" type="number" step="0.01" value={mov.qty} onChange={function (e) { setMov(Object.assign({}, mov, { qty: e.target.value })); }} required />
                 </div>
                 <div>
-                  <label>Birlik narx</label>
-                  <input type="number" value={mov.unit_price} onChange={function (e) { setMov(Object.assign({}, mov, { unit_price: e.target.value })); }} />
+                  <label htmlFor="f-17">Birlik narx</label>
+                  <input id="f-17" type="number" value={mov.unit_price} onChange={function (e) { setMov(Object.assign({}, mov, { unit_price: e.target.value })); }} />
                 </div>
                 <div>
-                  <label>Izoh</label>
-                  <input value={mov.note} onChange={function (e) { setMov(Object.assign({}, mov, { note: e.target.value })); }} />
+                  <label htmlFor="f-18">Izoh</label>
+                  <input id="f-18" value={mov.note} onChange={function (e) { setMov(Object.assign({}, mov, { note: e.target.value })); }} />
                 </div>
               </div>
               <button className="btn" type="submit">Kirim qilish</button>
@@ -900,7 +988,7 @@
           </div>
           <div className="card">
             <h2>Materiallar ({list.length})</h2>
-            <table>
+            <div className="table-wrap"><table>
               <thead>
                 <tr><th>Nomi</th><th>Birlik</th><th>Narx</th><th>Boshlangich</th></tr>
               </thead>
@@ -916,7 +1004,7 @@
                   );
                 })}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </div>
       );
@@ -929,7 +1017,7 @@
       const [form, setForm] = useState({
         bags_count: "", bag_price: "", dry_kg: "", workers_count: "", press_wage: "", note: ""
       });
-      const [msg, setMsg] = useState({});
+      const [msg, setMsg] = useAutoMsg();
 
       const load = useCallback(function () {
         api("/api/batches")
@@ -969,28 +1057,28 @@
             <form onSubmit={submit}>
               <div className="form-row-3">
                 <div>
-                  <label>Qop soni *</label>
-                  <input type="number" value={form.bags_count} onChange={function (e) { setForm(Object.assign({}, form, { bags_count: e.target.value })); }} required />
+                  <label htmlFor="f-19">Qop soni *</label>
+                  <input id="f-19" type="number" value={form.bags_count} onChange={function (e) { setForm(Object.assign({}, form, { bags_count: e.target.value })); }} required />
                 </div>
                 <div>
-                  <label>1 qop narxi *</label>
-                  <input type="number" value={form.bag_price} onChange={function (e) { setForm(Object.assign({}, form, { bag_price: e.target.value })); }} required />
+                  <label htmlFor="f-20">1 qop narxi *</label>
+                  <input id="f-20" type="number" value={form.bag_price} onChange={function (e) { setForm(Object.assign({}, form, { bag_price: e.target.value })); }} required />
                 </div>
                 <div>
-                  <label>Quruq kg *</label>
-                  <input type="number" step="0.1" value={form.dry_kg} onChange={function (e) { setForm(Object.assign({}, form, { dry_kg: e.target.value })); }} required />
+                  <label htmlFor="f-21">Quruq kg *</label>
+                  <input id="f-21" type="number" step="0.1" value={form.dry_kg} onChange={function (e) { setForm(Object.assign({}, form, { dry_kg: e.target.value })); }} required />
                 </div>
                 <div>
-                  <label>Ishchilar</label>
-                  <input type="number" value={form.workers_count} onChange={function (e) { setForm(Object.assign({}, form, { workers_count: e.target.value })); }} />
+                  <label htmlFor="f-22">Ishchilar</label>
+                  <input id="f-22" type="number" value={form.workers_count} onChange={function (e) { setForm(Object.assign({}, form, { workers_count: e.target.value })); }} />
                 </div>
                 <div>
-                  <label>Press ish haqi</label>
-                  <input type="number" value={form.press_wage} onChange={function (e) { setForm(Object.assign({}, form, { press_wage: e.target.value })); }} />
+                  <label htmlFor="f-23">Press ish haqi</label>
+                  <input id="f-23" type="number" value={form.press_wage} onChange={function (e) { setForm(Object.assign({}, form, { press_wage: e.target.value })); }} />
                 </div>
                 <div>
-                  <label>Izoh</label>
-                  <input value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
+                  <label htmlFor="f-24">Izoh</label>
+                  <input id="f-24" value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
                 </div>
               </div>
               <button className="btn" type="submit">Partiya yaratish</button>
@@ -998,7 +1086,7 @@
           </div>
           <div className="card">
             <h2>Partiyalar ({list.length})</h2>
-            <table>
+            <div className="table-wrap"><table>
               <thead>
                 <tr>
                   <th>Kod</th><th>Holat</th><th>Qop</th><th>Quruq</th><th>Qadoq</th><th>Qolgan</th><th>Yoqotish %</th>
@@ -1019,7 +1107,7 @@
                   );
                 })}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </div>
       );
@@ -1034,7 +1122,7 @@
       const [form, setForm] = useState({
         product_id: "", qty: "", unit_wage: "700", workers_count: "1", batch_id: ""
       });
-      const [msg, setMsg] = useState({});
+      const [msg, setMsg] = useAutoMsg();
 
       const load = useCallback(function () {
         Promise.all([
@@ -1081,8 +1169,8 @@
             <form onSubmit={submit}>
               <div className="form-row">
                 <div>
-                  <label>Mahsulot *</label>
-                  <select value={form.product_id} onChange={function (e) { setForm(Object.assign({}, form, { product_id: e.target.value })); }} required>
+                  <label htmlFor="f-25">Mahsulot *</label>
+                  <select id="f-25" value={form.product_id} onChange={function (e) { setForm(Object.assign({}, form, { product_id: e.target.value })); }} required>
                     <option value="">Tanlang</option>
                     {products.map(function (p) {
                       return <option key={p.id} value={p.id}>{p.sku} ({p.weight_kg} kg)</option>;
@@ -1090,20 +1178,20 @@
                   </select>
                 </div>
                 <div>
-                  <label>Dona *</label>
-                  <input type="number" value={form.qty} onChange={function (e) { setForm(Object.assign({}, form, { qty: e.target.value })); }} required />
+                  <label htmlFor="f-26">Dona *</label>
+                  <input id="f-26" type="number" value={form.qty} onChange={function (e) { setForm(Object.assign({}, form, { qty: e.target.value })); }} required />
                 </div>
                 <div>
-                  <label>1 dona ish haqi</label>
-                  <input type="number" value={form.unit_wage} onChange={function (e) { setForm(Object.assign({}, form, { unit_wage: e.target.value })); }} />
+                  <label htmlFor="f-27">1 dona ish haqi</label>
+                  <input id="f-27" type="number" value={form.unit_wage} onChange={function (e) { setForm(Object.assign({}, form, { unit_wage: e.target.value })); }} />
                 </div>
                 <div>
-                  <label>Ishchilar</label>
-                  <input type="number" value={form.workers_count} onChange={function (e) { setForm(Object.assign({}, form, { workers_count: e.target.value })); }} />
+                  <label htmlFor="f-28">Ishchilar</label>
+                  <input id="f-28" type="number" value={form.workers_count} onChange={function (e) { setForm(Object.assign({}, form, { workers_count: e.target.value })); }} />
                 </div>
                 <div>
-                  <label>Partiya (bosh = FIFO)</label>
-                  <select value={form.batch_id} onChange={function (e) { setForm(Object.assign({}, form, { batch_id: e.target.value })); }}>
+                  <label htmlFor="f-29">Partiya (bosh = FIFO)</label>
+                  <select id="f-29" value={form.batch_id} onChange={function (e) { setForm(Object.assign({}, form, { batch_id: e.target.value })); }}>
                     <option value="">Avto (FIFO)</option>
                     {batches.map(function (b) {
                       return <option key={b.id} value={b.id}>{b.batch_code} - {b.remaining_kg} kg</option>;
@@ -1116,7 +1204,7 @@
           </div>
           <div className="card">
             <h2>Songgi qadoqlar</h2>
-            <table>
+            <div className="table-wrap"><table>
               <thead>
                 <tr><th>SKU</th><th>Dona</th><th>kg</th><th>Partiya</th><th>Ish haqi</th></tr>
               </thead>
@@ -1133,7 +1221,7 @@
                   );
                 })}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </div>
       );
@@ -1144,7 +1232,7 @@
       const api = props.api;
       const [list, setList] = useState([]);
       const [form, setForm] = useState({ name: "", phone: "", address: "", credit_limit: "" });
-      const [msg, setMsg] = useState({});
+      const [msg, setMsg] = useAutoMsg();
 
       const load = useCallback(function () {
         api("/api/customers")
@@ -1182,20 +1270,20 @@
             <form onSubmit={submit}>
               <div className="form-row">
                 <div>
-                  <label>Ism *</label>
-                  <input value={form.name} onChange={function (e) { setForm(Object.assign({}, form, { name: e.target.value })); }} required />
+                  <label htmlFor="f-30">Ism *</label>
+                  <input id="f-30" value={form.name} onChange={function (e) { setForm(Object.assign({}, form, { name: e.target.value })); }} required />
                 </div>
                 <div>
-                  <label>Telefon</label>
-                  <input value={form.phone} onChange={function (e) { setForm(Object.assign({}, form, { phone: e.target.value })); }} />
+                  <label htmlFor="f-31">Telefon</label>
+                  <input id="f-31" value={form.phone} onChange={function (e) { setForm(Object.assign({}, form, { phone: e.target.value })); }} />
                 </div>
                 <div>
-                  <label>Manzil</label>
-                  <input value={form.address} onChange={function (e) { setForm(Object.assign({}, form, { address: e.target.value })); }} />
+                  <label htmlFor="f-32">Manzil</label>
+                  <input id="f-32" value={form.address} onChange={function (e) { setForm(Object.assign({}, form, { address: e.target.value })); }} />
                 </div>
                 <div>
-                  <label>Kredit limiti</label>
-                  <input type="number" value={form.credit_limit} onChange={function (e) { setForm(Object.assign({}, form, { credit_limit: e.target.value })); }} />
+                  <label htmlFor="f-33">Kredit limiti</label>
+                  <input id="f-33" type="number" value={form.credit_limit} onChange={function (e) { setForm(Object.assign({}, form, { credit_limit: e.target.value })); }} />
                 </div>
               </div>
               <button className="btn" type="submit">Qoshish</button>
@@ -1203,7 +1291,7 @@
           </div>
           <div className="card">
             <h2>Mijozlar ({list.length})</h2>
-            <table>
+            <div className="table-wrap"><table>
               <thead>
                 <tr><th>Ism</th><th>Tel</th><th>Manzil</th><th>Limit</th></tr>
               </thead>
@@ -1219,7 +1307,7 @@
                   );
                 })}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </div>
       );
@@ -1238,6 +1326,7 @@
 
     function Orders(props) {
       const api = props.api;
+      const [confirmState, setConfirmState] = useState({ open: false, text: "", onConfirm: null });
       const [list, setList] = useState([]);
       const [products, setProducts] = useState([]);
       const [customers, setCustomers] = useState([]);
@@ -1245,7 +1334,7 @@
         customer_id: "", customer_name: "", phone: "", paid_amount: "", note: ""
       });
       const [lines, setLines] = useState([{ product_id: "", qty: "", unit_price: "" }]);
-      const [msg, setMsg] = useState({});
+      const [msg, setMsg] = useAutoMsg();
 
       const load = useCallback(function () {
         Promise.all([
@@ -1340,14 +1429,20 @@
 
       return (
         <div>
+          <ConfirmModal
+            open={confirmState.open}
+            text={confirmState.text}
+            onCancel={function () { setConfirmState({ open: false, text: "", onConfirm: null }); }}
+            onConfirm={function () { if (confirmState.onConfirm) confirmState.onConfirm(); }}
+          />
           <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
           <div className="card">
             <h2>Yangi buyurtma</h2>
             <form onSubmit={submit}>
               <div className="form-row">
                 <div>
-                  <label>Mijoz (royxat)</label>
-                  <select value={form.customer_id} onChange={function (e) { onCustomer(e.target.value); }}>
+                  <label htmlFor="f-34">Mijoz (royxat)</label>
+                  <select id="f-34" value={form.customer_id} onChange={function (e) { onCustomer(e.target.value); }}>
                     <option value="">-</option>
                     {customers.map(function (c) {
                       return <option key={c.id} value={c.id}>{c.name}</option>;
@@ -1355,16 +1450,16 @@
                   </select>
                 </div>
                 <div>
-                  <label>Ism *</label>
-                  <input value={form.customer_name} onChange={function (e) { setForm(Object.assign({}, form, { customer_name: e.target.value })); }} required />
+                  <label htmlFor="f-35">Ism *</label>
+                  <input id="f-35" value={form.customer_name} onChange={function (e) { setForm(Object.assign({}, form, { customer_name: e.target.value })); }} required />
                 </div>
                 <div>
-                  <label>Telefon</label>
-                  <input value={form.phone} onChange={function (e) { setForm(Object.assign({}, form, { phone: e.target.value })); }} />
+                  <label htmlFor="f-36">Telefon</label>
+                  <input id="f-36" value={form.phone} onChange={function (e) { setForm(Object.assign({}, form, { phone: e.target.value })); }} />
                 </div>
                 <div>
-                  <label>Tolangan</label>
-                  <input type="number" value={form.paid_amount} onChange={function (e) { setForm(Object.assign({}, form, { paid_amount: e.target.value })); }} />
+                  <label htmlFor="f-37">Tolangan</label>
+                  <input id="f-37" type="number" value={form.paid_amount} onChange={function (e) { setForm(Object.assign({}, form, { paid_amount: e.target.value })); }} />
                 </div>
               </div>
               <div className="line-items">
@@ -1373,8 +1468,8 @@
                   return (
                     <div className="line-row" key={i}>
                       <div>
-                        <label>SKU</label>
-                        <select value={l.product_id} onChange={function (e) { setLine(i, "product_id", e.target.value); }}>
+                        <label htmlFor="f-38">SKU</label>
+                        <select id="f-38" value={l.product_id} onChange={function (e) { setLine(i, "product_id", e.target.value); }}>
                           <option value="">Tanlang</option>
                           {products.map(function (p) {
                             return <option key={p.id} value={p.id}>{p.sku}</option>;
@@ -1382,12 +1477,12 @@
                         </select>
                       </div>
                       <div>
-                        <label>Dona</label>
-                        <input type="number" value={l.qty} onChange={function (e) { setLine(i, "qty", e.target.value); }} />
+                        <label htmlFor="f-39">Dona</label>
+                        <input id="f-39" type="number" value={l.qty} onChange={function (e) { setLine(i, "qty", e.target.value); }} />
                       </div>
                       <div>
-                        <label>Narx</label>
-                        <input type="number" value={l.unit_price} onChange={function (e) { setLine(i, "unit_price", e.target.value); }} />
+                        <label htmlFor="f-40">Narx</label>
+                        <input id="f-40" type="number" value={l.unit_price} onChange={function (e) { setLine(i, "unit_price", e.target.value); }} />
                       </div>
                       <button
                         type="button"
@@ -1417,8 +1512,8 @@
                 <span>{money(total)} som</span>
               </div>
               <div>
-                <label>Izoh</label>
-                <input value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
+                <label htmlFor="f-41">Izoh</label>
+                <input id="f-41" value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
               </div>
               <button className="btn" type="submit">Buyurtma yaratish</button>
             </form>
@@ -1505,7 +1600,14 @@
                                 className="btn-ghost btn-sm"
                                 type="button"
                                 onClick={function () {
-                                  if (window.confirm("Buyurtmani rad etasizmi?")) setStatus(o.id, "rejected");
+                                  setConfirmState({
+                                    open: true,
+                                    text: "Buyurtmani rad etasizmi?",
+                                    onConfirm: function () {
+                                      setConfirmState({ open: false, text: "", onConfirm: null });
+                                      setStatus(o.id, "rejected");
+                                    }
+                                  });
                                 }}
                               >
                                 Rad
@@ -1542,7 +1644,7 @@
       const [form, setForm] = useState({
         customer_id: "", order_id: "", amount: "", method: "cash", note: ""
       });
-      const [msg, setMsg] = useState({});
+      const [msg, setMsg] = useAutoMsg();
 
       const load = useCallback(function () {
         Promise.all([
@@ -1592,8 +1694,8 @@
             <form onSubmit={submit}>
               <div className="form-row">
                 <div>
-                  <label>Mijoz</label>
-                  <select
+                  <label htmlFor="f-42">Mijoz</label>
+                  <select id="f-42"
                     value={form.customer_id}
                     onChange={function (e) {
                       setForm(Object.assign({}, form, { customer_id: e.target.value, order_id: "" }));
@@ -1606,8 +1708,8 @@
                   </select>
                 </div>
                 <div>
-                  <label>Buyurtma (ixtiyoriy)</label>
-                  <select value={form.order_id} onChange={function (e) { setForm(Object.assign({}, form, { order_id: e.target.value })); }}>
+                  <label htmlFor="f-43">Buyurtma (ixtiyoriy)</label>
+                  <select id="f-43" value={form.order_id} onChange={function (e) { setForm(Object.assign({}, form, { order_id: e.target.value })); }}>
                     <option value="">Barcha qarzlarga (FIFO)</option>
                     {orders
                       .filter(function (o) {
@@ -1623,20 +1725,20 @@
                   </select>
                 </div>
                 <div>
-                  <label>Summa *</label>
-                  <input type="number" value={form.amount} onChange={function (e) { setForm(Object.assign({}, form, { amount: e.target.value })); }} required />
+                  <label htmlFor="f-44">Summa *</label>
+                  <input id="f-44" type="number" value={form.amount} onChange={function (e) { setForm(Object.assign({}, form, { amount: e.target.value })); }} required />
                 </div>
                 <div>
-                  <label>Usul</label>
-                  <select value={form.method} onChange={function (e) { setForm(Object.assign({}, form, { method: e.target.value })); }}>
+                  <label htmlFor="f-45">Usul</label>
+                  <select id="f-45" value={form.method} onChange={function (e) { setForm(Object.assign({}, form, { method: e.target.value })); }}>
                     <option value="cash">Naqd</option>
                     <option value="card">Karta</option>
                     <option value="transfer">Otkazma</option>
                   </select>
                 </div>
                 <div>
-                  <label>Izoh</label>
-                  <input value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
+                  <label htmlFor="f-46">Izoh</label>
+                  <input id="f-46" value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
                 </div>
               </div>
               <button className="btn" type="submit">Tolov qabul qilish</button>
@@ -1644,7 +1746,7 @@
           </div>
           <div className="card">
             <h2>Songgi tolovlar</h2>
-            <table>
+            <div className="table-wrap"><table>
               <thead>
                 <tr><th>Sana</th><th>Mijoz</th><th>Buyurtma</th><th>Summa</th><th>Usul</th></tr>
               </thead>
@@ -1661,7 +1763,7 @@
                   );
                 })}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </div>
       );
@@ -1672,7 +1774,7 @@
       const api = props.api;
       const [list, setList] = useState([]);
       const [form, setForm] = useState({ category: "", amount: "", payment_method: "cash", note: "" });
-      const [msg, setMsg] = useState({});
+      const [msg, setMsg] = useAutoMsg();
       const cats = ["Elektr", "Transport", "Ijara", "Ish haqi", "Tamirlash", "Boshqa"];
 
       const load = useCallback(function () {
@@ -1711,27 +1813,27 @@
             <form onSubmit={submit}>
               <div className="form-row">
                 <div>
-                  <label>Kategoriya *</label>
-                  <input list="exp-cats" value={form.category} onChange={function (e) { setForm(Object.assign({}, form, { category: e.target.value })); }} required />
+                  <label htmlFor="f-47">Kategoriya *</label>
+                  <input id="f-47" list="exp-cats" value={form.category} onChange={function (e) { setForm(Object.assign({}, form, { category: e.target.value })); }} required />
                   <datalist id="exp-cats">
                     {cats.map(function (c) { return <option key={c} value={c} />; })}
                   </datalist>
                 </div>
                 <div>
-                  <label>Summa *</label>
-                  <input type="number" value={form.amount} onChange={function (e) { setForm(Object.assign({}, form, { amount: e.target.value })); }} required />
+                  <label htmlFor="f-48">Summa *</label>
+                  <input id="f-48" type="number" value={form.amount} onChange={function (e) { setForm(Object.assign({}, form, { amount: e.target.value })); }} required />
                 </div>
                 <div>
-                  <label>Usul</label>
-                  <select value={form.payment_method} onChange={function (e) { setForm(Object.assign({}, form, { payment_method: e.target.value })); }}>
+                  <label htmlFor="f-49">Usul</label>
+                  <select id="f-49" value={form.payment_method} onChange={function (e) { setForm(Object.assign({}, form, { payment_method: e.target.value })); }}>
                     <option value="cash">Naqd</option>
                     <option value="card">Karta</option>
                     <option value="transfer">Otkazma</option>
                   </select>
                 </div>
                 <div>
-                  <label>Izoh</label>
-                  <input value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
+                  <label htmlFor="f-50">Izoh</label>
+                  <input id="f-50" value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
                 </div>
               </div>
               <button className="btn" type="submit">Saqlash</button>
@@ -1739,7 +1841,7 @@
           </div>
           <div className="card">
             <h2>Xarajatlar</h2>
-            <table>
+            <div className="table-wrap"><table>
               <thead>
                 <tr><th>Sana</th><th>Kategoriya</th><th>Summa</th><th>Usul</th><th>Izoh</th></tr>
               </thead>
@@ -1756,7 +1858,7 @@
                   );
                 })}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </div>
       );
@@ -1865,12 +1967,12 @@
             <h2>Tizim sozlama</h2>
             <div className="settings-bar">
               <div>
-                <label>API URL</label>
-                <input value={tmpApi} onChange={function (e) { setTmpApi(e.target.value); }} />
+                <label htmlFor="f-51">API URL</label>
+                <input id="f-51" value={tmpApi} onChange={function (e) { setTmpApi(e.target.value); }} />
               </div>
               <div>
-                <label>Admin key</label>
-                <input value={tmpKey} onChange={function (e) { setTmpKey(e.target.value); }} placeholder="ADMIN_KEY" />
+                <label htmlFor="f-52">Admin key</label>
+                <input id="f-52" value={tmpKey} onChange={function (e) { setTmpKey(e.target.value); }} placeholder="ADMIN_KEY" />
               </div>
               <button
                 className="btn"
@@ -1894,8 +1996,11 @@
         <div className="shell">
           <aside className="sidebar">
             <div>
-              <div className="brand-kicker">Black Diamond</div>
-              <div className="brand-title">Briket ERP</div>
+              <div style={{display:"flex",alignItems:"center"}}>
+              <img src="/bd_logo.jpg" alt="Black Diamond" style={{width:32,height:32,borderRadius:6,objectFit:"cover",marginRight:8}} />
+              <div><div className="brand-kicker">Black Diamond</div>
+              <div className="brand-title">Briket ERP</div></div>
+            </div>
             </div>
             <nav className="side-nav">
               {modules.map(function (m) {

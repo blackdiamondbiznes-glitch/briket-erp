@@ -294,7 +294,10 @@ INSERT INTO settings (key, value, description) VALUES
   ('bulk_min_kg', '1000', 'Oddiy mijoz uchun yirik xarid minimal kg'),
   ('bulk_discount', '3000', 'Yirik xaridda 1 donaga chegirma (som)'),
   ('default_credit_limit', '5000000', 'Yangi hamkor uchun default nasiya limiti'),
-  ('currency', 'UZS', 'Valyuta')
+  ('currency', 'UZS', 'Valyuta'),
+  ('low_stock_qty', '5', 'Kam qoldiq ogohlantirish chegarasi (dona)'),
+  ('low_batch_kg', '50', 'Partiya tugash ogohlantirish chegarasi (kg)'),
+  ('high_debt_threshold', '3000000', 'Yuqori qarz ogohlantirish chegarasi (som)')
 ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO materials (name, unit, price, initial_stock) VALUES
