@@ -31,7 +31,11 @@ module.exports = function (app, pool, helpers) {
 
   // Sotilgan deb hisoblanadigan holatlar (manba: server helpers)
   // pending — hali tasdiqlanmagan, zaxiraga ta'sir qilmaydi
-  const SOLD_STATUSES_SQL = helpers.SOLD_STATUSES.map(function (s) { return "'" + s + "'"; }).join(',');
+  const soldList =
+    helpers.SOLD_STATUSES && helpers.SOLD_STATUSES.length
+      ? helpers.SOLD_STATUSES
+      : ['confirmed', 'paid', 'partial', 'closed'];
+  const SOLD_STATUSES_SQL = soldList.map(function (s) { return "'" + s + "'"; }).join(',');
 
   app.get('/api/stock/products', async (req, res) => {
     try {
@@ -78,8 +82,8 @@ module.exports = function (app, pool, helpers) {
       const y = today.getFullYear();
       const m = String(today.getMonth() + 1).padStart(2, '0');
       const d = String(today.getDate()).padStart(2, '0');
+      // To'liq sana kerak: '2026-09' date cast qilmaydi → 500 xato
       const dayStr = `${y}-${m}-${d}`;
-      const monthStr = `${y}-${m}`;
 
       const [
         salesToday,
@@ -107,8 +111,9 @@ module.exports = function (app, pool, helpers) {
         pool.query(
           `SELECT COALESCE(SUM(total_amount),0) AS total FROM orders
            WHERE status IN (${SOLD_STATUSES_SQL})
-             AND created_at >= date_trunc('month', $1::date) AND created_at < date_trunc('month', $1::date) + interval '1 month'`,
-          [monthStr]
+             AND created_at >= date_trunc('month', $1::date)
+             AND created_at < date_trunc('month', $1::date) + interval '1 month'`,
+          [dayStr]
         ),
         pool.query(
           `SELECT COALESCE(SUM(amount),0) AS total FROM expenses
@@ -117,18 +122,23 @@ module.exports = function (app, pool, helpers) {
         ),
         pool.query(
           `SELECT COALESCE(SUM(amount),0) AS total FROM expenses
-           WHERE expense_date >= date_trunc('month', $1::date) AND expense_date < date_trunc('month', $1::date) + interval '1 month'`,
-          [monthStr]
-        ),
-        pool.query(
-          `SELECT COALESCE(SUM(kg),0) AS kg, COALESCE(SUM(qty),0) AS qty
-           FROM packaging WHERE created_at >= $1::date AND created_at < $1::date + interval '1 day'`,
+           WHERE expense_date >= date_trunc('month', $1::date)
+             AND expense_date < date_trunc('month', $1::date) + interval '1 month'`,
           [dayStr]
         ),
         pool.query(
           `SELECT COALESCE(SUM(kg),0) AS kg, COALESCE(SUM(qty),0) AS qty
-           FROM packaging WHERE created_at >= date_trunc('month', $1::date) AND created_at < date_trunc('month', $1::date) + interval '1 month'`,
-          [monthStr]
+           FROM packaging
+           WHERE COALESCE(packed_at, created_at) >= $1::date
+             AND COALESCE(packed_at, created_at) < $1::date + interval '1 day'`,
+          [dayStr]
+        ),
+        pool.query(
+          `SELECT COALESCE(SUM(kg),0) AS kg, COALESCE(SUM(qty),0) AS qty
+           FROM packaging
+           WHERE COALESCE(packed_at, created_at) >= date_trunc('month', $1::date)
+             AND COALESCE(packed_at, created_at) < date_trunc('month', $1::date) + interval '1 month'`,
+          [dayStr]
         ),
         pool.query(
           `SELECT COALESCE(SUM(debt_amount),0) AS total FROM orders
