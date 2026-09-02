@@ -12,9 +12,9 @@
   <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7.26.0/babel.min.js"></script>
   <style>
-    /* ========== Design tokens — Black Diamond ERP ========== */
+    /* ========== Design tokens вЂ” Black Diamond ERP ========== */
     :root {
-      /* Black Diamond OPS — qora + oltin */
+      /* Black Diamond OPS вЂ” qora + oltin */
       --bg: #0a0a0b;
       --bg-mid: #0e0c0a;
       --bg-elevated: #141210;
@@ -283,7 +283,7 @@
       color: #ff8a8e; font-weight: 700;
       font-variant-numeric: tabular-nums;
     }
-    .neg::before { content: "↓ "; font-weight: 600; opacity: 0.9; }
+    .neg::before { content: "в†“ "; font-weight: 600; opacity: 0.9; }
     @media (max-width: 700px) {
       .dash-grid { grid-template-columns: 1fr; }
       .main { padding-left: 12px; padding-right: 12px; overflow-x: hidden; }
@@ -300,7 +300,7 @@
       .table-wrap { margin: 0 -4px; }
     }
 
-    /* Tables — dense enterprise */
+    /* Tables вЂ” dense enterprise */
     .table-wrap {
       width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;
       border-radius: var(--radius-sm);
@@ -308,7 +308,7 @@
     table {
       width: 100%; border-collapse: collapse;
       font-size: var(--fs-body);
-      min-width: 480px;
+      min-width: 360px;
     }
     th, td {
       text-align: left;
@@ -391,7 +391,7 @@
     .msg.err { background: var(--danger-bg); color: #ff8a8e; border-color: rgba(229,72,77,0.25); }
     .muted { color: var(--muted); font-size: 0.8rem; }
 
-    /* Badges — 4 semantic states */
+    /* Badges вЂ” 4 semantic states */
     .badge {
       display: inline-flex; align-items: center;
       padding: 2px 8px; border-radius: 99px;
@@ -498,6 +498,48 @@
     }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     @keyframes riseIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  
+    /* === MOBILE / RESPONSIVE (2026-09) === */
+    html, body { max-width: 100%; overflow-x: hidden; }
+    .shell, .main, .card { min-width: 0; max-width: 100%; }
+    .card { overflow: hidden; }
+    .table-wrap {
+      display: block; width: 100%; max-width: 100%;
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch;
+    }
+    .table-wrap table { width: 100%; min-width: 360px; }
+    th, td { white-space: nowrap; }
+    .segment {
+      flex-wrap: nowrap !important;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .segment::-webkit-scrollbar { display: none; }
+    .segment button { flex: 0 0 auto; white-space: nowrap; }
+
+    @media (max-width: 860px) {
+      .main {
+        padding: 12px 12px calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+        overflow-x: hidden;
+      }
+      .dash-grid { grid-template-columns: 1fr !important; }
+      .form-row, .form-row-3 { grid-template-columns: 1fr !important; }
+      .line-row { grid-template-columns: 1fr 1fr !important; }
+      .line-row > *:first-child { grid-column: 1 / -1; }
+      input, select, textarea {
+        font-size: 16px !important;
+        min-height: 44px;
+        padding: 12px 14px;
+      }
+      .btn { min-height: 44px; padding: 12px 16px; font-size: 0.9rem; }
+      .dash-kpis, .dash-kpis.cols-5 { grid-template-columns: 1fr 1fr !important; }
+      .card { padding: 12px; }
+    }
+    @media (max-width: 400px) {
+      .dash-kpis, .dash-kpis.cols-5 { grid-template-columns: 1fr !important; }
+    }
   </style>
 </head>
 <body>
@@ -511,7 +553,7 @@
       return Number(n || 0).toLocaleString("uz-UZ");
     }
 
-    // Sessiya muddati: 12 soat (frontend himoya; httpOnly cookie — backend taklifi)
+    // Sessiya muddati: 12 soat (frontend himoya; httpOnly cookie вЂ” backend taklifi)
     const SESSION_MS = 12 * 60 * 60 * 1000;
 
     function useApi() {
@@ -554,7 +596,7 @@
           setAdminKey("");
           localStorage.removeItem("erp_key");
           localStorage.removeItem("erp_key_at");
-          const err = new Error("Sessiya muddati tugadi — qayta kiring");
+          const err = new Error("Sessiya muddati tugadi вЂ” qayta kiring");
           err.code = 401;
           throw err;
         }
@@ -581,7 +623,7 @@
         localStorage.removeItem("erp_key");
         localStorage.removeItem("erp_key_at");
         localStorage.removeItem("erp_operator");
-        // Backendda /api/auth/logout bo'lsa — shu yerga qo'shiladi (hozir yo'q)
+        // Backendda /api/auth/logout bo'lsa вЂ” shu yerga qo'shiladi (hozir yo'q)
       }
 
       return {
@@ -641,7 +683,7 @@
               <img src="/bd_logo.jpg" alt="Black Diamond" style={{width:40,height:40,borderRadius:8,objectFit:"cover"}} />
               <h1 style={{margin:0}}>Black Diamond Admin</h1>
             </div>
-            <p>Operatsion panel — faqat xodimlar uchun</p>
+            <p>Operatsion panel вЂ” faqat xodimlar uchun</p>
             {err ? <div className="err">{err}</div> : null}
             <label htmlFor="f-op">Ism (operator)</label>
             <input
@@ -747,7 +789,7 @@
           {[1,2,3,4,5].map(function(i){
             return <div key={i} className="dash-kpi" style={{opacity:0.4}}>
               <div className="label">&nbsp;</div>
-              <div className="value">···</div>
+              <div className="value">В·В·В·</div>
             </div>;
           })}
         </div>
@@ -761,10 +803,10 @@
       const foyda = Number(data.bugungi_foyda || 0);
 
       function shortCode(code) {
-        if (!code) return "—";
+        if (!code) return "вЂ”";
         const s = String(code);
         if (s.length <= 14) return s;
-        return s.slice(0, 6) + "…" + s.slice(-4);
+        return s.slice(0, 6) + "вЂ¦" + s.slice(-4);
       }
 
       return (
@@ -785,22 +827,22 @@
             <div className="dash-kpi">
               <div className="label">Bugungi foyda</div>
               <div className={"value" + (foyda < 0 ? " neg" : "")}>{money(foyda)}</div>
-              <div className="trend">— bugungi</div>
+              <div className="trend">вЂ” bugungi</div>
             </div>
             <div className="dash-kpi">
               <div className="label">Bugungi savdo</div>
               <div className="value">{money(data.bugungi_savdo)}</div>
-              <div className="trend">— bugungi</div>
+              <div className="trend">вЂ” bugungi</div>
             </div>
             <div className="dash-kpi">
               <div className="label">Bugungi naqd</div>
               <div className="value">{money(data.bugungi_naqd_tushum)}</div>
-              <div className="trend">— tushum</div>
+              <div className="trend">вЂ” tushum</div>
             </div>
             <div className="dash-kpi">
               <div className="label">Bugungi xarajat</div>
               <div className="value">{money(data.bugungi_xarajat)}</div>
-              <div className="trend">— chiqim</div>
+              <div className="trend">вЂ” chiqim</div>
             </div>
             <div className={"dash-kpi" + (Number(data.jami_qarz) > 3000000 ? " dash-kpi-danger" : "")}>
               <div className="label">Qarz</div>
@@ -836,8 +878,8 @@
               <h2>Tayyor mahsulot</h2>
               {skuStock.length === 0 ? (
                 <div className="empty">
-                  <div className="empty-title">Tayyor mahsulot yo‘q</div>
-                  Qadoqlash bo‘limidan birinchi partiyani qadoqlang
+                  <div className="empty-title">Tayyor mahsulot yoвЂq</div>
+                  Qadoqlash boвЂlimidan birinchi partiyani qadoqlang
                 </div>
               ) : (
                 <div className="table-wrap">
@@ -874,8 +916,8 @@
               <h2>Material</h2>
               {mats.length === 0 ? (
                 <div className="empty">
-                  <div className="empty-title">Material yo‘q</div>
-                  Katalog → Material dan qo‘shing
+                  <div className="empty-title">Material yoвЂq</div>
+                  Katalog в†’ Material dan qoвЂshing
                 </div>
               ) : (
                 <div className="table-wrap">
@@ -905,8 +947,8 @@
             <h2>Faol partiyalar</h2>
             {batches.length === 0 ? (
               <div className="empty">
-                <div className="empty-title">Faol partiya yo‘q</div>
-                Ishlab chiqarish → Partiya dan yangi partiya oching
+                <div className="empty-title">Faol partiya yoвЂq</div>
+                Ishlab chiqarish в†’ Partiya dan yangi partiya oching
               </div>
             ) : (
               <div className="table-wrap">
@@ -932,11 +974,11 @@
           </div>
 
           <div className="card tight" style={{ marginTop: 10 }}>
-            <h2>So‘nggi buyurtmalar</h2>
+            <h2>SoвЂnggi buyurtmalar</h2>
             {orders.length === 0 ? (
               <div className="empty">
-                <div className="empty-title">Buyurtma yo‘q</div>
-                Savdo → Buyurtma yoki mijoz ilovasidan keladi
+                <div className="empty-title">Buyurtma yoвЂq</div>
+                Savdo в†’ Buyurtma yoki mijoz ilovasidan keladi
               </div>
             ) : (
               <div className="table-wrap">
@@ -949,7 +991,7 @@
                     return (
                       <tr key={o.id}>
                         <td title={o.order_code}>{shortCode(o.order_code)}</td>
-                        <td>{o.customer_name || "—"}</td>
+                        <td>{o.customer_name || "вЂ”"}</td>
                         <td>{money(o.total_amount)}</td>
                         <td><span className={"badge " + o.status}>{o.status}</span></td>
                       </tr>
@@ -991,8 +1033,8 @@
             <h2>Material qoldiq</h2>
             {materials.length === 0 ? (
               <div className="empty">
-                <div className="empty-title">Material qoldiq yo‘q</div>
-                Katalog → Material dan qo‘shing
+                <div className="empty-title">Material qoldiq yoвЂq</div>
+                Katalog в†’ Material dan qoвЂshing
               </div>
             ) : (
               <div className="table-wrap"><table>
@@ -1919,7 +1961,7 @@
           <div className="card">
             <h2>Buyurtmalar</h2>
             <p className="muted" style={{ marginBottom: 10, fontSize: "0.78rem" }}>
-              Telegram/PWA buyurtmalari <b>pending</b> — Tasdiq yoki Rad.
+              Telegram/PWA buyurtmalari <b>pending</b> вЂ” Tasdiq yoki Rad.
             </p>
             <div className="table-wrap">
               <table>
@@ -1938,7 +1980,7 @@
                     var srcLabel = src === "telegram" ? "TG" : (src === "pwa" ? "PWA" : "Admin");
                     var st = orderStatusLabel(o.status);
                     var itemsLine = o.items && o.items.length
-                      ? o.items.map(function (i) { return i.sku + "×" + i.qty; }).join(", ")
+                      ? o.items.map(function (i) { return i.sku + "Г—" + i.qty; }).join(", ")
                       : "";
                     return (
                       <tr
@@ -1953,7 +1995,7 @@
                           <span className="badge" style={{ marginRight: 4 }}>{srcLabel}</span>
                           <span className="order-row-code" title={o.order_code}>
                             {o.order_code && o.order_code.length > 16
-                              ? o.order_code.slice(0, 8) + "…" + o.order_code.slice(-4)
+                              ? o.order_code.slice(0, 8) + "вЂ¦" + o.order_code.slice(-4)
                               : o.order_code}
                           </span>
                           {itemsLine ? (
@@ -1961,7 +2003,7 @@
                           ) : null}
                         </td>
                         <td>
-                          <div>{o.customer_name || "—"}</div>
+                          <div>{o.customer_name || "вЂ”"}</div>
                           {o.phone ? (
                             <div className="muted" style={{ fontWeight: 600, color: "#e8d5a3", fontSize: "0.72rem" }}>
                               {o.phone}
@@ -2477,7 +2519,7 @@
               </button>
             </div>
             <p className="muted" style={{ marginTop: 10 }}>
-              API: {apiBase || "(bo'sh)"} · Operator: {operatorName || "—"} · Kalit localStorage da, 12 soatdan keyin eskiradi.
+              API: {apiBase || "(bo'sh)"} В· Operator: {operatorName || "вЂ”"} В· Kalit localStorage da, 12 soatdan keyin eskiradi.
               Ideal: httpOnly cookie + server session (backend).
             </p>
           </div>
