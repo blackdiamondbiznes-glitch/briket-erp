@@ -125,13 +125,16 @@ module.exports = function(app, pool, helpers) {
       if (debt === 0) status = 'paid';
       else if (paid > 0) status = 'partial';
 
-      const seqR = await client.query("SELECT nextval(pg_get_serial_sequence('orders', 'id')) AS seq");
-      const code = 'ORD-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + String(seqR.rows[0].seq).padStart(6, '0');
+      // Fix: avval INSERT (order_code = NULL), keyin id dan code hosil qilib UPDATE
+      // Sabab: nextval + INSERT = sequence 2 marta o'sadi → order_code ≠ id
       const ord = await client.query(
-        `INSERT INTO orders (order_code, customer_id, customer_name, phone, status, total_amount, paid_amount, debt_amount, debt_due, source, note)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-        [code, custId, name, phone || null, status, total, paid, debt, debt_due || null, source || 'admin', note || null]
+        `INSERT INTO orders (customer_id, customer_name, phone, status, total_amount, paid_amount, debt_amount, debt_due, source, note)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        [custId, name, phone || null, status, total, paid, debt, debt_due || null, source || 'admin', note || null]
       );
+      const code = 'ORD-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + String(ord.rows[0].id).padStart(6, '0');
+      await client.query(`UPDATE orders SET order_code = $1 WHERE id = $2`, [code, ord.rows[0].id]);
+      ord.rows[0].order_code = code;
       for (const line of lines) {
         await client.query(
           `INSERT INTO order_items (order_id, product_id, sku, qty, unit_price, line_total)
