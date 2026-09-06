@@ -24,7 +24,7 @@
       --border: #2e2a22;
       --border-subtle: #2a261e;
       --text: #f5f0e6;
-      --muted: #8a8270;
+      --muted: #a39b88;
       --accent: #c9a227;
       --accent-hover: #d4b03a;
       --accent-muted: rgba(201, 162, 39, 0.14);
@@ -541,6 +541,15 @@
     @media (max-width: 400px) {
       .dash-kpis, .dash-kpis.cols-5 { grid-template-columns: 1fr !important; }
     }
+  
+    th.sticky-actions, td.sticky-actions {
+      position: sticky; right: 0; background: var(--card, #141210);
+      box-shadow: -6px 0 8px rgba(0,0,0,0.25); z-index: 2;
+    }
+    @media (min-width: 861px) {
+      th.sticky-actions, td.sticky-actions { position: static; box-shadow: none; }
+    }
+
   </style>
 </head>
 <body>
@@ -554,7 +563,7 @@
       return Number(n || 0).toLocaleString("uz-UZ");
     }
 
-    // Sessiya muddati: 12 soat (frontend himoya; httpOnly cookie вЂ” backend taklifi)
+    // Sessiya muddati: 12 soat (frontend himoya; httpOnly cookie вЂ” backend taklifi) /* Eslatma: faqat UI; backend ADMIN_KEY muddatsiz */
     const SESSION_MS = 12 * 60 * 60 * 1000;
 
     function useApi() {
@@ -624,7 +633,7 @@
         localStorage.removeItem("erp_key");
         localStorage.removeItem("erp_key_at");
         localStorage.removeItem("erp_operator");
-        // Backendda /api/auth/logout bo'lsa вЂ” shu yerga qo'shiladi (hozir yo'q)
+        // Chiqish faqat frontend: localStorage tozalanadi. ADMIN_KEY serverda sessiya muddatisiz.
       }
 
       return {
@@ -1116,7 +1125,7 @@
               description: form.description || null
             })
           });
-          setMsg({ text: "SKU qoshildi", type: "ok" });
+          setMsg({ text: "SKU qo'shildi", type: "ok" });
           setForm({ sku: "", weight_kg: "", price: "", description: "" });
           load();
         } catch (err) {
@@ -1209,7 +1218,7 @@
                   <input id="f-5" value={form.description} onChange={function (e) { setForm({ ...form, description: e.target.value }); }} />
                 </div>
               </div>
-              <button className="btn" type="submit">Qoshish</button>
+              <button className="btn" type="submit">Qo'shish</button>
             </form>
           </div>
 
@@ -1272,7 +1281,7 @@
                         <button type="button" className="btn-ghost btn-sm" onClick={function () { startEdit(p); }}>Tahrir</button>
                         {" "}
                         {p.is_active ? (
-                          <button type="button" className="btn-ghost btn-sm" onClick={function () { softDelete(p.id); }}>Ochirish</button>
+                          <button type="button" className="btn-ghost btn-sm" onClick={function () { softDelete(p.id); }}>O'chirish</button>
                         ) : null}
                       </td>
                     </tr>
@@ -1289,8 +1298,11 @@
       const api = props.api;
       const [list, setList] = useState([]);
       const [form, setForm] = useState({ name: "", unit: "kg", price: "", initial_stock: "" });
+      const [editId, setEditId] = useState(null);
+      const [editForm, setEditForm] = useState({ name: "", unit: "kg", price: "", is_active: true });
       const [mov, setMov] = useState({ material_id: "", qty: "", unit_price: "", note: "" });
       const [msg, setMsg] = useAutoMsg();
+      const [confirmState, setConfirmState] = useState({ open: false, text: "", onConfirm: null });
 
       const load = useCallback(function () {
         api("/api/materials?active=0")
@@ -1312,12 +1324,59 @@
               initial_stock: Number(form.initial_stock) || 0
             })
           });
-          setMsg({ text: "Material qoshildi", type: "ok" });
+          setMsg({ text: "Material qo'shildi", type: "ok" });
           setForm({ name: "", unit: "kg", price: "", initial_stock: "" });
           load();
         } catch (err) {
           setMsg({ text: err.message, type: "err" });
         }
+      }
+
+      function startEdit(m) {
+        setEditId(m.id);
+        setEditForm({
+          name: m.name || "",
+          unit: m.unit || "kg",
+          price: String(m.price != null ? m.price : ""),
+          is_active: m.is_active !== false
+        });
+      }
+
+      async function saveEdit(e) {
+        e.preventDefault();
+        try {
+          await api("/api/materials/" + editId, {
+            method: "PUT",
+            body: JSON.stringify({
+              name: editForm.name,
+              unit: editForm.unit || "kg",
+              price: Number(editForm.price) || 0,
+              is_active: !!editForm.is_active
+            })
+          });
+          setMsg({ text: "Material yangilandi", type: "ok" });
+          setEditId(null);
+          load();
+        } catch (err) {
+          setMsg({ text: err.message, type: "err" });
+        }
+      }
+
+      function softDelete(id) {
+        setConfirmState({
+          open: true,
+          text: "Materialni nofaol qilish?",
+          onConfirm: async function () {
+            setConfirmState({ open: false, text: "", onConfirm: null });
+            try {
+              await api("/api/materials/" + id, { method: "DELETE" });
+              setMsg({ text: "Material nofaol qilindi", type: "ok" });
+              load();
+            } catch (err) {
+              setMsg({ text: err.message, type: "err" });
+            }
+          }
+        });
       }
 
       async function submitIn(e) {
@@ -1342,6 +1401,12 @@
 
       return (
         <div>
+          <ConfirmModal
+            open={confirmState.open}
+            text={confirmState.text}
+            onCancel={function () { setConfirmState({ open: false, text: "", onConfirm: null }); }}
+            onConfirm={function () { if (confirmState.onConfirm) confirmState.onConfirm(); }}
+          />
           <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
           <div className="card">
             <h2>Yangi material</h2>
@@ -1360,11 +1425,11 @@
                   <input id="f-13" type="number" value={form.price} onChange={function (e) { setForm({ ...form, price: e.target.value }); }} />
                 </div>
                 <div>
-                  <label htmlFor="f-14">Boshlangich zaxira</label>
+                  <label htmlFor="f-14">Boshlang'ich zaxira</label>
                   <input id="f-14" type="number" value={form.initial_stock} onChange={function (e) { setForm({ ...form, initial_stock: e.target.value }); }} />
                 </div>
               </div>
-              <button className="btn" type="submit">Qoshish</button>
+              <button className="btn" type="submit">Qo'shish</button>
             </form>
           </div>
           <div className="card">
@@ -1393,34 +1458,75 @@
                   <input id="f-18" value={mov.note} onChange={function (e) { setMov({ ...mov, note: e.target.value }); }} />
                 </div>
               </div>
-              <button className="btn" type="submit">Kirim qilish</button>
+              <button className="btn" type="submit">Kirim</button>
             </form>
           </div>
+          {editId && (
+            <div className="card">
+              <h2>Tahrirlash #{editId}</h2>
+              <form onSubmit={saveEdit}>
+                <div className="form-row">
+                  <div>
+                    <label>Nomi</label>
+                    <input value={editForm.name} onChange={function (e) { setEditForm({ ...editForm, name: e.target.value }); }} required />
+                  </div>
+                  <div>
+                    <label>Birlik</label>
+                    <input value={editForm.unit} onChange={function (e) { setEditForm({ ...editForm, unit: e.target.value }); }} />
+                  </div>
+                  <div>
+                    <label>Narx</label>
+                    <input type="number" value={editForm.price} onChange={function (e) { setEditForm({ ...editForm, price: e.target.value }); }} />
+                  </div>
+                  <div>
+                    <label>Faol</label>
+                    <select value={editForm.is_active ? "1" : "0"} onChange={function (e) { setEditForm({ ...editForm, is_active: e.target.value === "1" }); }}>
+                      <option value="1">Ha</option>
+                      <option value="0">Yo'q</option>
+                    </select>
+                  </div>
+                </div>
+                <button className="btn" type="submit">Saqlash</button>
+                <button className="btn-ghost" type="button" onClick={function () { setEditId(null); }}>Bekor</button>
+              </form>
+            </div>
+          )}
           <div className="card">
-            <h2>Materiallar ({list.length})</h2>
-            <div className="table-wrap"><table>
-              <thead>
-                <tr><th>Nomi</th><th>Birlik</th><th>Narx</th><th>Boshlangich</th></tr>
-              </thead>
-              <tbody>
-                {list.map(function (m) {
-                  return (
-                    <tr key={m.id}>
-                      <td>{m.name}</td>
-                      <td>{m.unit}</td>
-                      <td>{money(m.price)}</td>
-                      <td>{m.initial_stock}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table></div>
+            <h2>Materiallar</h2>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th><th>Nomi</th><th>Birlik</th><th>Narx</th><th>Holat</th>
+                    <th className="sticky-actions">Amallar</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map(function (m) {
+                    return (
+                      <tr key={m.id}>
+                        <td>{m.id}</td>
+                        <td>{m.name}</td>
+                        <td>{m.unit}</td>
+                        <td>{money(m.price)}</td>
+                        <td>{m.is_active ? "faol" : "nofaol"}</td>
+                        <td className="sticky-actions">
+                          <button type="button" className="btn-ghost btn-sm" onClick={function () { startEdit(m); }}>Tahrir</button>
+                          {m.is_active && (
+                            <button type="button" className="btn-ghost btn-sm" onClick={function () { softDelete(m.id); }}>O'chirish</button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       );
     }
 
-    // ---------- Batches ----------
     function Batches(props) {
       const api = props.api;
       const [list, setList] = useState([]);
@@ -1428,6 +1534,24 @@
         bags_count: "", bag_price: "", dry_kg: "", workers_count: "", press_wage: "", note: ""
       });
       const [msg, setMsg] = useAutoMsg();
+      const [confirmState, setConfirmState] = useState({ open: false, text: "", onConfirm: null });
+
+      function deleteBatch(id) {
+        setConfirmState({
+          open: true,
+          text: "Partiyani o'chirish? (faqat qadoqlanmagan)",
+          onConfirm: async function () {
+            setConfirmState({ open: false, text: "", onConfirm: null });
+            try {
+              await api("/api/batches/" + id, { method: "DELETE" });
+              setMsg({ text: "Partiya o'chirildi", type: "ok" });
+              load();
+            } catch (err) {
+              setMsg({ text: err.message, type: "err" });
+            }
+          }
+        });
+      }
 
       const load = useCallback(function () {
         api("/api/batches")
@@ -1461,6 +1585,12 @@
 
       return (
         <div>
+          <ConfirmModal
+            open={confirmState.open}
+            text={confirmState.text}
+            onCancel={function () { setConfirmState({ open: false, text: "", onConfirm: null }); }}
+            onConfirm={function () { if (confirmState.onConfirm) confirmState.onConfirm(); }}
+          />
           <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
           <div className="card">
             <h2>Yangi partiya</h2>
@@ -1500,10 +1630,12 @@
               <thead>
                 <tr>
                   <th>Kod</th><th>Holat</th><th>Qop</th><th>Quruq</th><th>Qadoq</th><th>Qolgan</th><th>Yoqotish %</th>
+                  <th className="sticky-actions">Amallar</th>
                 </tr>
               </thead>
               <tbody>
                 {list.map(function (b) {
+                  const canDel = Number(b.packed_kg) === 0 || Number(b.packed_kg) === 0.0;
                   return (
                     <tr key={b.id}>
                       <td>{b.batch_code}</td>
@@ -1513,6 +1645,13 @@
                       <td>{b.packed_kg}</td>
                       <td><strong>{b.remaining_kg}</strong></td>
                       <td>{b.loss_percent}%</td>
+                      <td className="sticky-actions">
+                        {canDel ? (
+                          <button type="button" className="btn-ghost btn-sm" onClick={function () { deleteBatch(b.id); }}>O'chirish</button>
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -1534,6 +1673,24 @@
         product_id: "", qty: "", unit_wage: "700", workers_count: "1", batch_id: ""
       });
       const [msg, setMsg] = useAutoMsg();
+      const [confirmState, setConfirmState] = useState({ open: false, text: "", onConfirm: null });
+
+      function deleteBatch(id) {
+        setConfirmState({
+          open: true,
+          text: "Partiyani o'chirish? (faqat qadoqlanmagan)",
+          onConfirm: async function () {
+            setConfirmState({ open: false, text: "", onConfirm: null });
+            try {
+              await api("/api/batches/" + id, { method: "DELETE" });
+              setMsg({ text: "Partiya o'chirildi", type: "ok" });
+              load();
+            } catch (err) {
+              setMsg({ text: err.message, type: "err" });
+            }
+          }
+        });
+      }
       const [loading, setLoading] = useState(true);
       const [loadingMore, setLoadingMore] = useState(false);
       const [offset, setOffset] = useState(0);
@@ -1679,7 +1836,10 @@
       const api = props.api;
       const [list, setList] = useState([]);
       const [form, setForm] = useState({ name: "", phone: "", address: "", credit_limit: "" });
+      const [editId, setEditId] = useState(null);
+      const [editForm, setEditForm] = useState({ name: "", phone: "", address: "", credit_limit: "", is_active: true });
       const [msg, setMsg] = useAutoMsg();
+      const [confirmState, setConfirmState] = useState({ open: false, text: "", onConfirm: null });
 
       const load = useCallback(function () {
         api("/api/customers")
@@ -1689,8 +1849,17 @@
 
       useEffect(function () { load(); }, [load]);
 
+      function phoneSoftOk(ph) {
+        if (!ph) return true;
+        return /^\+?\d{9,13}$/.test(String(ph).replace(/[\s\-()]/g, ""));
+      }
+
       async function submit(e) {
         e.preventDefault();
+        if (form.phone && !phoneSoftOk(form.phone)) {
+          setMsg({ text: "Telefon formati shubhali (+998... tavsiya etiladi)", type: "err" });
+          return;
+        }
         try {
           await api("/api/customers", {
             method: "POST",
@@ -1701,7 +1870,7 @@
               credit_limit: Number(form.credit_limit) || 0
             })
           });
-          setMsg({ text: "Mijoz qoshildi", type: "ok" });
+          setMsg({ text: "Mijoz qo'shildi", type: "ok" });
           setForm({ name: "", phone: "", address: "", credit_limit: "" });
           load();
         } catch (err) {
@@ -1709,20 +1878,79 @@
         }
       }
 
+      function startEdit(c) {
+        setEditId(c.id);
+        setEditForm({
+          name: c.name || "",
+          phone: c.phone || "",
+          address: c.address || "",
+          credit_limit: String(c.credit_limit != null ? c.credit_limit : ""),
+          is_active: c.is_active !== false
+        });
+      }
+
+      async function saveEdit(e) {
+        e.preventDefault();
+        if (editForm.phone && !phoneSoftOk(editForm.phone)) {
+          setMsg({ text: "Telefon formati shubhali", type: "err" });
+          return;
+        }
+        try {
+          await api("/api/customers/" + editId, {
+            method: "PUT",
+            body: JSON.stringify({
+              name: editForm.name,
+              phone: editForm.phone || null,
+              address: editForm.address || null,
+              credit_limit: Number(editForm.credit_limit) || 0,
+              is_active: !!editForm.is_active
+            })
+          });
+          setMsg({ text: "Mijoz yangilandi", type: "ok" });
+          setEditId(null);
+          load();
+        } catch (err) {
+          setMsg({ text: err.message, type: "err" });
+        }
+      }
+
+      function softDelete(id) {
+        setConfirmState({
+          open: true,
+          text: "Mijozni nofaol qilish?",
+          onConfirm: async function () {
+            setConfirmState({ open: false, text: "", onConfirm: null });
+            try {
+              await api("/api/customers/" + id, { method: "DELETE" });
+              setMsg({ text: "Mijoz nofaol qilindi", type: "ok" });
+              load();
+            } catch (err) {
+              setMsg({ text: err.message, type: "err" });
+            }
+          }
+        });
+      }
+
       return (
         <div>
+          <ConfirmModal
+            open={confirmState.open}
+            text={confirmState.text}
+            onCancel={function () { setConfirmState({ open: false, text: "", onConfirm: null }); }}
+            onConfirm={function () { if (confirmState.onConfirm) confirmState.onConfirm(); }}
+          />
           <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
           <div className="card">
             <h2>Yangi mijoz</h2>
             <form onSubmit={submit}>
               <div className="form-row">
                 <div>
-                  <label htmlFor="f-30">Ism *</label>
+                  <label htmlFor="f-30">Ism</label>
                   <input id="f-30" value={form.name} onChange={function (e) { setForm({ ...form, name: e.target.value }); }} required />
                 </div>
                 <div>
                   <label htmlFor="f-31">Telefon</label>
-                  <input id="f-31" value={form.phone} onChange={function (e) { setForm({ ...form, phone: e.target.value }); }} />
+                  <input id="f-31" value={form.phone} onChange={function (e) { setForm({ ...form, phone: e.target.value }); }} placeholder="+998..." />
                 </div>
                 <div>
                   <label htmlFor="f-32">Manzil</label>
@@ -1733,42 +1961,77 @@
                   <input id="f-33" type="number" value={form.credit_limit} onChange={function (e) { setForm({ ...form, credit_limit: e.target.value }); }} />
                 </div>
               </div>
-              <button className="btn" type="submit">Qoshish</button>
+              <button className="btn" type="submit">Qo'shish</button>
             </form>
           </div>
+          {editId && (
+            <div className="card">
+              <h2>Tahrirlash #{editId}</h2>
+              <form onSubmit={saveEdit}>
+                <div className="form-row">
+                  <div>
+                    <label>Ism</label>
+                    <input value={editForm.name} onChange={function (e) { setEditForm({ ...editForm, name: e.target.value }); }} required />
+                  </div>
+                  <div>
+                    <label>Telefon</label>
+                    <input value={editForm.phone} onChange={function (e) { setEditForm({ ...editForm, phone: e.target.value }); }} />
+                  </div>
+                  <div>
+                    <label>Manzil</label>
+                    <input value={editForm.address} onChange={function (e) { setEditForm({ ...editForm, address: e.target.value }); }} />
+                  </div>
+                  <div>
+                    <label>Kredit limiti</label>
+                    <input type="number" value={editForm.credit_limit} onChange={function (e) { setEditForm({ ...editForm, credit_limit: e.target.value }); }} />
+                  </div>
+                  <div>
+                    <label>Faol</label>
+                    <select value={editForm.is_active ? "1" : "0"} onChange={function (e) { setEditForm({ ...editForm, is_active: e.target.value === "1" }); }}>
+                      <option value="1">Ha</option>
+                      <option value="0">Yo'q</option>
+                    </select>
+                  </div>
+                </div>
+                <button className="btn" type="submit">Saqlash</button>
+                <button className="btn-ghost" type="button" onClick={function () { setEditId(null); }}>Bekor</button>
+              </form>
+            </div>
+          )}
           <div className="card">
-            <h2>Mijozlar ({list.length})</h2>
-            <div className="table-wrap"><table>
-              <thead>
-                <tr><th>Ism</th><th>Tel</th><th>Manzil</th><th>Limit</th></tr>
-              </thead>
-              <tbody>
-                {list.map(function (c) {
-                  return (
-                    <tr key={c.id}>
-                      <td>{c.name}</td>
-                      <td>{c.phone || "-"}</td>
-                      <td>{c.address || "-"}</td>
-                      <td>{money(c.credit_limit)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table></div>
+            <h2>Mijozlar ro'yxati</h2>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th><th>Ism</th><th>Telefon</th><th>Limit</th><th>Holat</th>
+                    <th className="sticky-actions">Amallar</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map(function (c) {
+                    return (
+                      <tr key={c.id}>
+                        <td>{c.id}</td>
+                        <td>{c.name}</td>
+                        <td>{c.phone || "—"}</td>
+                        <td>{money(c.credit_limit)}</td>
+                        <td>{c.is_active === false ? "nofaol" : "faol"}</td>
+                        <td className="sticky-actions">
+                          <button type="button" className="btn-ghost btn-sm" onClick={function () { startEdit(c); }}>Tahrir</button>
+                          {c.is_active !== false && (
+                            <button type="button" className="btn-ghost btn-sm" onClick={function () { softDelete(c.id); }}>O'chirish</button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       );
-    }
-
-    // ---------- Orders ----------
-    function orderStatusLabel(s) {
-      var low = String(s || "").toLowerCase();
-      if (low === "pending" || low === "partial") return { text: "Ko'rib chiqilmoqda", cls: "pending" };
-      if (low === "confirmed") return { text: "Tasdiqlandi", cls: "confirmed" };
-      if (low === "rejected") return { text: "Rad etildi", cls: "rejected" };
-      if (low === "cancelled") return { text: "Bekor", cls: "cancelled" };
-      if (low === "paid" || low === "closed") return { text: "Tasdiqlandi", cls: "paid" };
-      return { text: s, cls: s };
     }
 
     function Orders(props) {
@@ -1888,7 +2151,7 @@
             <form onSubmit={submit}>
               <div className="form-row">
                 <div>
-                  <label htmlFor="f-34">Mijoz (royxat)</label>
+                  <label htmlFor="f-34">Mijoz (ro'yxat)</label>
                   <select id="f-34" value={form.customer_id} onChange={function (e) { onCustomer(e.target.value); }}>
                     <option value="">-</option>
                     {customers.map(function (c) {
@@ -1905,7 +2168,7 @@
                   <input id="f-36" value={form.phone} onChange={function (e) { setForm({ ...form, phone: e.target.value }); }} />
                 </div>
                 <div>
-                  <label htmlFor="f-37">Tolangan</label>
+                  <label htmlFor="f-37">To'langan</label>
                   <input id="f-37" type="number" value={form.paid_amount} onChange={function (e) { setForm({ ...form, paid_amount: e.target.value }); }} />
                 </div>
               </div>
@@ -1978,7 +2241,7 @@
                     <th>Mijoz</th>
                     <th>Summa</th>
                     <th>Holat</th>
-                    <th>Amallar</th>
+                    <th className="sticky-actions">Amallar</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2180,7 +2443,7 @@
                   <select id="f-45" value={form.method} onChange={function (e) { setForm({ ...form, method: e.target.value }); }}>
                     <option value="cash">Naqd</option>
                     <option value="card">Karta</option>
-                    <option value="transfer">Otkazma</option>
+                    <option value="transfer">O'tkazma</option>
                   </select>
                 </div>
                 <div>
@@ -2275,7 +2538,7 @@
                   <select id="f-49" value={form.payment_method} onChange={function (e) { setForm({ ...form, payment_method: e.target.value }); }}>
                     <option value="cash">Naqd</option>
                     <option value="card">Karta</option>
-                    <option value="transfer">Otkazma</option>
+                    <option value="transfer">O'tkazma</option>
                   </select>
                 </div>
                 <div>
