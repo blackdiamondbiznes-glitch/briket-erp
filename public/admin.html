@@ -550,6 +550,44 @@
       th.sticky-actions, td.sticky-actions { position: static; box-shadow: none; }
     }
 
+  
+    /* MOBILE CARD TABLES */
+    @media (max-width: 700px) {
+      .table-wrap { overflow-x: visible !important; }
+      .table-wrap table { min-width: 0 !important; width: 100% !important; }
+      .table-wrap thead { display: none !important; }
+      .table-wrap tbody tr {
+        display: block !important;
+        margin-bottom: 10px;
+        padding: 12px;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius);
+        background: var(--bg-elevated);
+      }
+      .table-wrap tbody td {
+        display: flex !important;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 7px 0 !important;
+        height: auto !important;
+        white-space: normal !important;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        font-size: 0.84rem;
+        text-align: right;
+      }
+      .table-wrap tbody td:last-child { border-bottom: none; }
+      .table-wrap tbody td::before {
+        content: attr(data-label);
+        color: var(--muted);
+        font-size: 0.68rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        text-align: left;
+        flex: 0 0 38%;
+      }
+    }
   </style>
 </head>
 <body>
@@ -2833,6 +2871,33 @@
       );
     }
 
+    
+    function labelTables() {
+      try {
+        document.querySelectorAll(".table-wrap table").forEach(function (table) {
+          var headers = Array.prototype.map.call(
+            table.querySelectorAll("thead th"),
+            function (th) { return (th.textContent || "").trim(); }
+          );
+          if (!headers.length) return;
+          table.querySelectorAll("tbody tr").forEach(function (tr) {
+            var cells = tr.querySelectorAll("td");
+            for (var i = 0; i < cells.length; i++) {
+              if (headers[i]) cells[i].setAttribute("data-label", headers[i]);
+            }
+          });
+        });
+      } catch (e) {}
+    }
+    if (typeof MutationObserver !== "undefined") {
+      var _tblObs = new MutationObserver(function () { labelTables(); });
+      document.addEventListener("DOMContentLoaded", function () {
+        var root = document.getElementById("root");
+        if (root) _tblObs.observe(root, { childList: true, subtree: true });
+        labelTables();
+      });
+      setInterval(labelTables, 800);
+    }
     const root = ReactDOM.createRoot(document.getElementById("root"));
     root.render(<App />);
   </script>
