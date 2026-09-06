@@ -80,6 +80,7 @@ const corsOptions = {
   allowedHeaders: [
     'Content-Type',
     'X-Admin-Key',
+    'X-Operator-Name',
     'X-Telegram-Init-Data',
     'X-Demo-Telegram-Id',
   ],
@@ -215,7 +216,8 @@ function num(v, def) {
   return isNaN(n) ? def : n;
 }
 
-const helpers = { num, sendError };
+const SOLD_STATUSES = ['confirmed', 'paid', 'partial', 'closed'];
+const helpers = { num, sendError, SOLD_STATUSES };
 
 app.get('/', (req, res) => {
   res.json({
