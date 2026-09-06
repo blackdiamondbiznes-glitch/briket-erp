@@ -794,7 +794,7 @@
               type="text"
               value={name}
               onChange={function (e) { setName(e.target.value); }}
-              placeholder="Admin Ismi"
+              placeholder="Masalan: Dilshod"
               autoComplete="name"
               autoFocus
             />
@@ -1220,9 +1220,18 @@
     function Products(props) {
       const api = props.api;
       const [list, setList] = useState([]);
-      const [form, setForm] = useState({ sku: "", weight_kg: "", price: "", description: "" });
+      const emptyForm = { sku: "", weight_kg: "", price: "", description: "", img1: "", img2: "", img3: "" };
+      const [form, setForm] = useState(emptyForm);
       const [editId, setEditId] = useState(null);
-      const [editForm, setEditForm] = useState({ sku: "", weight_kg: "", price: "", description: "", is_active: true });
+      const [editForm, setEditForm] = useState({ sku: "", weight_kg: "", price: "", description: "", is_active: true, img1: "", img2: "", img3: "" });
+
+      function urlsFrom(f) {
+        return [f.img1, f.img2, f.img3].map(function (s) { return String(s || "").trim(); }).filter(Boolean);
+      }
+      function urlsTo(arr) {
+        const a = Array.isArray(arr) ? arr : [];
+        return { img1: a[0] || "", img2: a[1] || "", img3: a[2] || "" };
+      }
       const [msg, setMsg] = useAutoMsg();
 
       const load = useCallback(function () {
@@ -1241,12 +1250,13 @@
             body: JSON.stringify({
               sku: form.sku,
               weight_kg: Number(form.weight_kg) || 0,
-              price: Number(form.price) || 0,
-              description: form.description || null
+              price: Math.round(Number(form.price) || 0),
+              description: form.description || null,
+              image_urls: urlsFrom(form)
             })
           });
           setMsg({ text: "SKU qo'shildi", type: "ok" });
-          setForm({ sku: "", weight_kg: "", price: "", description: "" });
+          setForm(emptyForm);
           load();
         } catch (err) {
           setMsg({ text: err.message, type: "err" });
@@ -1255,12 +1265,16 @@
 
       function startEdit(p) {
         setEditId(p.id);
+        const imgs = urlsTo(p.image_urls);
         setEditForm({
           sku: p.sku || "",
           weight_kg: String(p.weight_kg != null ? p.weight_kg : ""),
           price: String(p.price != null ? p.price : ""),
           description: p.description || "",
-          is_active: p.is_active !== false
+          is_active: p.is_active !== false,
+          img1: imgs.img1,
+          img2: imgs.img2,
+          img3: imgs.img3
         });
       }
 
@@ -1276,9 +1290,10 @@
             body: JSON.stringify({
               sku: editForm.sku,
               weight_kg: Number(editForm.weight_kg) || 0,
-              price: Number(editForm.price) || 0,
+              price: Math.round(Number(editForm.price) || 0),
               description: editForm.description || null,
-              is_active: !!editForm.is_active
+              is_active: !!editForm.is_active,
+              image_urls: urlsFrom(editForm)
             })
           });
           setMsg({ text: "SKU yangilandi", type: "ok" });
@@ -1340,10 +1355,25 @@
                   ) : null}
                 </div>
                 <div>
-                  <label htmlFor="f-5">Tavsif</label>
+                  <label htmlFor="f-5">Tavsif (mijoz)</label>
                   <input id="f-5" value={form.description} onChange={function (e) { setForm({ ...form, description: e.target.value }); }} />
                 </div>
               </div>
+              <div className="form-row">
+                <div>
+                  <label htmlFor="f-img1">Rasm 1 URL</label>
+                  <input id="f-img1" value={form.img1} onChange={function (e) { setForm({ ...form, img1: e.target.value }); }} placeholder="https://lh3.googleusercontent.com/d/..." />
+                </div>
+                <div>
+                  <label htmlFor="f-img2">Rasm 2 URL</label>
+                  <input id="f-img2" value={form.img2} onChange={function (e) { setForm({ ...form, img2: e.target.value }); }} />
+                </div>
+                <div>
+                  <label htmlFor="f-img3">Rasm 3 URL</label>
+                  <input id="f-img3" value={form.img3} onChange={function (e) { setForm({ ...form, img3: e.target.value }); }} />
+                </div>
+              </div>
+              <p className="muted" style={{ fontSize: "0.72rem", marginTop: -4 }}>Drive fayl ID: https://lh3.googleusercontent.com/d/FILE_ID — bot galereyasida shu tartibda chiqadi.</p>
               <button className="btn" type="submit">Qo'shish</button>
             </form>
           </div>
@@ -1371,7 +1401,7 @@
                     ) : null}
                   </div>
                   <div>
-                    <label htmlFor="f-9">Tavsif</label>
+                    <label htmlFor="f-9">Tavsif (mijoz)</label>
                     <input id="f-9" value={editForm.description} onChange={function (e) { setEditForm({ ...editForm, description: e.target.value }); }} />
                   </div>
                   <div>
@@ -1380,6 +1410,20 @@
                       <option value="1">Faol</option>
                       <option value="0">Nofaol</option>
                     </select>
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div>
+                    <label htmlFor="f-eimg1">Rasm 1 URL</label>
+                    <input id="f-eimg1" value={editForm.img1} onChange={function (e) { setEditForm({ ...editForm, img1: e.target.value }); }} />
+                  </div>
+                  <div>
+                    <label htmlFor="f-eimg2">Rasm 2 URL</label>
+                    <input id="f-eimg2" value={editForm.img2} onChange={function (e) { setEditForm({ ...editForm, img2: e.target.value }); }} />
+                  </div>
+                  <div>
+                    <label htmlFor="f-eimg3">Rasm 3 URL</label>
+                    <input id="f-eimg3" value={editForm.img3} onChange={function (e) { setEditForm({ ...editForm, img3: e.target.value }); }} />
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
@@ -1394,7 +1438,7 @@
             <h2>Mahsulotlar ({list.length})</h2>
             <div className="table-wrap"><table>
               <thead>
-                <tr><th>SKU</th><th>kg</th><th>Optom</th><th>Mijoz</th><th>Holat</th><th></th></tr>
+                <tr><th>SKU</th><th>kg</th><th>Optom</th><th>Mijoz</th><th>Rasm</th><th>Holat</th><th></th></tr>
               </thead>
               <tbody>
                 {list.map(function (p) {
@@ -1404,6 +1448,7 @@
                       <td>{p.weight_kg}</td>
                       <td>{money(p.price)}</td>
                       <td>{money(mijozNarx(p.price))}</td>
+                      <td>{(p.image_urls && p.image_urls.length) ? p.image_urls.length : 0}</td>
                       <td>
                         <span className={"badge " + (p.is_active ? "active" : "closed")}>
                           {p.is_active ? "faol" : "nofaol"}
@@ -2914,7 +2959,6 @@
                 <p>Ishlab chiqarish · Ombor · Savdo{operatorName ? " · " + operatorName : ""}</p>
               </div>
               <div className="header-right">
-                <span className="tz-chip">{tashkentNowLabel()}</span>
                 <button type="button" className="logout-btn" onClick={logout}>Chiqish</button>
               </div>
             </div>
