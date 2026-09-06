@@ -1,10 +1,46 @@
 /**
- * Stock + expanded Dashboard (eski tizimdagi ko'rsatkichlar)
- * server.js: require('./routes-stock')(app, pool, helpers);
+ * Stock + Dashboard — Toshkent vaqti, zavod yuki zaxiradan ayiriladi
  */
 module.exports = function (app, pool, helpers) {
   const num = helpers.num;
+  const som = helpers.som || function (v, d) { return Math.round(num(v, d)); };
   const sendError = helpers.sendError;
+  const tashkentDateStr = helpers.tashkentDateStr;
+  const TZ = helpers.TZ || 'Asia/Tashkent';
+
+  const soldList =
+    helpers.SOLD_STATUSES && helpers.SOLD_STATUSES.length
+      ? helpers.SOLD_STATUSES
+      : ['confirmed', 'paid', 'partial', 'closed'];
+
+  const skuStockSql = `
+    SELECT
+      p.id, p.sku, p.weight_kg, p.price, p.is_active,
+      COALESCE(pack.total_qty, 0) AS packed_qty,
+      COALESCE(sold.sold_qty, 0) AS sold_qty,
+      COALESCE(ship.shipped_qty, 0) AS shipped_qty,
+      (COALESCE(pack.total_qty, 0) - COALESCE(sold.sold_qty, 0) - COALESCE(ship.shipped_qty, 0)) AS balance_qty,
+      (COALESCE(pack.total_qty, 0) - COALESCE(sold.sold_qty, 0) - COALESCE(ship.shipped_qty, 0)) * p.weight_kg AS balance_kg
+    FROM products p
+    LEFT JOIN (
+      SELECT product_id, SUM(qty) AS total_qty FROM packaging GROUP BY product_id
+    ) pack ON pack.product_id = p.id
+    LEFT JOIN (
+      SELECT oi.product_id, SUM(oi.qty) AS sold_qty
+      FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id
+      WHERE o.status = ANY($1::text[])
+      GROUP BY oi.product_id
+    ) sold ON sold.product_id = p.id
+    LEFT JOIN (
+      SELECT product_id, SUM(qty - COALESCE(returned_qty, 0)) AS shipped_qty
+      FROM shipments
+      WHERE from_type = 'factory'
+      GROUP BY product_id
+    ) ship ON ship.product_id = p.id
+    WHERE p.is_active = true
+    ORDER BY p.sku
+  `;
 
   app.get('/api/stock/materials', async (req, res) => {
     try {
@@ -29,37 +65,9 @@ module.exports = function (app, pool, helpers) {
     }
   });
 
-  // Sotilgan deb hisoblanadigan holatlar (manba: server helpers)
-  // pending — hali tasdiqlanmagan, zaxiraga ta'sir qilmaydi
-  const soldList =
-    helpers.SOLD_STATUSES && helpers.SOLD_STATUSES.length
-      ? helpers.SOLD_STATUSES
-      : ['confirmed', 'paid', 'partial', 'closed'];
-  const SOLD_STATUSES_SQL = soldList.map(function (s) { return "'" + s + "'"; }).join(',');
-
   app.get('/api/stock/products', async (req, res) => {
     try {
-      const r = await pool.query(`
-        SELECT
-          p.id, p.sku, p.weight_kg, p.price,
-          COALESCE(pack.total_qty, 0) AS packed_qty,
-          COALESCE(sold.sold_qty, 0) AS sold_qty,
-          (COALESCE(pack.total_qty, 0) - COALESCE(sold.sold_qty, 0)) AS balance_qty,
-          (COALESCE(pack.total_qty, 0) - COALESCE(sold.sold_qty, 0)) * p.weight_kg AS balance_kg
-        FROM products p
-        LEFT JOIN (
-          SELECT product_id, SUM(qty) AS total_qty FROM packaging GROUP BY product_id
-        ) pack ON pack.product_id = p.id
-        LEFT JOIN (
-          SELECT oi.product_id, SUM(oi.qty) AS sold_qty
-          FROM order_items oi
-          JOIN orders o ON o.id = oi.order_id
-          WHERE o.status IN (${SOLD_STATUSES_SQL})
-          GROUP BY oi.product_id
-        ) sold ON sold.product_id = p.id
-        WHERE p.is_active = true
-        ORDER BY p.sku
-      `);
+      const r = await pool.query(skuStockSql, [soldList]);
       res.json({ ok: true, count: r.rows.length, data: r.rows });
     } catch (err) {
       sendError(res, err);
@@ -78,12 +86,7 @@ module.exports = function (app, pool, helpers) {
       const lowBatchKg = cfg.low_batch_kg || 50;
       const highDebtThreshold = cfg.high_debt_threshold || 3000000;
 
-      const today = new Date();
-      const y = today.getFullYear();
-      const m = String(today.getMonth() + 1).padStart(2, '0');
-      const d = String(today.getDate()).padStart(2, '0');
-      // To'liq sana kerak: '2026-09' date cast qilmaydi → 500 xato
-      const dayStr = `${y}-${m}-${d}`;
+      const dayStr = tashkentDateStr();
 
       const [
         salesToday,
@@ -104,73 +107,56 @@ module.exports = function (app, pool, helpers) {
       ] = await Promise.all([
         pool.query(
           `SELECT COALESCE(SUM(total_amount),0) AS total FROM orders
-           WHERE status IN (${SOLD_STATUSES_SQL})
-             AND created_at >= $1::date AND created_at < $1::date + interval '1 day'`,
-          [dayStr]
+           WHERE status = ANY($2::text[])
+             AND COALESCE(ordered_at, created_at) >= ($1::timestamp AT TIME ZONE 'Asia/Tashkent')
+             AND COALESCE(ordered_at, created_at) < ($1::timestamp AT TIME ZONE 'Asia/Tashkent') + interval '1 day'`,
+          [dayStr, soldList]
         ),
         pool.query(
           `SELECT COALESCE(SUM(total_amount),0) AS total FROM orders
-           WHERE status IN (${SOLD_STATUSES_SQL})
-             AND created_at >= date_trunc('month', $1::date)
-             AND created_at < date_trunc('month', $1::date) + interval '1 month'`,
+           WHERE status = ANY($2::text[])
+             AND COALESCE(ordered_at, created_at) >= (date_trunc('month', $1::date)::timestamp AT TIME ZONE 'Asia/Tashkent')
+             AND COALESCE(ordered_at, created_at) < ((date_trunc('month', $1::date) + interval '1 month')::timestamp AT TIME ZONE 'Asia/Tashkent')`,
+          [dayStr, soldList]
+        ),
+        pool.query(
+          `SELECT COALESCE(SUM(amount),0) AS total FROM expenses
+           WHERE expense_date >= ($1::timestamp AT TIME ZONE 'Asia/Tashkent')
+             AND expense_date < ($1::timestamp AT TIME ZONE 'Asia/Tashkent') + interval '1 day'`,
           [dayStr]
         ),
         pool.query(
           `SELECT COALESCE(SUM(amount),0) AS total FROM expenses
-           WHERE expense_date >= $1::date AND expense_date < $1::date + interval '1 day'`,
-          [dayStr]
-        ),
-        pool.query(
-          `SELECT COALESCE(SUM(amount),0) AS total FROM expenses
-           WHERE expense_date >= date_trunc('month', $1::date)
-             AND expense_date < date_trunc('month', $1::date) + interval '1 month'`,
+           WHERE expense_date >= (date_trunc('month', $1::date)::timestamp AT TIME ZONE 'Asia/Tashkent')
+             AND expense_date < ((date_trunc('month', $1::date) + interval '1 month')::timestamp AT TIME ZONE 'Asia/Tashkent')`,
           [dayStr]
         ),
         pool.query(
           `SELECT COALESCE(SUM(kg),0) AS kg, COALESCE(SUM(qty),0) AS qty
            FROM packaging
-           WHERE COALESCE(packed_at, created_at) >= $1::date
-             AND COALESCE(packed_at, created_at) < $1::date + interval '1 day'`,
+           WHERE COALESCE(packed_at, created_at) >= ($1::timestamp AT TIME ZONE 'Asia/Tashkent')
+             AND COALESCE(packed_at, created_at) < ($1::timestamp AT TIME ZONE 'Asia/Tashkent') + interval '1 day'`,
           [dayStr]
         ),
         pool.query(
           `SELECT COALESCE(SUM(kg),0) AS kg, COALESCE(SUM(qty),0) AS qty
            FROM packaging
-           WHERE COALESCE(packed_at, created_at) >= date_trunc('month', $1::date)
-             AND COALESCE(packed_at, created_at) < date_trunc('month', $1::date) + interval '1 month'`,
+           WHERE COALESCE(packed_at, created_at) >= (date_trunc('month', $1::date)::timestamp AT TIME ZONE 'Asia/Tashkent')
+             AND COALESCE(packed_at, created_at) < ((date_trunc('month', $1::date) + interval '1 month')::timestamp AT TIME ZONE 'Asia/Tashkent')`,
           [dayStr]
         ),
         pool.query(
           `SELECT COALESCE(SUM(debt_amount),0) AS total FROM orders
            WHERE debt_amount > 0
-             AND status IN (${SOLD_STATUSES_SQL})`
+             AND status = ANY($1::text[])`,
+          [soldList]
         ),
         pool.query(
           `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(remaining_kg),0) AS kg
            FROM batches WHERE status = 'active'`
         ),
         pool.query(`SELECT COUNT(*)::int AS cnt FROM products WHERE is_active = true`),
-        pool.query(`
-          SELECT
-            p.id, p.sku, p.weight_kg, p.price, p.is_active,
-            COALESCE(pack.total_qty, 0) AS packed_qty,
-            COALESCE(sold.sold_qty, 0) AS sold_qty,
-            (COALESCE(pack.total_qty, 0) - COALESCE(sold.sold_qty, 0)) AS balance_qty,
-            (COALESCE(pack.total_qty, 0) - COALESCE(sold.sold_qty, 0)) * p.weight_kg AS balance_kg
-          FROM products p
-          LEFT JOIN (
-            SELECT product_id, SUM(qty) AS total_qty FROM packaging GROUP BY product_id
-          ) pack ON pack.product_id = p.id
-          LEFT JOIN (
-            SELECT oi.product_id, SUM(oi.qty) AS sold_qty
-            FROM order_items oi
-            JOIN orders o ON o.id = oi.order_id
-            WHERE o.status IN (${SOLD_STATUSES_SQL})
-            GROUP BY oi.product_id
-          ) sold ON sold.product_id = p.id
-          WHERE p.is_active = true
-          ORDER BY p.sku
-        `),
+        pool.query(skuStockSql, [soldList]),
         pool.query(`
           SELECT
             m.id, m.name, m.unit, m.price,
@@ -194,25 +180,29 @@ module.exports = function (app, pool, helpers) {
         ),
         pool.query(
           `SELECT COALESCE(SUM(amount),0) AS total FROM payments
-           WHERE paid_at >= $1::date AND paid_at < $1::date + interval '1 day'`,
+           WHERE paid_at >= ($1::timestamp AT TIME ZONE 'Asia/Tashkent')
+             AND paid_at < ($1::timestamp AT TIME ZONE 'Asia/Tashkent') + interval '1 day'`,
           [dayStr]
         ),
         pool.query(
           `SELECT COALESCE(SUM(amount),0) AS total FROM payments
-           WHERE paid_at >= date_trunc('month', $1::date)
-             AND paid_at < date_trunc('month', $1::date) + interval '1 month'`,
+           WHERE paid_at >= (date_trunc('month', $1::date)::timestamp AT TIME ZONE 'Asia/Tashkent')
+             AND paid_at < ((date_trunc('month', $1::date) + interval '1 month')::timestamp AT TIME ZONE 'Asia/Tashkent')`,
           [dayStr]
         ),
       ]);
 
       const sku_stock = skuStock.rows.map((s) => {
         const balance_qty = num(s.balance_qty);
-        const price = num(s.price);
+        const price = som(s.price);
         return {
           ...s,
+          packed_qty: num(s.packed_qty),
+          sold_qty: num(s.sold_qty),
+          shipped_qty: num(s.shipped_qty),
           balance_qty,
           balance_kg: num(s.balance_kg),
-          value: Math.round(balance_qty * price),
+          value: som(balance_qty * price),
         };
       });
 
@@ -222,7 +212,7 @@ module.exports = function (app, pool, helpers) {
         return {
           ...m,
           balance,
-          value: Math.round(balance * price * 100) / 100,
+          value: som(balance * price),
         };
       });
 
@@ -248,11 +238,11 @@ module.exports = function (app, pool, helpers) {
           alerts.push({ type: 'danger', text: m.name + ' manfiy: ' + m.balance + ' ' + m.unit });
         }
       });
-      const jamiQarz = num(debt.rows[0].total);
+      const jamiQarz = som(debt.rows[0].total);
       if (jamiQarz > highDebtThreshold) {
         alerts.push({
           type: 'danger',
-          text: 'Jami qarz yuqori: ' + Math.round(jamiQarz).toLocaleString('uz-UZ') + ' som',
+          text: 'Jami qarz yuqori: ' + jamiQarz.toLocaleString('uz-UZ') + ' so\'m',
         });
       }
 
@@ -266,16 +256,18 @@ module.exports = function (app, pool, helpers) {
       res.json({
         ok: true,
         data: {
-          bugungi_savdo: num(salesToday.rows[0].total),
-          bugungi_xarajat: num(expenseToday.rows[0].total),
-          bugungi_foyda: num(salesToday.rows[0].total) - num(expenseToday.rows[0].total),
-          bugungi_naqd_tushum: num(cashToday.rows[0].total),
+          timezone: TZ,
+          business_date: dayStr,
+          bugungi_savdo: som(salesToday.rows[0].total),
+          bugungi_xarajat: som(expenseToday.rows[0].total),
+          bugungi_foyda: som(salesToday.rows[0].total) - som(expenseToday.rows[0].total),
+          bugungi_naqd_tushum: som(cashToday.rows[0].total),
           bugungi_qadoq_kg: packTodayKg,
           bugungi_qadoq_qty: num(packToday.rows[0].qty),
-          oylik_savdo: num(salesMonth.rows[0].total),
-          oylik_xarajat: num(expenseMonth.rows[0].total),
-          oylik_foyda: num(salesMonth.rows[0].total) - num(expenseMonth.rows[0].total),
-          oylik_naqd_tushum: num(cashMonth.rows[0].total),
+          oylik_savdo: som(salesMonth.rows[0].total),
+          oylik_xarajat: som(expenseMonth.rows[0].total),
+          oylik_foyda: som(salesMonth.rows[0].total) - som(expenseMonth.rows[0].total),
+          oylik_naqd_tushum: som(cashMonth.rows[0].total),
           oylik_qadoq_kg: num(packMonth.rows[0].kg),
           oylik_qadoq_qty: num(packMonth.rows[0].qty),
           jami_qarz: jamiQarz,
