@@ -588,6 +588,43 @@
         flex: 0 0 38%;
       }
     }
+
+    /* === OPS 2.1.3 enterprise layer === */
+    .page-head {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+    }
+    .page-head h1 {
+      margin: 0; font-size: 1.15rem; font-weight: 650; letter-spacing: -0.02em; color: var(--text);
+    }
+    .page-head .sub { color: var(--muted); font-size: 0.78rem; margin-top: 3px; }
+    .page-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .tz-chip {
+      font-family: var(--font-mono); font-size: 0.72rem; color: var(--accent);
+      background: var(--accent-muted); border: 1px solid rgba(201,162,39,0.25);
+      padding: 6px 10px; border-radius: 99px; letter-spacing: 0.02em;
+    }
+    .period-toggle { display: inline-flex; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 3px; }
+    .period-toggle button {
+      border: 0; background: transparent; color: var(--muted); padding: 6px 12px;
+      border-radius: 8px; cursor: pointer; font-size: 0.78rem; font-weight: 600;
+    }
+    .period-toggle button.on { background: var(--accent); color: var(--accent-text); }
+    .kpi-hero { grid-column: span 2; }
+    @media (min-width: 720px) {
+      .dash-kpis.cols-5 .kpi-hero { grid-column: span 1; }
+    }
+    .bar-track { height: 6px; background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden; margin-top: 8px; }
+    .bar-fill { height: 100%; background: linear-gradient(90deg, #8a7018, var(--accent)); }
+    .bar-fill.neg { background: #ef4444; }
+    .split-2 { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 12px; }
+    @media (max-width: 900px) { .split-2 { grid-template-columns: 1fr; } }
+    .toolbar {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px;
+    }
+    .toolbar input[type="search"] { margin: 0; max-width: 280px; }
+    .stat-mini { font-size: 0.72rem; color: var(--muted); }
+    .sidebar { background: linear-gradient(180deg, #16130f 0%, #100e0c 100%); }
   </style>
 </head>
 <body>
@@ -598,8 +635,45 @@
     const DEFAULT_API = window.location.origin;
 
     function money(n) {
-      return Number(n || 0).toLocaleString("uz-UZ");
+      return Math.round(Number(n || 0)).toLocaleString("uz-UZ");
     }
+    function mijozNarx(optom, disc) {
+      return Math.round((Number(optom) || 0) + (Number(disc) || 3000));
+    }
+    function tashkentTime(d) {
+      try {
+        return new Intl.DateTimeFormat("uz-UZ", {
+          timeZone: "Asia/Tashkent", hour: "2-digit", minute: "2-digit", second: "2-digit"
+        }).format(d || new Date());
+      } catch (e) {
+        return (d || new Date()).toLocaleTimeString("uz-UZ");
+      }
+    }
+
+    const STATUS_UZ = {
+      pending: "Kutilmoqda", confirmed: "Tasdiqlangan", paid: "To'langan",
+      partial: "Qisman", closed: "Yopilgan", cancelled: "Bekor", rejected: "Rad"
+    };
+    function statusLabel(s) { return STATUS_UZ[String(s || "").toLowerCase()] || s || "-"; }
+    function tashkentNowLabel() {
+      try {
+        return new Intl.DateTimeFormat("uz-UZ", {
+          timeZone: "Asia/Tashkent", dateStyle: "medium", timeStyle: "short"
+        }).format(new Date());
+      } catch (e) { return new Date().toLocaleString("uz-UZ"); }
+    }
+    function PageHead(props) {
+      return (
+        <div className="page-head">
+          <div>
+            <h1>{props.title}</h1>
+            {props.sub ? <div className="sub">{props.sub}</div> : null}
+          </div>
+          <div className="page-actions">{props.children}</div>
+        </div>
+      );
+    }
+
 
     // Sessiya muddati: 12 soat (frontend himoya; httpOnly cookie - backend taklifi) /* Eslatma: faqat UI; backend ADMIN_KEY muddatsiz */
     const SESSION_MS = 12 * 60 * 60 * 1000;
@@ -808,12 +882,13 @@
       );
     }
 
-    // ---------- Dashboard (ixcham) ----------
+    // ---------- Dashboard ----------
     function Dashboard(props) {
       const api = props.api;
       const [data, setData] = useState(null);
       const [err, setErr] = useState("");
       const [lastUpdated, setLastUpdated] = useState(null);
+      const [period, setPeriod] = useState("today");
 
       function load() {
         api("/api/dashboard")
@@ -833,13 +908,16 @@
 
       if (err) return <div className="msg err">{err}</div>;
       if (!data) return (
-        <div className="dash-kpis">
-          {[1,2,3,4,5].map(function(i){
-            return <div key={i} className="dash-kpi" style={{opacity:0.4}}>
-              <div className="label">&nbsp;</div>
-              <div className="value">В·В·В·</div>
-            </div>;
-          })}
+        <div>
+          <PageHead title="Boshqaruv paneli" sub="Ma'lumot yuklanmoqda..." />
+          <div className="dash-kpis cols-5">
+            {[1,2,3,4,5].map(function(i){
+              return <div key={i} className="dash-kpi" style={{opacity:0.4}}>
+                <div className="label">&nbsp;</div>
+                <div className="value">...</div>
+              </div>;
+            })}
+          </div>
         </div>
       );
 
@@ -848,7 +926,13 @@
       const mats = data.material_stock || [];
       const batches = data.active_batches || [];
       const orders = data.recent_orders || [];
-      const foyda = Number(data.bugungi_foyda || 0);
+      const isMonth = period === "month";
+      const savdo = Number(isMonth ? data.oylik_savdo : data.bugungi_savdo || 0);
+      const xarajat = Number(isMonth ? data.oylik_xarajat : data.bugungi_xarajat || 0);
+      const foyda = Number(isMonth ? data.oylik_foyda : data.bugungi_foyda || 0);
+      const naqd = Number(isMonth ? data.oylik_naqd_tushum : data.bugungi_naqd_tushum || 0);
+      const qadoqKg = Number(isMonth ? data.oylik_qadoq_kg : data.bugungi_qadoq_kg || 0);
+      const denom = Math.max(savdo, xarajat, 1);
 
       function shortCode(code) {
         if (!code) return "-";
@@ -857,56 +941,57 @@
         return s.slice(0, 6) + "-" + s.slice(-4);
       }
 
+      const omborQiymat = skuStock.reduce(function (s, x) { return s + Number(x.value || 0); }, 0);
+
       return (
         <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
-            <h2 style={{ color: "var(--accent)", fontSize: "0.95rem", margin: 0 }}>Dashboard</h2>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              {lastUpdated ? (
-                <span className="muted" style={{ fontSize: "0.7rem" }}>
-                  Yangilangan: {lastUpdated.toLocaleTimeString("uz-UZ")}
-                </span>
-              ) : null}
-              <button className="btn-ghost" type="button" onClick={load}>Yangilash</button>
+          <PageHead
+            title="Boshqaruv paneli"
+            sub={(data.business_date || "") + " · Asia/Tashkent · ombor qiymati " + money(omborQiymat) + " so'm"}
+          >
+            <span className="tz-chip">{tashkentNowLabel()}</span>
+            <div className="period-toggle">
+              <button type="button" className={!isMonth ? "on" : ""} onClick={function () { setPeriod("today"); }}>Bugun</button>
+              <button type="button" className={isMonth ? "on" : ""} onClick={function () { setPeriod("month"); }}>Shu oy</button>
             </div>
-          </div>
+            <button className="btn-ghost" type="button" onClick={load}>Yangilash</button>
+          </PageHead>
 
           <div className="dash-kpis cols-5">
-            <div className="dash-kpi">
-              <div className="label">Bugungi foyda</div>
+            <div className="dash-kpi kpi-hero">
+              <div className="label">{isMonth ? "Oylik foyda" : "Bugungi foyda"}</div>
               <div className={"value" + (foyda < 0 ? " neg" : "")}>{money(foyda)}</div>
-              <div className="trend">- bugungi</div>
+              <div className="trend">savdo − xarajat</div>
+              <div className="bar-track"><div className={"bar-fill" + (foyda < 0 ? " neg" : "")} style={{ width: Math.min(100, Math.abs(foyda) / denom * 100) + "%" }} /></div>
             </div>
             <div className="dash-kpi">
-              <div className="label">Bugungi savdo</div>
-              <div className="value">{money(data.bugungi_savdo)}</div>
-              <div className="trend">- bugungi</div>
+              <div className="label">Savdo</div>
+              <div className="value">{money(savdo)}</div>
+              <div className="trend">tasdiqlangan buyurtmalar</div>
             </div>
             <div className="dash-kpi">
-              <div className="label">Bugungi naqd</div>
-              <div className="value">{money(data.bugungi_naqd_tushum)}</div>
-              <div className="trend">- tushum</div>
+              <div className="label">Naqd tushum</div>
+              <div className="value">{money(naqd)}</div>
+              <div className="trend">to'lovlar</div>
             </div>
             <div className="dash-kpi">
-              <div className="label">Bugungi xarajat</div>
-              <div className="value">{money(data.bugungi_xarajat)}</div>
-              <div className="trend">- chiqim</div>
+              <div className="label">Xarajat</div>
+              <div className="value">{money(xarajat)}</div>
+              <div className="trend">press / qadoq / boshqa</div>
             </div>
             <div className={"dash-kpi" + (Number(data.jami_qarz) > 3000000 ? " dash-kpi-danger" : "")}>
               <div className="label">Qarz</div>
               <div className={"value" + (Number(data.jami_qarz) > 3000000 ? " neg" : "")}>{money(data.jami_qarz)}</div>
-              <div className="trend">jami qarz</div>
+              <div className="trend">sotilgan buyurtmalar</div>
             </div>
           </div>
 
           <div className="dash-meta">
-            <span>Oy savdo: <strong>{money(data.oylik_savdo || 0)}</strong></span>
-            <span>Oy foyda: <strong>{money(data.oylik_foyda || 0)}</strong></span>
-            <span>Oy naqd: <strong>{money(data.oylik_naqd_tushum || 0)}</strong></span>
-            <span>Oy xarajat: <strong>{money(data.oylik_xarajat || 0)}</strong></span>
+            <span>Qadoq: <strong>{qadoqKg.toFixed(1)} kg</strong></span>
             <span>Partiya: <strong>{data.faol_partiya}</strong></span>
             <span>Quruq: <strong>{Number(data.quruq_qoldiq_kg || 0).toFixed(1)} kg</strong></span>
             <span>SKU: <strong>{data.faol_sku}</strong></span>
+            {lastUpdated ? <span>Yangilangan: <strong>{tashkentTime(lastUpdated)}</strong></span> : null}
           </div>
 
           {alerts.length > 0 ? (
@@ -919,15 +1004,19 @@
                 );
               })}
             </div>
-          ) : null}
+          ) : (
+            <div className="dash-alert" style={{ background: "var(--success-bg)", color: "#7ee787", marginBottom: 10 }}>
+              Ogohlantirish yo'q — zaxira va qarz normal.
+            </div>
+          )}
 
           <div className="dash-grid">
             <div className="card tight">
-              <h2>Tayyor mahsulot</h2>
+              <h2>Tayyor mahsulot (zavod)</h2>
               {skuStock.length === 0 ? (
                 <div className="empty">
-                  <div className="empty-title">Tayyor mahsulot yo-q</div>
-                  Qadoqlash bo-limidan birinchi partiyani qadoqlang
+                  <div className="empty-title">Tayyor mahsulot yo'q</div>
+                  Avval qadoqlash qiling
                 </div>
               ) : (
                 <div className="table-wrap">
@@ -936,7 +1025,8 @@
                     <tr>
                       <th>SKU</th>
                       <th>Qadoq</th>
-                      <th>Sotilgan</th>
+                      <th>Sotuv</th>
+                      <th>Yuk</th>
                       <th>Qoldiq</th>
                       <th>Qiymat</th>
                     </tr>
@@ -949,6 +1039,7 @@
                           <td>{s.sku}</td>
                           <td>{Number(s.packed_qty)}</td>
                           <td>{Number(s.sold_qty)}</td>
+                          <td>{Number(s.shipped_qty || 0)}</td>
                           <td className={bal < 0 ? "neg" : ""}><strong>{bal}</strong></td>
                           <td>{money(s.value)}</td>
                         </tr>
@@ -964,14 +1055,14 @@
               <h2>Material</h2>
               {mats.length === 0 ? (
                 <div className="empty">
-                  <div className="empty-title">Material yo-q</div>
-                  Katalog -> Material dan qo-shing
+                  <div className="empty-title">Material yo'q</div>
+                  Katalog → Material
                 </div>
               ) : (
                 <div className="table-wrap">
                 <table>
                   <thead>
-                    <tr><th>Nomi</th><th>Birlik</th><th>Qoldiq</th></tr>
+                    <tr><th>Nomi</th><th>Birlik</th><th>Qoldiq</th><th>Qiymat</th></tr>
                   </thead>
                   <tbody>
                     {mats.map(function (m) {
@@ -981,6 +1072,7 @@
                           <td>{m.name}</td>
                           <td>{m.unit}</td>
                           <td className={bal < 0 ? "neg" : ""}><strong>{bal}</strong></td>
+                          <td>{money(m.value)}</td>
                         </tr>
                       );
                     })}
@@ -991,64 +1083,71 @@
             </div>
           </div>
 
-          <div className="card tight" style={{ marginTop: 10 }}>
-            <h2>Faol partiyalar</h2>
-            {batches.length === 0 ? (
-              <div className="empty">
-                <div className="empty-title">Faol partiya yo-q</div>
-                Ishlab chiqarish -> Partiya dan yangi partiya oching
-              </div>
-            ) : (
-              <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr><th>Kod</th><th>Quruq</th><th>Qadoq</th><th>Qoldiq</th></tr>
-                </thead>
-                <tbody>
-                  {batches.map(function (b) {
-                    return (
-                      <tr key={b.id}>
-                        <td>{b.batch_code}</td>
-                        <td>{Number(b.dry_kg).toFixed(1)}</td>
-                        <td>{Number(b.packed_kg).toFixed(1)}</td>
-                        <td>{Number(b.remaining_kg).toFixed(1)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              </div>
-            )}
-          </div>
+          <div className="split-2">
+            <div className="card tight">
+              <h2>Faol partiyalar</h2>
+              {batches.length === 0 ? (
+                <div className="empty">
+                  <div className="empty-title">Faol partiya yo'q</div>
+                  Ishlab chiqarish → Partiya
+                </div>
+              ) : (
+                <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Kod</th><th>Quruq</th><th>Qadoq</th><th>Qoldiq</th></tr>
+                  </thead>
+                  <tbody>
+                    {batches.map(function (b) {
+                      const rem = Number(b.remaining_kg);
+                      const dry = Number(b.dry_kg) || 1;
+                      return (
+                        <tr key={b.id}>
+                          <td>{b.batch_code}</td>
+                          <td>{Number(b.dry_kg).toFixed(1)}</td>
+                          <td>{Number(b.packed_kg).toFixed(1)}</td>
+                          <td>
+                            {rem.toFixed(1)}
+                            <div className="bar-track"><div className="bar-fill" style={{ width: Math.min(100, rem / dry * 100) + "%" }} /></div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                </div>
+              )}
+            </div>
 
-          <div className="card tight" style={{ marginTop: 10 }}>
-            <h2>So-nggi buyurtmalar</h2>
-            {orders.length === 0 ? (
-              <div className="empty">
-                <div className="empty-title">Buyurtma yo-q</div>
-                Savdo -> Buyurtma yoki mijoz ilovasidan keladi
-              </div>
-            ) : (
-              <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr><th>Kod</th><th>Mijoz</th><th>Summa</th><th>Holat</th></tr>
-                </thead>
-                <tbody>
-                  {orders.map(function (o) {
-                    return (
-                      <tr key={o.id}>
-                        <td title={o.order_code}>{shortCode(o.order_code)}</td>
-                        <td>{o.customer_name || "-"}</td>
-                        <td>{money(o.total_amount)}</td>
-                        <td><span className={"badge " + o.status}>{o.status}</span></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              </div>
-            )}
+            <div className="card tight">
+              <h2>So'nggi buyurtmalar</h2>
+              {orders.length === 0 ? (
+                <div className="empty">
+                  <div className="empty-title">Buyurtma yo'q</div>
+                  Savdo yoki mijoz ilovasidan keladi
+                </div>
+              ) : (
+                <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Kod</th><th>Mijoz</th><th>Summa</th><th>Holat</th></tr>
+                  </thead>
+                  <tbody>
+                    {orders.map(function (o) {
+                      return (
+                        <tr key={o.id}>
+                          <td title={o.order_code}>{shortCode(o.order_code)}</td>
+                          <td>{o.customer_name || "-"}</td>
+                          <td>{money(o.total_amount)}</td>
+                          <td><span className={"badge " + o.status}>{statusLabel(o.status)}</span></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       );
@@ -1077,12 +1176,13 @@
 
       return (
         <div>
+          <PageHead title="Ombor" sub="Zavod qoldig'i = qadoq − sotuv − yuk. Pending buyurtma hisobga olinmaydi." />
           <div className="card">
             <h2>Material qoldiq</h2>
             {materials.length === 0 ? (
               <div className="empty">
-                <div className="empty-title">Material qoldiq yo-q</div>
-                Katalog -> Material dan qo-shing
+                <div className="empty-title">Material qoldiq yo'q</div>
+                Katalog → Material dan qo'shing
               </div>
             ) : (
               <div className="table-wrap"><table>
@@ -1112,7 +1212,7 @@
             ) : (
               <div className="table-wrap"><table>
                 <thead>
-                  <tr><th>SKU</th><th>Qadoq</th><th>Sotilgan</th><th>Qoldiq</th><th>kg</th></tr>
+                  <tr><th>SKU</th><th>Qadoq</th><th>Sotuv</th><th>Yuk</th><th>Qoldiq</th><th>kg</th></tr>
                 </thead>
                 <tbody>
                   {products.map(function (p) {
@@ -1121,7 +1221,8 @@
                         <td>{p.sku}</td>
                         <td>{Number(p.packed_qty)}</td>
                         <td>{Number(p.sold_qty)}</td>
-                        <td><strong>{Number(p.balance_qty)}</strong></td>
+                        <td>{Number(p.shipped_qty || 0)}</td>
+                        <td className={Number(p.balance_qty) < 0 ? "neg" : ""}><strong>{Number(p.balance_qty)}</strong></td>
                         <td>{Number(p.balance_kg).toFixed(1)}</td>
                       </tr>
                     );
@@ -1234,6 +1335,7 @@
             onCancel={function () { setConfirmState({ open: false, text: "", onConfirm: null }); }}
             onConfirm={function () { if (confirmState.onConfirm) confirmState.onConfirm(); }}
           />
+          <PageHead title="Mahsulotlar" sub="Bazadagi narx = optom. Mijoz 500 donagacha optom + 3000 to'laydi." />
           <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
           <div className="card">
             <h2>Yangi SKU</h2>
@@ -1248,8 +1350,13 @@
                   <input id="f-3" type="number" step="0.1" value={form.weight_kg} onChange={function (e) { setForm({ ...form, weight_kg: e.target.value }); }} />
                 </div>
                 <div>
-                  <label htmlFor="f-4">Narx</label>
-                  <input id="f-4" type="number" value={form.price} onChange={function (e) { setForm({ ...form, price: e.target.value }); }} />
+                  <label htmlFor="f-4">Optom narx (so'm)</label>
+                  <input id="f-4" type="number" min="0" step="1" value={form.price} onChange={function (e) { setForm({ ...form, price: e.target.value }); }} />
+                  {form.price ? (
+                    <div className="muted" style={{ fontSize: "0.72rem", marginTop: -4, marginBottom: 8 }}>
+                      Mijoz: {money(mijozNarx(form.price))} so'm
+                    </div>
+                  ) : null}
                 </div>
                 <div>
                   <label htmlFor="f-5">Tavsif</label>
@@ -1274,8 +1381,13 @@
                     <input id="f-7" type="number" step="0.1" value={editForm.weight_kg} onChange={function (e) { setEditForm({ ...editForm, weight_kg: e.target.value }); }} />
                   </div>
                   <div>
-                    <label htmlFor="f-8">Narx</label>
-                    <input id="f-8" type="number" value={editForm.price} onChange={function (e) { setEditForm({ ...editForm, price: e.target.value }); }} />
+                    <label htmlFor="f-8">Optom narx (so'm)</label>
+                    <input id="f-8" type="number" min="0" step="1" value={editForm.price} onChange={function (e) { setEditForm({ ...editForm, price: e.target.value }); }} />
+                    {editForm.price ? (
+                      <div className="muted" style={{ fontSize: "0.72rem", marginTop: -4, marginBottom: 8 }}>
+                        Mijoz: {money(mijozNarx(editForm.price))} so'm
+                      </div>
+                    ) : null}
                   </div>
                   <div>
                     <label htmlFor="f-9">Tavsif</label>
@@ -1301,7 +1413,7 @@
             <h2>Mahsulotlar ({list.length})</h2>
             <div className="table-wrap"><table>
               <thead>
-                <tr><th>SKU</th><th>kg</th><th>Narx</th><th>Holat</th><th></th></tr>
+                <tr><th>SKU</th><th>kg</th><th>Optom</th><th>Mijoz</th><th>Holat</th><th></th></tr>
               </thead>
               <tbody>
                 {list.map(function (p) {
@@ -1310,6 +1422,7 @@
                       <td>{p.sku}</td>
                       <td>{p.weight_kg}</td>
                       <td>{money(p.price)}</td>
+                      <td>{money(mijozNarx(p.price))}</td>
                       <td>
                         <span className={"badge " + (p.is_active ? "active" : "closed")}>
                           {p.is_active ? "faol" : "nofaol"}
@@ -2082,18 +2195,38 @@
         customer_id: "", customer_name: "", phone: "", paid_amount: "", note: ""
       });
       const [lines, setLines] = useState([{ product_id: "", qty: "", unit_price: "" }]);
+      const [priceCfg, setPriceCfg] = useState({ bulk_discount: 3000, bulk_min_qty: 500, bulk_min_kg: 1000 });
       const [msg, setMsg] = useAutoMsg();
+
+      function unitForProduct(p, qty) {
+        if (!p) return 0;
+        const optom = Math.round(Number(p.price) || 0);
+        const disc = Number(priceCfg.bulk_discount) || 3000;
+        const minQty = Number(priceCfg.bulk_min_qty) || 500;
+        const minKg = Number(priceCfg.bulk_min_kg) || 1000;
+        const q = Number(qty) || 0;
+        const kg = q * (Number(p.weight_kg) || 0);
+        const isBulk = q >= minQty || kg >= minKg;
+        return isBulk ? optom : optom + disc;
+      }
 
       const load = useCallback(function () {
         Promise.all([
           api("/api/orders?limit=50"),
           api("/api/products"),
-          api("/api/customers")
+          api("/api/customers"),
+          api("/api/settings")
         ])
           .then(function (arr) {
             setList(arr[0].data || []);
             setProducts(arr[1].data || []);
             setCustomers(arr[2].data || []);
+            const map = (arr[3] && arr[3].data) || {};
+            setPriceCfg({
+              bulk_discount: Number(map.bulk_discount) || 3000,
+              bulk_min_qty: Number(map.bulk_min_qty) || 500,
+              bulk_min_kg: Number(map.bulk_min_kg) || 1000
+            });
           })
           .catch(function (e) { setMsg({ text: e.message, type: "err" }); });
       }, [api]);
@@ -2115,9 +2248,9 @@
         setLines(function (prev) {
           const next = prev.slice();
           next[i] = Object.assign({}, next[i], { [field]: val });
-          if (field === "product_id") {
-            const p = products.find(function (x) { return String(x.id) === String(val); });
-            if (p) next[i].unit_price = String(p.price);
+          if (field === "product_id" || field === "qty") {
+            const p = products.find(function (x) { return String(x.id) === String(next[i].product_id); });
+            if (p) next[i].unit_price = String(unitForProduct(p, next[i].qty));
           }
           return next;
         });
@@ -2183,6 +2316,7 @@
             onCancel={function () { setConfirmState({ open: false, text: "", onConfirm: null }); }}
             onConfirm={function () { if (confirmState.onConfirm) confirmState.onConfirm(); }}
           />
+          <PageHead title="Buyurtmalar" sub={"Pending zaxiraga tegmaydi. " + priceCfg.bulk_min_qty + " donagacha mijoz = optom + " + money(priceCfg.bulk_discount) + " so'm."} />
           <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
           <div className="card">
             <h2>Yangi buyurtma</h2>
@@ -2220,17 +2354,17 @@
                         <select id="f-38" value={l.product_id} onChange={function (e) { setLine(i, "product_id", e.target.value); }}>
                           <option value="">Tanlang</option>
                           {products.map(function (p) {
-                            return <option key={p.id} value={p.id}>{p.sku}</option>;
+                            return <option key={p.id} value={p.id}>{p.sku} · optom {money(p.price)}</option>;
                           })}
                         </select>
                       </div>
                       <div>
                         <label htmlFor="f-39">Dona</label>
-                        <input id="f-39" type="number" value={l.qty} onChange={function (e) { setLine(i, "qty", e.target.value); }} />
+                        <input id="f-39" type="number" min="1" step="1" value={l.qty} onChange={function (e) { setLine(i, "qty", e.target.value); }} />
                       </div>
                       <div>
-                        <label htmlFor="f-40">Narx</label>
-                        <input id="f-40" type="number" value={l.unit_price} onChange={function (e) { setLine(i, "unit_price", e.target.value); }} />
+                        <label htmlFor="f-40">Birlik narx</label>
+                        <input id="f-40" type="number" min="0" step="1" value={l.unit_price} onChange={function (e) { setLine(i, "unit_price", e.target.value); }} />
                       </div>
                       <button
                         type="button"
@@ -2254,10 +2388,14 @@
                 >
                   + qator
                 </button>
+                <p className="muted" style={{ fontSize: "0.75rem", marginTop: 8 }}>
+                  Miqdor {priceCfg.bulk_min_qty}+ dona yoki {priceCfg.bulk_min_kg} kg dan — optom.
+                  Undan kam — optom + {money(priceCfg.bulk_discount)} so'm. Qo'lda o'zgartirish mumkin.
+                </p>
               </div>
               <div className="total-box">
                 <span>Jami</span>
-                <span>{money(total)} som</span>
+                <span>{money(total)} so'm</span>
               </div>
               <div>
                 <label htmlFor="f-41">Izoh</label>
@@ -2298,7 +2436,7 @@
                       return { cls: "badge", text: status || "-" };
                     })(o.status);
                     var itemsLine = o.items && o.items.length
-                      ? o.items.map(function (i) { return i.sku + "Г—" + i.qty; }).join(", ")
+                      ? o.items.map(function (i) { return i.sku + " x " + i.qty; }).join(", ")
                       : "";
                     return (
                       <tr
@@ -2446,9 +2584,10 @@
 
       return (
         <div>
+          <PageHead title="To'lovlar" sub="Pending buyurtmaga to'lov yozilsa ham u avtomatik tasdiqlanmaydi." />
           <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
           <div className="card">
-            <h2>Qarz tolovi</h2>
+            <h2>Qarz to'lovi</h2>
             <form onSubmit={submit}>
               <div className="form-row">
                 <div>
@@ -2565,6 +2704,7 @@
 
       return (
         <div>
+          <PageHead title="Xarajatlar" sub="Press va qadoq ish haqi partiyadan avtomatik yoziladi. Bu yerda qolgan xarajat." />
           <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
           <div className="card">
             <h2>Yangi xarajat</h2>
@@ -2828,7 +2968,7 @@
           <div className="main">
             <div className="mobile-top">
               <h1>Briket ERP</h1>
-              <span className="muted" style={{ fontSize: "0.75rem" }}>{currentModule.label}</span>
+              <span className="tz-chip">{tashkentNowLabel()}</span>
             </div>
 
             {currentModule.tabs.length > 1 ? (
