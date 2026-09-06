@@ -19,9 +19,9 @@ const path = require('path');
 const PORT = Number(process.env.PORT) || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const IS_PROD = NODE_ENV === 'production';
-const APP_VERSION = '2.1.2';
+const APP_VERSION = '2.1.3';
+const TZ = 'Asia/Tashkent';
 
-// ——— Boot: majburiy env (fail-fast) ———
 function requireEnv(name) {
   const v = (process.env[name] || '').trim();
   if (!v) {
@@ -48,7 +48,6 @@ if (IS_PROD) {
 const app = express();
 app.set('trust proxy', 1);
 
-// ——— Xavfsizlik headerlari ———
 app.use(
   helmet({
     contentSecurityPolicy: false,
@@ -56,7 +55,6 @@ app.use(
   })
 );
 
-// ——— CORS (production: fail-closed) ———
 const corsOriginRaw = (process.env.CORS_ORIGIN || '').trim();
 const allowedOrigins = corsOriginRaw
   ? corsOriginRaw.split(',').map((s) => s.trim()).filter(Boolean)
@@ -173,7 +171,7 @@ pool
   });
 
 function sendError(res, err, status) {
-  status = status || 500;
+  status = status || err.status || 500;
   console.error(err);
   const message = err && err.message ? err.message : String(err);
   if (IS_PROD && status >= 500) {
@@ -188,11 +186,34 @@ function num(v, def) {
   return isNaN(n) ? def : n;
 }
 
+function som(v, def) {
+  return Math.round(num(v, def));
+}
+
+function tashkentDateStr(d) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d || new Date());
+}
+
+function uniqueTmpCode(prefix) {
+  return (
+    prefix +
+    '-' +
+    Date.now().toString(36) +
+    '-' +
+    crypto.randomBytes(3).toString('hex')
+  );
+}
+
 const SOLD_STATUSES = ['confirmed', 'paid', 'partial', 'closed'];
 const CREDIT_DEBT_STATUSES = ['pending', 'confirmed', 'paid', 'partial', 'closed'];
 
 async function checkCreditLimit(client, customerId, newDebt) {
-  const debtAdd = Math.max(0, num(newDebt));
+  const debtAdd = Math.max(0, som(newDebt));
   if (!customerId || debtAdd <= 0) {
     return { ok: true, existingDebt: 0, creditLimit: 0 };
   }
@@ -203,7 +224,7 @@ async function checkCreditLimit(client, customerId, newDebt) {
   if (!locked.rows.length) {
     return { ok: false, existingDebt: 0, creditLimit: 0, error: 'Mijoz topilmadi' };
   }
-  const creditLimit = num(locked.rows[0].credit_limit);
+  const creditLimit = som(locked.rows[0].credit_limit);
   if (creditLimit <= 0) {
     return { ok: true, existingDebt: 0, creditLimit: 0 };
   }
@@ -212,7 +233,7 @@ async function checkCreditLimit(client, customerId, newDebt) {
      WHERE customer_id = $1 AND debt_amount > 0 AND status = ANY($2::text[])`,
     [customerId, CREDIT_DEBT_STATUSES]
   );
-  const existingDebt = num(debtR.rows[0].total);
+  const existingDebt = som(debtR.rows[0].total);
   if (existingDebt + debtAdd > creditLimit) {
     return {
       ok: false,
@@ -220,23 +241,103 @@ async function checkCreditLimit(client, customerId, newDebt) {
       creditLimit: creditLimit,
       error:
         'Nasiya limiti yetarli emas. Limit: ' +
-        Math.round(creditLimit).toLocaleString('uz-UZ') +
+        creditLimit.toLocaleString('uz-UZ') +
         ' so\'m, mavjud qarz: ' +
-        Math.round(existingDebt).toLocaleString('uz-UZ') +
+        existingDebt.toLocaleString('uz-UZ') +
         ' so\'m, yangi qarz: ' +
-        Math.round(debtAdd).toLocaleString('uz-UZ') +
+        debtAdd.toLocaleString('uz-UZ') +
         ' so\'m',
     };
   }
   return { ok: true, existingDebt: existingDebt, creditLimit: creditLimit };
 }
 
-const helpers = { num, sendError, SOLD_STATUSES, CREDIT_DEBT_STATUSES, checkCreditLimit };
+async function getProductBalanceMap(client) {
+  const r = await client.query(
+    `SELECT
+       p.id,
+       p.sku,
+       (COALESCE(pack.total_qty, 0)
+         - COALESCE(sold.sold_qty, 0)
+         - COALESCE(ship.shipped_qty, 0)) AS balance_qty
+     FROM products p
+     LEFT JOIN (
+       SELECT product_id, SUM(qty) AS total_qty FROM packaging GROUP BY product_id
+     ) pack ON pack.product_id = p.id
+     LEFT JOIN (
+       SELECT oi.product_id, SUM(oi.qty) AS sold_qty
+       FROM order_items oi
+       JOIN orders o ON o.id = oi.order_id
+       WHERE o.status = ANY($1::text[])
+       GROUP BY oi.product_id
+     ) sold ON sold.product_id = p.id
+     LEFT JOIN (
+       SELECT product_id, SUM(qty - COALESCE(returned_qty, 0)) AS shipped_qty
+       FROM shipments
+       WHERE from_type = 'factory'
+       GROUP BY product_id
+     ) ship ON ship.product_id = p.id`,
+    [SOLD_STATUSES]
+  );
+  const map = {};
+  r.rows.forEach(function (row) {
+    map[String(row.id)] = num(row.balance_qty);
+  });
+  return map;
+}
+
+async function assertStockForLines(client, lines, extraByProduct) {
+  extraByProduct = extraByProduct || {};
+  const map = await getProductBalanceMap(client);
+  const need = {};
+  for (const line of lines) {
+    if (!line.product_id) continue;
+    const q = num(line.qty);
+    if (q <= 0) continue;
+    const k = String(line.product_id);
+    need[k] = (need[k] || 0) + q;
+  }
+  const keys = Object.keys(need);
+  for (let i = 0; i < keys.length; i++) {
+    const id = keys[i];
+    const have = num(map[id]) + num(extraByProduct[id]);
+    if (need[id] > have + 0.0001) {
+      const skuR = await client.query('SELECT sku FROM products WHERE id = $1', [id]);
+      const sku = skuR.rows.length ? skuR.rows[0].sku : ('#' + id);
+      const err = new Error(
+        'Zaxira yetarli emas: ' +
+          sku +
+          ' (bor: ' +
+          have +
+          ' dona, kerak: ' +
+          need[id] +
+          ' dona)'
+      );
+      err.status = 400;
+      throw err;
+    }
+  }
+}
+
+const helpers = {
+  num,
+  som,
+  sendError,
+  SOLD_STATUSES,
+  CREDIT_DEBT_STATUSES,
+  checkCreditLimit,
+  tashkentDateStr,
+  uniqueTmpCode,
+  TZ,
+  getProductBalanceMap,
+  assertStockForLines,
+};
 
 app.get('/', (req, res) => {
   res.json({
     message: 'Briket ERP API ishlayapti!',
     time: new Date().toISOString(),
+    tashkent_date: tashkentDateStr(),
     version: APP_VERSION,
     env: IS_PROD ? 'production' : 'development',
   });
@@ -248,6 +349,7 @@ app.get('/health', async (req, res) => {
     res.json({
       ok: true,
       server_time: new Date().toISOString(),
+      tashkent_date: tashkentDateStr(),
       db_time: r.rows[0].db_time,
     });
   } catch (err) {
