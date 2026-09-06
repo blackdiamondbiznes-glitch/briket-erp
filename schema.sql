@@ -297,7 +297,9 @@ INSERT INTO settings (key, value, description) VALUES
   ('currency', 'UZS', 'Valyuta'),
   ('low_stock_qty', '5', 'Kam qoldiq ogohlantirish chegarasi (dona)'),
   ('low_batch_kg', '50', 'Partiya tugash ogohlantirish chegarasi (kg)'),
-  ('high_debt_threshold', '3000000', 'Yuqori qarz ogohlantirish chegarasi (som)')
+  ('high_debt_threshold', '3000000', 'Yuqori qarz ogohlantirish chegarasi (som)'),
+  ('customer_phone', '998880090506', 'Mijoz ilovasida ko\'rsatiladigan telefon'),
+  ('customer_telegram', 'https://t.me/briketkumir', 'Mijoz ilovasida Telegram havola')
 ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO materials (name, unit, price, initial_stock) VALUES
