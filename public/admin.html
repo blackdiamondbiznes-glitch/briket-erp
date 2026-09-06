@@ -11,6 +11,7 @@
   <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7.26.0/babel.min.js"></script>
+  <script type="text/babel" src="/admin-v2-components.jsx"></script>
   <style>
     /* ========== Design tokens вЂ” Black Diamond ERP ========== */
     :root {
@@ -1180,6 +1181,12 @@
 
       return (
         <div>
+          <ConfirmModal
+            open={confirmState.open}
+            text={confirmState.text}
+            onCancel={function () { setConfirmState({ open: false, text: "", onConfirm: null }); }}
+            onConfirm={function () { if (confirmState.onConfirm) confirmState.onConfirm(); }}
+          />
           <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
           <div className="card">
             <h2>Yangi SKU</h2>
@@ -2413,7 +2420,8 @@
           tabs: [
             { id: "orders", label: "Buyurtma" },
             { id: "payments", label: "Tolov" },
-            { id: "expenses", label: "Xarajat" }
+            { id: "expenses", label: "Xarajat" },
+            { id: "shipments", label: "Yuk" }
           ]
         },
         {
@@ -2421,7 +2429,10 @@
           label: "Hamkorlar",
           short: "Hamkor",
           ico: "users",
-          tabs: [{ id: "customers", label: "Mijoz" }]
+          tabs: [
+            { id: "customers", label: "Mijoz" },
+            { id: "partners", label: "Hamkor" }
+          ]
         },
         {
           id: "katalog",
@@ -2467,64 +2478,9 @@
       else if (tab === "products") content = <Products api={api} />;
       else if (tab === "materials") content = <Materials api={api} />;
       else if (tab === "customers") content = <Customers api={api} />;
-      else if (tab === "settings") {
-        content = (
-          <div className="card">
-            <h2>Tizim sozlama</h2>
-            <div className="settings-bar">
-              <div>
-                <label htmlFor="f-51">API URL</label>
-                <input id="f-51" value={tmpApi} onChange={function (e) { setTmpApi(e.target.value); }} />
-              </div>
-              <div>
-                <label htmlFor="f-52">Admin key</label>
-                <div style={{ position: "relative" }}>
-                  <input
-                    id="f-52"
-                    type={showTmpKey ? "text" : "password"}
-                    value={tmpKey}
-                    onChange={function (e) { setTmpKey(e.target.value); }}
-                    placeholder="ADMIN_KEY"
-                    autoComplete="off"
-                    style={{ paddingRight: 72, marginBottom: 0 }}
-                  />
-                  <button
-                    type="button"
-                    className="btn-ghost btn-sm"
-                    style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)" }}
-                    onClick={function () { setShowTmpKey(function (v) { return !v; }); }}
-                  >
-                    {showTmpKey ? "Yashir" : "Ko'r"}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label htmlFor="f-53">Operator ismi</label>
-                <input
-                  id="f-53"
-                  value={tmpOp}
-                  onChange={function (e) { setTmpOp(e.target.value); }}
-                  placeholder="Ism"
-                />
-              </div>
-              <button
-                className="btn"
-                type="button"
-                onClick={function () {
-                  saveSettings(tmpApi, tmpKey, tmpOp);
-                  alert("Saqlandi. Sessiya 12 soat amal qiladi.");
-                }}
-              >
-                Saqlash
-              </button>
-            </div>
-            <p className="muted" style={{ marginTop: 10 }}>
-              API: {apiBase || "(bo'sh)"} В· Operator: {operatorName || "вЂ”"} В· Kalit localStorage da, 12 soatdan keyin eskiradi.
-              Ideal: httpOnly cookie + server session (backend).
-            </p>
-          </div>
-        );
-      }
+      else if (tab === "partners") content = React.createElement(window.Partners, { api: api });
+      else if (tab === "shipments") content = React.createElement(window.Shipments, { api: api });
+      else if (tab === "settings") content = React.createElement(window.BizSettings, { api: api });
 
       return (
         <div className="shell">
