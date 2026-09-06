@@ -2250,7 +2250,7 @@
                     var srcLabel = src === "telegram" ? "TG" : (src === "pwa" ? "PWA" : "Admin");
                     var st = orderStatusLabel(o.status);
                     var itemsLine = o.items && o.items.length
-                      ? o.items.map(function (i) { return i.sku + "Г—" + i.qty; }).join(", ")
+                      ? o.items.map(function (i) { return i.sku + " x " + i.qty; }).join(", ")
                       : "";
                     return (
                       <tr
