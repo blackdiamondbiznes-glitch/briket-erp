@@ -1,6 +1,9 @@
 module.exports = function(app, pool, helpers) {
   const num = helpers.num;
+  const som = helpers.som || function (v, d) { return Math.round(num(v, d)); };
   const sendError = helpers.sendError;
+  const tashkentDateStr = helpers.tashkentDateStr;
+  const uniqueTmpCode = helpers.uniqueTmpCode;
 
 app.get('/api/batches', async (req, res) => {
   try {
@@ -29,7 +32,7 @@ app.post('/api/batches', async (req, res) => {
       note, already_packed_kg, material_id,
     } = req.body;
     const bags = num(bags_count);
-    const price = num(bag_price);
+    const price = som(bag_price);
     const dry = num(dry_kg);
     const already = Math.max(0, num(already_packed_kg));
     if (bags <= 0 || price <= 0 || dry <= 0) {
@@ -59,48 +62,49 @@ app.post('/api/batches', async (req, res) => {
       if (mat.rows.length) matRow = mat.rows[0];
     }
 
-    const bagsCost = bags * price;
+    const bagsCost = som(bags * price);
     const estimated = bags * 27;
     const loss = estimated > 0 ? Number((((estimated - dry) / estimated) * 100).toFixed(1)) : 0;
     const remaining = Math.max(0, Math.round((dry - already) * 1000) / 1000);
     const status = remaining > 0.01 ? 'active' : 'closed';
+    const wage = som(press_wage);
 
-    // Fix: transaction + nextval o'rniga INSERT→id→UPDATE
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
+      const tmpCode = uniqueTmpCode('P');
       const r = await client.query(
         `INSERT INTO batches (
-           status, bags_count, bag_price, bags_cost, estimated_kg,
+           batch_code, status, bags_count, bag_price, bags_cost, estimated_kg,
            dry_kg, loss_percent, packed_kg, remaining_kg, workers_count, press_wage, note
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
         [
-          status, bags, price, bagsCost, estimated, dry, loss,
-          already, remaining, num(workers_count), num(press_wage), note || null,
+          tmpCode, status, bags, price, bagsCost, estimated, dry, loss,
+          already, remaining, num(workers_count), wage, note || null,
         ]
       );
       const batchId = r.rows[0].id;
-      const code = 'P-' + new Date().toISOString().slice(0, 10) + '-' + String(batchId).padStart(4, '0');
+      const code = 'P-' + tashkentDateStr() + '-' + String(batchId).padStart(4, '0');
       await client.query(`UPDATE batches SET batch_code = $1 WHERE id = $2`, [code, batchId]);
       r.rows[0].batch_code = code;
 
-      if (num(press_wage) > 0) {
+      if (wage > 0) {
         await client.query(
           `INSERT INTO expenses (category, amount, payment_method, batch_id, note, expense_date)
            VALUES ('Press ish haqi', $1, 'cash', $2, $3, NOW())`,
-          [num(press_wage), batchId, code + ' | ' + num(workers_count) + ' kishi']
+          [wage, batchId, code + ' | ' + num(workers_count) + ' kishi']
         );
       }
 
       if (matRow) {
-        const unitPrice = num(matRow.price) > 0 ? num(matRow.price) : price;
+        const unitPrice = som(matRow.price) > 0 ? som(matRow.price) : price;
         await client.query(
           `INSERT INTO material_movements (
              material_id, movement_type, qty, unit_price, total_amount, batch_id, note
            ) VALUES ($1, 'out', $2, $3, $4, $5, $6)`,
           [
-            matRow.id, bags, unitPrice, bags * unitPrice, batchId,
+            matRow.id, bags, unitPrice, som(bags * unitPrice), batchId,
             'Pressga sarflandi: ' + (matRow.name || ''),
           ]
         );
@@ -116,7 +120,8 @@ app.post('/api/batches', async (req, res) => {
     } catch (err) {
       try { await client.query('ROLLBACK'); } catch (e) {}
       sendError(res, err);
-    } finally { client.release(); }
+    } finally { client.release();
+    }
   } catch (err) { sendError(res, err); }
 });
 
@@ -130,13 +135,32 @@ app.put('/api/batches/:id', async (req, res) => {
 });
 
 app.delete('/api/batches/:id', async (req, res) => {
+  const client = await pool.connect();
   try {
-    const check = await pool.query('SELECT * FROM batches WHERE id = $1', [req.params.id]);
-    if (!check.rows.length) return res.status(404).json({ ok: false, error: 'Partiya topilmadi' });
-    if (num(check.rows[0].packed_kg) > 0) return res.status(400).json({ ok: false, error: 'Qadoqlangan partiya ochirilmaydi' });
-    const r = await pool.query('DELETE FROM batches WHERE id = $1 RETURNING *', [req.params.id]);
+    await client.query('BEGIN');
+    const check = await client.query('SELECT * FROM batches WHERE id = $1 FOR UPDATE', [req.params.id]);
+    if (!check.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ ok: false, error: 'Partiya topilmadi' });
+    }
+    if (num(check.rows[0].packed_kg) > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ ok: false, error: 'Qadoqlangan partiya ochirilmaydi' });
+    }
+    await client.query(
+      `INSERT INTO material_movements (material_id, movement_type, qty, unit_price, total_amount, note)
+       SELECT material_id, 'in', qty, unit_price, total_amount, 'Partiya o\'chirildi: qaytarildi'
+       FROM material_movements WHERE batch_id = $1 AND movement_type = 'out'`,
+      [req.params.id]
+    );
+    const r = await client.query('DELETE FROM batches WHERE id = $1 RETURNING *', [req.params.id]);
+    await client.query('COMMIT');
     res.json({ ok: true, data: r.rows[0] });
-  } catch (err) { sendError(res, err); }
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (e) {}
+    sendError(res, err);
+  } finally { client.release();
+  }
 });
 
 app.get('/api/packaging', async (req, res) => {
@@ -165,8 +189,8 @@ app.post('/api/packaging', async (req, res) => {
     if (!prod.rows.length) return res.status(404).json({ ok: false, error: 'Mahsulot topilmadi' });
     const weight = num(prod.rows[0].weight_kg);
     if (weight <= 0) return res.status(400).json({ ok: false, error: 'Mahsulot ogirligi 0' });
-    const totalKg = dona * weight, wage = num(unit_wage, 700), workers = num(workers_count, 1), totalWage = dona * wage;
-    const price = num(sell_price) > 0 ? num(sell_price) : num(prod.rows[0].price);
+    const totalKg = dona * weight, wage = som(unit_wage || 700), workers = num(workers_count, 1), totalWage = som(dona * wage);
+    const price = som(sell_price) > 0 ? som(sell_price) : som(prod.rows[0].price);
     await client.query('BEGIN');
     let batchId = batch_id ? num(batch_id) : null;
     if (batchId) {
@@ -196,7 +220,8 @@ app.post('/api/packaging', async (req, res) => {
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (e) {}
     sendError(res, err);
-  } finally { client.release(); }
+  } finally { client.release();
+  }
 });
 
 app.get('/api/material-movements', async (req, res) => {
@@ -213,7 +238,7 @@ app.post('/api/material-movements', async (req, res) => {
     const type = String(movement_type || '').toLowerCase();
     if (!['in', 'out'].includes(type)) return res.status(400).json({ ok: false, error: 'movement_type: in yoki out' });
     if (!material_id || num(qty) <= 0) return res.status(400).json({ ok: false, error: 'material_id va qty majburiy' });
-    const up = num(unit_price), q = num(qty), total = q * up;
+    const up = som(unit_price), q = num(qty), total = som(q * up);
     const r = await pool.query(`INSERT INTO material_movements (material_id, movement_type, qty, unit_price, total_amount, batch_id, note) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [material_id, type, q, up, total, batch_id || null, note || null]);
     res.status(201).json({ ok: true, data: r.rows[0] });
   } catch (err) { sendError(res, err); }

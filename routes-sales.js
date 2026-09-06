@@ -1,23 +1,14 @@
 module.exports = function(app, pool, helpers) {
   const num = helpers.num;
+  const som = helpers.som || function (v, d) { return Math.round(num(v, d)); };
   const sendError = helpers.sendError;
+  const tashkentDateStr = helpers.tashkentDateStr;
+  const uniqueTmpCode = helpers.uniqueTmpCode;
+  const assertStockForLines = helpers.assertStockForLines;
+  const checkCreditLimit = helpers.checkCreditLimit;
 
-  // Zaxiraga ta'sir qiladigan / tasdiqlangan holatlar (manba: server helpers)
   const SOLD_STATUSES = helpers.SOLD_STATUSES;
   const ALLOWED_STATUSES = ['pending', 'confirmed', 'paid', 'partial', 'closed', 'cancelled', 'rejected'];
-
-  /** Mijozning joriy tasdiqlangan qarzi */
-  async function getCustomerConfirmedDebt(client, customerId) {
-    if (!customerId) return 0;
-    const r = await client.query(
-      `SELECT COALESCE(SUM(debt_amount), 0) AS total FROM orders
-       WHERE customer_id = $1
-         AND debt_amount > 0
-         AND status = ANY($2::text[])`,
-      [customerId, SOLD_STATUSES]
-    );
-    return num(r.rows[0].total);
-  }
 
   app.get('/api/orders', async (req, res) => {
     try {
@@ -65,13 +56,10 @@ module.exports = function(app, pool, helpers) {
       await client.query('BEGIN');
       let name = customer_name || '';
       let custId = customer_id || null;
-      let creditLimit = 0;
       if (custId) {
-        await client.query('SELECT id FROM customers WHERE id = $1 FOR UPDATE', [custId]);
-        const c = await client.query('SELECT * FROM customers WHERE id = $1', [custId]);
+        const c = await client.query('SELECT * FROM customers WHERE id = $1 FOR UPDATE', [custId]);
         if (c.rows.length) {
           name = name || c.rows[0].name;
-          creditLimit = num(c.rows[0].credit_limit);
         }
       }
       if (!name) {
@@ -79,21 +67,38 @@ module.exports = function(app, pool, helpers) {
         return res.status(400).json({ ok: false, error: 'customer_name yoki customer_id kerak' });
       }
 
+      let bulkDisc = 3000, bulkMinQty = 500, bulkMinKg = 1000;
+      try {
+        const st = await client.query(
+          `SELECT key, value FROM settings WHERE key IN ('bulk_discount','bulk_min_qty','bulk_min_kg')`
+        );
+        st.rows.forEach(function (row) {
+          if (row.key === 'bulk_discount') bulkDisc = num(row.value, 3000);
+          if (row.key === 'bulk_min_qty') bulkMinQty = num(row.value, 500);
+          if (row.key === 'bulk_min_kg') bulkMinKg = num(row.value, 1000);
+        });
+      } catch (e) {}
+
       let total = 0;
       const lines = [];
       for (const it of items) {
-        let sku = it.sku, productId = it.product_id || null, unitPrice = num(it.unit_price);
+        let sku = it.sku, productId = it.product_id || null, unitPrice = som(it.unit_price);
         const q = num(it.qty);
         if (q <= 0) continue;
         if (productId) {
           const p = await client.query('SELECT * FROM products WHERE id = $1', [productId]);
           if (p.rows.length) {
             sku = sku || p.rows[0].sku;
-            if (unitPrice <= 0) unitPrice = num(p.rows[0].price);
+            if (unitPrice <= 0) {
+              const optom = som(p.rows[0].price);
+              const kg = q * num(p.rows[0].weight_kg);
+              const isBulk = q >= bulkMinQty || kg >= bulkMinKg;
+              unitPrice = isBulk ? optom : optom + bulkDisc;
+            }
           }
         }
         if (!sku) continue;
-        const lineTotal = Math.round(unitPrice * q);
+        const lineTotal = som(unitPrice * q);
         total += lineTotal;
         lines.push({ product_id: productId, sku, qty: q, unit_price: unitPrice, line_total: lineTotal });
       }
@@ -102,37 +107,33 @@ module.exports = function(app, pool, helpers) {
         return res.status(400).json({ ok: false, error: 'Yaroqli item yoq' });
       }
 
-      const paid = Math.max(0, num(paid_amount));
+      const paid = Math.max(0, som(paid_amount));
       const debt = Math.max(0, total - paid);
 
-      if (custId && debt > 0 && creditLimit > 0) {
-        const existingDebt = await getCustomerConfirmedDebt(client, custId);
-        if (existingDebt + debt > creditLimit) {
+      if (custId && debt > 0) {
+        const cred = await checkCreditLimit(client, custId, debt);
+        if (!cred.ok) {
           await client.query('ROLLBACK');
-          return res.status(400).json({
-            ok: false,
-            error: 'Nasiya limiti oshib ketdi. Limit: ' +
-              Math.round(creditLimit).toLocaleString('uz-UZ') +
-              ' so\'m, mavjud qarz: ' +
-              Math.round(existingDebt).toLocaleString('uz-UZ') +
-              ' so\'m, yangi qarz: ' +
-              Math.round(debt).toLocaleString('uz-UZ') + ' so\'m',
-          });
+          return res.status(400).json({ ok: false, error: cred.error });
         }
       }
 
       let status = 'pending';
-      if (debt === 0) status = 'paid';
+      if (debt === 0 && paid > 0) status = 'paid';
       else if (paid > 0) status = 'partial';
 
-      // Fix: avval INSERT (order_code = NULL), keyin id dan code hosil qilib UPDATE
-      // Sabab: nextval + INSERT = sequence 2 marta o'sadi → order_code ≠ id
+      if (SOLD_STATUSES.includes(status)) {
+        await assertStockForLines(client, lines);
+      }
+
+      const tmpCode = uniqueTmpCode('ORD');
       const ord = await client.query(
-        `INSERT INTO orders (customer_id, customer_name, phone, status, total_amount, paid_amount, debt_amount, debt_due, source, note)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-        [custId, name, phone || null, status, total, paid, debt, debt_due || null, source || 'admin', note || null]
+        `INSERT INTO orders (order_code, customer_id, customer_name, phone, status, total_amount, paid_amount, debt_amount, debt_due, source, note)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+        [tmpCode, custId, name, phone || null, status, total, paid, debt, debt_due || null, source || 'admin', note || null]
       );
-      const code = 'ORD-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + String(ord.rows[0].id).padStart(6, '0');
+      const day = tashkentDateStr().replace(/-/g, '');
+      const code = 'ORD-' + day + '-' + String(ord.rows[0].id).padStart(6, '0');
       await client.query(`UPDATE orders SET order_code = $1 WHERE id = $2`, [code, ord.rows[0].id]);
       ord.rows[0].order_code = code;
       for (const line of lines) {
@@ -154,11 +155,13 @@ module.exports = function(app, pool, helpers) {
       res.status(201).json({ ok: true, data: { ...ord.rows[0], items: itemsOut.rows } });
     } catch (err) {
       try { await client.query('ROLLBACK'); } catch (e) {}
-      sendError(res, err);
-    } finally { client.release(); }
+      sendError(res, err, err.status);
+    } finally { client.release();
+    }
   });
 
   app.patch('/api/orders/:id/status', async (req, res) => {
+    const client = await pool.connect();
     try {
       const { status, admin_note } = req.body;
       if (!status) return res.status(400).json({ ok: false, error: 'status majburiy' });
@@ -170,24 +173,40 @@ module.exports = function(app, pool, helpers) {
         });
       }
 
-      const cur = await pool.query('SELECT * FROM orders WHERE id = $1', [req.params.id]);
-      if (!cur.rows.length) return res.status(404).json({ ok: false, error: 'Buyurtma topilmadi' });
+      await client.query('BEGIN');
+      const cur = await client.query('SELECT * FROM orders WHERE id = $1 FOR UPDATE', [req.params.id]);
+      if (!cur.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ ok: false, error: 'Buyurtma topilmadi' });
+      }
       const prev = String(cur.rows[0].status || '');
 
       if ((prev === 'cancelled' || prev === 'rejected') && SOLD_STATUSES.includes(next)) {
+        await client.query('ROLLBACK');
         return res.status(400).json({
           ok: false,
           error: 'Bekor yoki rad etilgan buyurtmani tasdiqlab bo\'lmaydi',
         });
       }
 
-      const r = await pool.query(
+      const becomingSold = SOLD_STATUSES.includes(next) && !SOLD_STATUSES.includes(prev);
+      if (becomingSold) {
+        const items = await client.query('SELECT product_id, qty FROM order_items WHERE order_id = $1', [req.params.id]);
+        await assertStockForLines(client, items.rows);
+      }
+
+      const r = await client.query(
         `UPDATE orders SET status = $1, admin_note = COALESCE($2, admin_note)
          WHERE id = $3 RETURNING *`,
         [next, admin_note !== undefined ? admin_note : null, req.params.id]
       );
+      await client.query('COMMIT');
       res.json({ ok: true, data: r.rows[0] });
-    } catch (err) { sendError(res, err); }
+    } catch (err) {
+      try { await client.query('ROLLBACK'); } catch (e) {}
+      sendError(res, err, err.status);
+    } finally { client.release();
+    }
   });
 
 app.get('/api/payments', async (req, res) => {
@@ -202,7 +221,7 @@ app.post('/api/payments', async (req, res) => {
   const client = await pool.connect();
   try {
     const { customer_id, order_id, amount, method, note } = req.body;
-    const sum = num(amount);
+    const sum = som(amount);
     if (sum <= 0) return res.status(400).json({ ok: false, error: 'amount musbat bolsin' });
     if (!customer_id && !order_id) return res.status(400).json({ ok: false, error: 'customer_id yoki order_id kerak' });
     await client.query('BEGIN');
@@ -210,9 +229,18 @@ app.post('/api/payments', async (req, res) => {
     if (order_id) {
       const o = await client.query('SELECT * FROM orders WHERE id = $1 FOR UPDATE', [order_id]);
       if (o.rows.length && num(o.rows[0].debt_amount) > 0) {
-        const pay = Math.min(num(o.rows[0].debt_amount), remaining);
-        const newDebt = num(o.rows[0].debt_amount) - pay, newPaid = num(o.rows[0].paid_amount) + pay;
-        const st = newDebt === 0 ? 'paid' : 'partial';
+        const prev = String(o.rows[0].status || '');
+        if (prev === 'cancelled' || prev === 'rejected') {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ ok: false, error: 'Bekor/rad etilgan buyurtmaga to\'lov yozilmaydi' });
+        }
+        const pay = Math.min(som(o.rows[0].debt_amount), remaining);
+        const newDebt = som(o.rows[0].debt_amount) - pay;
+        const newPaid = som(o.rows[0].paid_amount) + pay;
+        let st = prev;
+        if (SOLD_STATUSES.includes(prev)) {
+          st = newDebt === 0 ? 'paid' : 'partial';
+        }
         await client.query(`UPDATE orders SET paid_amount = $1, debt_amount = $2, status = $3 WHERE id = $4`, [newPaid, newDebt, st, order_id]);
         remaining -= pay;
         custId = custId || o.rows[0].customer_id;
@@ -228,9 +256,9 @@ app.post('/api/payments', async (req, res) => {
       );
       for (const o of debts.rows) {
         if (remaining <= 0) break;
-        const pay = Math.min(num(o.debt_amount), remaining);
-        const newDebt = num(o.debt_amount) - pay;
-        const newPaid = num(o.paid_amount) + pay;
+        const pay = Math.min(som(o.debt_amount), remaining);
+        const newDebt = som(o.debt_amount) - pay;
+        const newPaid = som(o.paid_amount) + pay;
         const st = newDebt === 0 ? 'paid' : 'partial';
         await client.query(
           `UPDATE orders SET paid_amount = $1, debt_amount = $2, status = $3 WHERE id = $4`,
@@ -245,7 +273,8 @@ app.post('/api/payments', async (req, res) => {
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (e) {}
     sendError(res, err);
-  } finally { client.release(); }
+  } finally { client.release();
+  }
 });
 
 app.get('/api/expenses', async (req, res) => {
@@ -259,9 +288,9 @@ app.get('/api/expenses', async (req, res) => {
 app.post('/api/expenses', async (req, res) => {
   try {
     const { category, amount, payment_method, batch_id, note, expense_date } = req.body;
-    if (!category || num(amount) <= 0) return res.status(400).json({ ok: false, error: 'category va amount majburiy' });
-    const r = await pool.query(`INSERT INTO expenses (category, amount, payment_method, batch_id, note, expense_date) VALUES ($1,$2,$3,$4,$5, COALESCE($6::timestamptz, NOW())) RETURNING *`, [String(category).trim(), num(amount), payment_method || 'cash', batch_id || null, note || null, expense_date || null]);
-    res.status(201).json({ ok: true, data: r.rows[0] });
+    if (!category || som(amount) <= 0) return res.status(400).json({ ok: false, error: 'category va amount majburiy' });
+    const r = await pool.query(`INSERT INTO expenses (category, amount, payment_method, batch_id, note, expense_date) VALUES ($1,$2,$3,$4,$5, COALESCE($6::timestamptz, NOW())) RETURNING *`, [String(category).trim(), som(amount), payment_method || 'cash', batch_id || null, note || null, expense_date || null]);
+    res.json({ ok: true, data: r.rows[0] });
   } catch (err) { sendError(res, err); }
 });
 };
