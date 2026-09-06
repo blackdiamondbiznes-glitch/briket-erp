@@ -1,6 +1,6 @@
 {
   "name": "briket-erp",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "description": "Briket ERP \u2014 full production management system",
   "main": "server.js",
   "scripts": {
