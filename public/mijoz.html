@@ -1,8 +1,592 @@
 <!DOCTYPE html>
 <html lang="uz">
 <head>
-<meta charset="UTF-8"/>
-<title>RESTORE_NEEDED</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0b" />
+  <meta name="color-scheme" content="dark" />
+  <title>Black Diamond — Buyurtma</title>
+  <link rel="manifest" href="/mijoz-manifest.webmanifest" />
+  <link rel="icon" href="/bd_logo.jpg" type="image/jpeg" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+    :root {
+      --bg: #0a0a0b;
+      --surface: #141210;
+      --surface-2: #1a1814;
+      --border: #2e2a22;
+      --border-hover: #3f3a30;
+      --text: #f5f0e6;
+      --text-secondary: #b0a894;
+      --text-muted: #8a8270;
+      --accent: #c9a227;
+      --accent-hover: #a8841a;
+      --accent-soft: rgba(201, 162, 39, 0.14);
+      --ok: #22c55e;
+      --ok-soft: rgba(34, 197, 94, 0.12);
+      --warn: #eab308;
+      --warn-soft: rgba(234, 179, 8, 0.12);
+      --danger: #ef4444;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; min-height: 100dvh;
+      padding-bottom: calc(72px + max(12px, env(safe-area-inset-bottom, 0px), var(--tg-safe-bottom, 0px)));
+      font-size: 15px; line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+    }
+    html { background: var(--bg); }
+    .top {
+      background: linear-gradient(180deg, #1a1608 0%, var(--bg) 100%);
+      padding: 20px 20px 24px; position: sticky; top: 0; z-index: 50;
+      border-bottom: 1px solid var(--border);
+    }
+    .top h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.03em; color: var(--text); }
+    .top p { font-size: 13px; color: var(--text-secondary); margin-top: 4px; font-weight: 500; }
+    .container { padding: 16px; max-width: 560px; margin: 0 auto; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px; margin-bottom: 14px;
+    }
+    .card-title {
+      font-size: 11px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px;
+    }
+    label { display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin: 14px 0 6px; }
+    input, textarea, select {
+      width: 100%; background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text); padding: 12px 14px;
+      font-size: 15px; outline: none; transition: border-color .15s; font-family: inherit;
+    }
+    input:focus, textarea:focus { border-color: var(--accent); }
+    .btn {
+      width: 100%; border: none; border-radius: var(--radius-sm); padding: 14px;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      background: linear-gradient(180deg, #d4b03a 0%, #c9a227 45%, #a8841a 100%);
+      color: #1a1408; margin-top: 14px; transition: filter .15s, transform .1s; font-family: inherit;
+      box-shadow: 0 2px 10px rgba(201, 162, 39, 0.28);
+    }
+    .btn:active { transform: scale(0.98); filter: brightness(0.95); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); box-shadow: none; }
+    .btn-sm { width: auto; padding: 8px 14px; font-size: 13px; margin: 0; }
+    .btn-block { display: block; text-align: center; text-decoration: none; }
+    .catalog-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; margin-bottom: 14px; flex-wrap: wrap;
+    }
+    .catalog-toolbar .btn { margin: 0; width: auto; padding: 10px 16px; flex-shrink: 0; }
+    .offline-banner {
+      position: sticky; top: 0; z-index: 60;
+      background: #5c2b0e; color: #f5d4a8; border-bottom: 1px solid #a35a1a;
+      padding: 10px 16px; font-size: 13px; text-align: center;
+    }
+    .success-code {
+      font-family: ui-monospace, monospace; font-size: 20px; font-weight: 700;
+      letter-spacing: 0.04em; color: var(--accent); margin: 12px 0;
+      word-break: break-all;
+    }
+    .success-code-row { display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; }
+    .nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: rgba(20,18,16,0.94); backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border); display: flex; z-index: 100;
+      padding-top: 6px;
+      padding-bottom: max(12px, env(safe-area-inset-bottom, 0px), var(--tg-safe-bottom, 0px));
+    }
+    .nav button {
+      flex: 1; background: transparent; border: none; color: var(--text-muted);
+      font-size: 11px; font-weight: 500; padding: 8px 4px; cursor: pointer;
+      font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    }
+    .nav button.active { color: var(--text); }
+    .nav svg { width: 22px; height: 22px; stroke-width: 1.7; }
+    .nav button.active svg { stroke-width: 2.1; stroke: var(--accent); }
+    .nav-icon-wrap { position: relative; display: inline-flex; }
+    .nav-badge {
+      position: absolute; top: -6px; right: -10px;
+      min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+      background: var(--accent); color: #1a1408; font-size: 11px; font-weight: 700;
+      line-height: 18px; text-align: center;
+    }
+    .product {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden; margin-bottom: 16px;
+    }
+    .product-img { position: relative; background: #fff; width: 100%; aspect-ratio: 1/1; min-height: 200px; cursor: pointer; }
+    .product-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+    .product-body { padding: 16px; }
+    .product-body h3 { font-size: 17px; font-weight: 600; margin-bottom: 6px; cursor: pointer; }
+    .price-main { font-size: 20px; font-weight: 700; }
+    .price-bulk { margin-top: 8px; padding: 8px 12px; background: var(--ok-soft); border-radius: 12px; font-size: 13px; color: #86efac; }
+    .stock-ok { color: var(--ok); font-weight: 600; }
+    .stock-out { color: var(--warn); font-weight: 600; }
+    .qty-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+    .qty-row button {
+      width: 42px; height: 42px; border-radius: 12px; border: 1px solid var(--border);
+      background: var(--surface-2); color: var(--text); font-size: 20px; cursor: pointer;
+    }
+    .qty-row input { width: 56px; text-align: center; padding: 10px 4px; font-size: 16px; }
+    .qty-row .btn { flex: 1; margin-top: 0; padding: 12px 8px; font-size: 14px; }
+    .toast {
+      position: fixed; left: 16px; right: 16px;
+      bottom: calc(96px + max(12px, env(safe-area-inset-bottom, 0px)));
+      z-index: 200; padding: 14px 16px; border-radius: 14px; font-size: 14px; font-weight: 500;
+      max-width: 560px; margin: 0 auto;
+    }
+    .toast.ok { background: #14532d; color: #bbf7d0; border: 1px solid #22c55e; }
+    .toast.err { background: #450a0a; color: #fecaca; border: 1px solid #ef4444; }
+    .empty { text-align: center; color: var(--text-muted); padding: 48px 20px; }
+    .empty-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+    .tip-banner {
+      background: linear-gradient(135deg, rgba(201,162,39,0.16), rgba(201,162,39,0.05));
+      border: 1px solid rgba(201,162,39,0.32);
+      border-radius: 14px; padding: 12px 14px; margin-bottom: 14px;
+      display: flex; gap: 10px;
+    }
+    .tip-text { flex: 1; font-size: 13px; color: #e8d5a3; }
+    .tip-close { background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; }
+    .success-panel { text-align: center; padding: 36px 20px 24px; }
+    .success-icon {
+      width: 72px; height: 72px; margin: 0 auto 16px; border-radius: 50%;
+      background: var(--ok-soft); border: 2px solid rgba(34,197,94,0.4);
+      display: flex; align-items: center; justify-content: center; font-size: 32px; color: var(--ok);
+    }
+    .pay-note {
+      font-size: 13px; color: var(--text-secondary); background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin: 14px 0 4px;
+    }
+    .total-box {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px; margin-top: 16px;
+    }
+    .total-box .row { display: flex; justify-content: space-between; margin: 6px 0; font-size: 14px; }
+    .total-box .big { font-size: 18px; font-weight: 700; margin-top: 8px; }
+    .cart-item { display: flex; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+    .cart-item img { width: 72px; height: 72px; object-fit: cover; border-radius: 12px; }
+    .meta { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+    .order-card { padding: 14px 0; border-bottom: 1px solid var(--border); }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; margin-left: 8px; }
+    .badge-ok { background: var(--ok-soft); color: #86efac; }
+    .badge-wait { background: var(--warn-soft); color: #fde68a; }
+    .badge-no { background: rgba(239,68,68,0.15); color: #fca5a5; }
+</style>
 </head>
-<body>See artifacts - restoring next</body>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+function money(n) {
+  return Number(n || 0).toLocaleString('uz-UZ');
+}
+function storageKey(k) { return k; }
+function loadCart() {
+  try { return JSON.parse(localStorage.getItem(storageKey('bd_cart')) || '[]'); } catch (e) { return []; }
+}
+function saveCart(c) { localStorage.setItem(storageKey('bd_cart'), JSON.stringify(c)); }
+function getInitData() {
+  try { return (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) || ''; } catch (e) { return ''; }
+}
+function apiHeaders(hasBody) {
+  const h = { Accept: 'application/json' };
+  if (hasBody) h['Content-Type'] = 'application/json';
+  const id = getInitData();
+  if (id) h['X-Telegram-Init-Data'] = id;
+  return h;
+}
+async function api(path, opts) {
+  opts = opts || {};
+  const res = await fetch(path, {
+    method: opts.method || 'GET',
+    headers: apiHeaders(!!opts.body),
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok || j.ok === false) throw new Error(j.error || ('HTTP ' + res.status));
+  return j;
+}
+function unitPrice(p, qty, settings) {
+  const base = Number(p.price) || 0;
+  const minQ = Number(settings.bulk_min_qty) || 500;
+  const disc = Number(settings.bulk_discount) || 0;
+  if (qty >= minQ && disc > 0) return Math.max(0, base - disc);
+  return base;
+}
+function productImages(p) {
+  const u = p.image_urls;
+  if (Array.isArray(u)) return u.filter(Boolean);
+  if (typeof u === 'string' && u) try { const a = JSON.parse(u); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+  return [];
+}
+function Loading({ text }) { return <div className="empty">{text || 'Yuklanmoqda...'}</div>; }
+function Toast({ msg }) {
+  if (!msg) return null;
+  return <div className={'toast ' + (msg.err ? 'err' : 'ok')}>{msg.text}</div>;
+}
+
+function ProductCard({ p, settings, onAdd, onDetail }) {
+  const [qty, setQty] = useState(1);
+  const imgs = productImages(p);
+  const bal = Number(p.balance_qty) || 0;
+  const up = unitPrice(p, qty, settings);
+  return (
+    <div className="product">
+      <div className="product-img" onClick={() => onDetail(p)}>
+        {imgs[0] ? <img src={imgs[0]} alt="" /> : null}
+      </div>
+      <div className="product-body">
+        <h3 onClick={() => onDetail(p)}>{p.sku}</h3>
+        <div className="price-main">{money(up)} <span>so'm</span></div>
+        <div className="meta">{bal > 0 ? <span className="stock-ok">Omborda: {bal}</span> : <span className="stock-out">Buyurtma (3-7 kun)</span>}</div>
+        <div className="qty-row">
+          <button type="button" onClick={() => setQty(Math.max(1, qty - 1))}>−</button>
+          <input type="text" inputMode="numeric" value={qty} onChange={(e) => setQty(Math.max(1, parseInt(e.target.value.replace(/\\D/g, ''), 10) || 1))} />
+          <button type="button" onClick={() => setQty(qty + 1)}>+</button>
+          <button type="button" className="btn" onClick={() => onAdd(p, qty)}>Savatga</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Catalog({ katalog, settings, loading, onAdd, onDetail, tipOpen, setTipOpen, onRefresh }) {
+  return (
+    <div>
+      <div className="top">
+        <h1>BLACK DIAMOND</h1>
+        <p>Premium Auto-Ignite Briquettes</p>
+      </div>
+      <div className="container">
+        {tipOpen && (
+          <div className="tip-banner">
+            <div className="tip-text"><strong>Qanday buyurtma beriladi?</strong><br />1) Miqdor → 2) Savatga → 3) Yuborish</div>
+            <button type="button" className="tip-close" onClick={() => { setTipOpen(false); localStorage.setItem(storageKey('bd_tip_closed'), '1'); }}>×</button>
+          </div>
+        )}
+        <div className="catalog-toolbar">
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Katalog</div>
+          <button type="button" className="btn btn-secondary" onClick={onRefresh}>Yangilash</button>
+        </div>
+        {loading && <Loading text="Katalog yuklanmoqda..." />}
+        {!loading && !katalog.length && <div className="empty"><div className="empty-title">Mahsulot yo'q</div></div>}
+        {!loading && katalog.map((p) => (
+          <ProductCard key={p.id} p={p} settings={settings} onAdd={onAdd} onDetail={onDetail} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Savat({ cart, katalog, settings, user, setCart, showMsg, onOrdered, onGoCatalog }) {
+  const [tolangan, setTolangan] = useState('');
+  const [muddat, setMuddat] = useState('');
+  const [izoh, setIzoh] = useState('');
+  const [phone, setPhone] = useState(user.phone || localStorage.getItem(storageKey('bd_phone')) || '');
+  const [address, setAddress] = useState(localStorage.getItem(storageKey('bd_address')) || '');
+  const [busy, setBusy] = useState(false);
+  const map = {};
+  (katalog || []).forEach((p) => { map[p.id] = p; });
+  const lines = cart.map((c) => {
+    const p = map[c.id];
+    if (!p) return null;
+    const up = unitPrice(p, c.qty, settings);
+    return { p, qty: c.qty, up, sum: up * c.qty };
+  }).filter(Boolean);
+  const jamiDona = lines.reduce((s, l) => s + l.qty, 0);
+  const jami = lines.reduce((s, l) => s + l.sum, 0);
+  const minQty = Number(settings.bulk_min_qty) || 500;
+  const yirik = jamiDona >= minQty;
+
+  const setQty = (id, q) => {
+    setCart((prev) => {
+      let next = prev.map((x) => x.id === id ? { ...x, qty: q } : x).filter((x) => x.qty > 0);
+      saveCart(next);
+      return next;
+    });
+  };
+
+  const submit = async () => {
+    if (!phone.trim()) { showMsg('Telefon majburiy', true); return; }
+    if (!lines.length) { showMsg('Savat bo\'sh', true); return; }
+    setBusy(true);
+    try {
+      localStorage.setItem(storageKey('bd_phone'), phone);
+      localStorage.setItem(storageKey('bd_address'), address);
+      const r = await api('/api/customer/orders', {
+        method: 'POST',
+        body: {
+          phone: phone.trim(),
+          address: address || null,
+          paid_amount: Number(tolangan) || 0,
+          debt_due_date: muddat || null,
+          note: izoh || null,
+          items: lines.map((l) => ({ product_id: l.p.id, qty: l.qty }))
+        }
+      });
+      setCart([]);
+      saveCart([]);
+      showMsg('Buyurtma qabul qilindi: ' + (r.data && r.data.order_code), false);
+      onOrdered(r.data);
+    } catch (e) {
+      showMsg(e.message, true);
+    }
+    setBusy(false);
+  };
+
+  if (!lines.length) {
+    return (
+      <div className="container">
+        <div className="empty">
+          <div className="empty-title">Savat bo'sh</div>
+          <button className="btn" style={{ maxWidth: 240, margin: '0 auto' }} onClick={onGoCatalog}>Katalogga</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container">
+      <div className="card">
+        <div className="card-title">Savat</div>
+        {lines.map((l) => (
+          <div className="cart-item" key={l.p.id}>
+            <div className="info" style={{ flex: 1 }}>
+              <strong>{l.p.sku}</strong>
+              <div className="meta">{money(l.sum)} so'm</div>
+              <div className="qty-row">
+                <button type="button" onClick={() => setQty(l.p.id, l.qty - 1)}>−</button>
+                <input value={l.qty} readOnly />
+                <button type="button" onClick={() => setQty(l.p.id, l.qty + 1)}>+</button>
+              </div>
+            </div>
+          </div>
+        ))}
+        <div className="total-box">
+          <div className="row"><span>Jami dona</span><span>{jamiDona}</span></div>
+          <div className="row big"><span>Jami</span><span>{money(jami)} so'm</span></div>
+          {yirik && <div className="meta">Yirik chegirma qo'llanmoqda</div>}
+        </div>
+        <div className="pay-note">Buyurtma tasdiqlanganda <b>naqd</b> yoki <b>karta</b> orqali to'lanadi.</div>
+        <label>Telefon *</label>
+        <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+998 ..." />
+        <div className="pay-note" style={{ marginTop: 6 }}>Maslahat: +998XXXXXXXXX</div>
+        <label>Manzil</label>
+        <input value={address} onChange={(e) => setAddress(e.target.value)} />
+        <label>Naqd (niyat)</label>
+        <input type="number" value={tolangan} onChange={(e) => setTolangan(e.target.value)} />
+        <label>Qarz muddati</label>
+        <input type="date" value={muddat} onChange={(e) => setMuddat(e.target.value)} />
+        <label>Izoh</label>
+        <textarea rows={2} value={izoh} onChange={(e) => setIzoh(e.target.value)} />
+        <button className="btn" disabled={busy} onClick={submit}>{busy ? 'Yuborilmoqda...' : 'Buyurtmani yuborish'}</button>
+        <button className="btn btn-secondary" onClick={() => { if (window.confirm('Savatni tozalashni xohlaysizmi?')) { setCart([]); saveCart([]); } }}>Savatni tozalash</button>
+      </div>
+    </div>
+  );
+}
+
+function Buyurtmalar({ orders, loading, onReload, orderSuccess, onClearSuccess, onGoCatalog, showMsg }) {
+  if (orderSuccess) {
+    return (
+      <div className="container">
+        <div className="card">
+          <div className="success-panel">
+            <div className="success-icon">✓</div>
+            <h3>Buyurtma qabul qilindi</h3>
+            {orderSuccess.order_code && (
+              <div className="success-code-row">
+                <div className="success-code">{orderSuccess.order_code}</div>
+                <button type="button" className="btn btn-secondary" onClick={() => {
+                  const c = orderSuccess.order_code;
+                  if (navigator.clipboard) navigator.clipboard.writeText(c).then(() => showMsg('Kod nusxalandi', false)).catch(() => {});
+                  else showMsg(c, false);
+                }}>Nusxa</button>
+              </div>
+            )}
+            <p>Tez orada bog'lanamiz.</p>
+            <button className="btn" onClick={() => { onClearSuccess(); onReload(); }}>Buyurtmalarni ko'rish</button>
+            <button className="btn btn-secondary" onClick={onGoCatalog}>Katalogga</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (loading) return <div className="container"><Loading text="Yuklanmoqda..." /></div>;
+  if (!orders.length) {
+    return (
+      <div className="container">
+        <div className="empty">
+          <div className="empty-title">Hali buyurtma yo'q</div>
+          <button className="btn" style={{ maxWidth: 240, margin: '0 auto' }} onClick={onGoCatalog}>Katalogga</button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="container">
+      <div className="card">
+        <div className="card-title">Buyurtmalarim</div>
+        {orders.map((b) => (
+          <div className="order-card" key={b.id}>
+            <strong>{b.order_code}</strong>
+            <span className="badge badge-wait">{b.status}</span>
+            <div className="meta">{money(b.total_amount)} so'm</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Aloqa({ user, settings }) {
+  const phone = settings.customer_phone || '998880090506';
+  const tgl = settings.customer_telegram || 'https://t.me/briketkumir';
+  const digits = String(phone).replace(/\\D/g, '');
+  return (
+    <div className="container">
+      <div className="card">
+        <div className="card-title">Aloqa</div>
+        <p style={{ marginBottom: 12 }}>Siz: <b>{user.name || 'Mijoz'}</b></p>
+        <a className="btn btn-block" href={'tel:+' + digits} style={{ textDecoration: 'none' }}>Qo'ng'iroq: +{digits}</a>
+        <a className="btn btn-secondary btn-block" href={tgl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>Telegram</a>
+      </div>
+    </div>
+  );
+}
+
+function Nav({ tab, setTab, cartCount, onOrders }) {
+  const Icon = ({ d }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d={d} strokeLinecap="round" strokeLinejoin="round" /></svg>
+  );
+  return (
+    <nav className="nav">
+      <button type="button" className={tab === 'catalog' ? 'active' : ''} onClick={() => setTab('catalog')}>
+        <span className="nav-icon-wrap"><Icon d="M4 6h16M4 12h16M4 18h16" /></span>Katalog
+      </button>
+      <button type="button" className={tab === 'cart' ? 'active' : ''} onClick={() => setTab('cart')}>
+        <span className="nav-icon-wrap">
+          <Icon d="M3 3h2l.4 2M7 13h10l3-8H6.4M7 13L5.4 5M7 13l-1.5 6h13" />
+          {cartCount > 0 && <span className="nav-badge">{cartCount}</span>}
+        </span>Savat
+      </button>
+      <button type="button" className={tab === 'orders' ? 'active' : ''} onClick={() => { setTab('orders'); onOrders(); }}>
+        <span className="nav-icon-wrap"><Icon d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" /></span>Buyurtmalar
+      </button>
+      <button type="button" className={tab === 'aloqa' ? 'active' : ''} onClick={() => setTab('aloqa')}>
+        <span className="nav-icon-wrap"><Icon d="M3 5a2 2 0 012-2h3.28a1 1 0 01.95.68l1.5 4.5a1 1 0 01-.5 1.21l-2.26 1.13a11 11 0 005.52 5.52l1.13-2.26a1 1 0 011.21-.5l4.5 1.5a1 1 0 01.68.95V19a2 2 0 01-2 2h-1C9.72 21 3 14.28 3 6V5z" /></span>Aloqa
+      </button>
+    </nav>
+  );
+}
+
+function App() {
+  const [tab, setTab] = useState('catalog');
+  const [katalog, setKatalog] = useState([]);
+  const [settings, setSettings] = useState({ bulk_discount: '3000', bulk_min_qty: '500', customer_phone: '998880090506', customer_telegram: 'https://t.me/briketkumir' });
+  const [cart, setCart] = useState(() => loadCart());
+  const [user, setUser] = useState({ name: 'Mijoz', phone: '' });
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [tipOpen, setTipOpen] = useState(localStorage.getItem(storageKey('bd_tip_closed')) !== '1');
+  const [orderSuccess, setOrderSuccess] = useState(null);
+  const [online, setOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const msgTimer = useRef(null);
+
+  useEffect(() => {
+    function on() { setOnline(true); }
+    function off() { setOnline(false); }
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
+  }, []);
+
+  const showMsg = useCallback((text, err) => {
+    setMsg({ text, err: !!err });
+    if (msgTimer.current) clearTimeout(msgTimer.current);
+    msgTimer.current = setTimeout(() => setMsg(null), 4000);
+  }, []);
+
+  const loadCatalog = useCallback(async () => {
+    setLoading(true);
+    try {
+      try {
+        const auth = await api('/api/customer/auth/telegram', { method: 'POST', body: { initData: getInitData() } });
+        setUser({ name: auth.data.name || 'Mijoz', phone: auth.data.phone || '' });
+        setCart(loadCart());
+      } catch (e) {}
+      const cat = await api('/api/customer/catalog');
+      setKatalog(cat.data || []);
+      try {
+        const st = await api('/api/customer/settings');
+        setSettings((s) => Object.assign({}, s, st.data || {}));
+      } catch (e) {}
+    } catch (e) {
+      showMsg(e.message, true);
+    }
+    setLoading(false);
+  }, [showMsg]);
+
+  useEffect(() => { loadCatalog(); }, [loadCatalog]);
+
+  const addToCart = (p, qty) => {
+    setCart((prev) => {
+      const i = prev.findIndex((x) => x.id === p.id);
+      let next;
+      if (i >= 0) { next = prev.slice(); next[i] = { id: p.id, qty: next[i].qty + qty }; }
+      else next = prev.concat([{ id: p.id, qty }]);
+      saveCart(next);
+      return next;
+    });
+    showMsg("Savatga qo'shildi", false);
+  };
+
+  const loadOrders = async () => {
+    setOrdersLoading(true);
+    try {
+      const r = await api('/api/customer/orders');
+      setOrders(r.data || []);
+    } catch (e) { showMsg(e.message, true); }
+    setOrdersLoading(false);
+  };
+
+  const cartCount = cart.reduce((s, c) => s + c.qty, 0);
+
+  return (
+    <>
+      {!online && <div className="offline-banner">Internet aloqasi yo'q — oxirgi ma'lumotlar ko'rsatilmoqda</div>}
+      {tab === 'catalog' && !detail && (
+        <Catalog katalog={katalog} settings={settings} loading={loading} onAdd={addToCart} onDetail={setDetail}
+          tipOpen={tipOpen} setTipOpen={setTipOpen} onRefresh={loadCatalog} />
+      )}
+      {tab === 'cart' && !detail && (
+        <Savat cart={cart} katalog={katalog} settings={settings} user={user} setCart={setCart} showMsg={showMsg}
+          onOrdered={(o) => { setOrderSuccess(o); setTab('orders'); }} onGoCatalog={() => setTab('catalog')} />
+      )}
+      {tab === 'orders' && !detail && (
+        <Buyurtmalar orders={orders} loading={ordersLoading} onReload={loadOrders} orderSuccess={orderSuccess}
+          onClearSuccess={() => setOrderSuccess(null)} onGoCatalog={() => setTab('catalog')} showMsg={showMsg} />
+      )}
+      {tab === 'aloqa' && !detail && <Aloqa user={user} settings={settings} />}
+      {!detail && <Nav tab={tab} setTab={setTab} cartCount={cartCount} onOrders={loadOrders} />}
+      <Toast msg={msg} />
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
 </html>
