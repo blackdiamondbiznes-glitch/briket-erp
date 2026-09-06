@@ -13,9 +13,9 @@
   <script src="https://unpkg.com/@babel/standalone@7.26.0/babel.min.js"></script>
   <script type="text/babel" src="/admin-v2-components.jsx"></script>
   <style>
-    /* ========== Design tokens вЂ” Black Diamond ERP ========== */
+    /* ========== Design tokens - Black Diamond ERP ========== */
     :root {
-      /* Black Diamond OPS вЂ” qora + oltin */
+      /* Black Diamond OPS - qora + oltin */
       --bg: #0a0a0b;
       --bg-mid: #0e0c0a;
       --bg-elevated: #141210;
@@ -284,7 +284,7 @@
       color: #ff8a8e; font-weight: 700;
       font-variant-numeric: tabular-nums;
     }
-    .neg::before { content: "в†“ "; font-weight: 600; opacity: 0.9; }
+    .neg::before { content: ""; font-weight: 600; opacity: 0.9; }
     @media (max-width: 700px) {
       .dash-grid { grid-template-columns: 1fr; }
       .main { padding-left: 12px; padding-right: 12px; overflow-x: hidden; }
@@ -301,7 +301,7 @@
       .table-wrap { margin: 0 -4px; }
     }
 
-    /* Tables вЂ” dense enterprise */
+    /* Tables - dense enterprise */
     .table-wrap {
       width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;
       border-radius: var(--radius-sm);
@@ -392,7 +392,7 @@
     .msg.err { background: var(--danger-bg); color: #ff8a8e; border-color: rgba(229,72,77,0.25); }
     .muted { color: var(--muted); font-size: 0.8rem; }
 
-    /* Badges вЂ” 4 semantic states */
+    /* Badges - 4 semantic states */
     .badge {
       display: inline-flex; align-items: center;
       padding: 2px 8px; border-radius: 99px;
@@ -563,7 +563,7 @@
       return Number(n || 0).toLocaleString("uz-UZ");
     }
 
-    // Sessiya muddati: 12 soat (frontend himoya; httpOnly cookie вЂ” backend taklifi) /* Eslatma: faqat UI; backend ADMIN_KEY muddatsiz */
+    // Sessiya muddati: 12 soat (frontend himoya; httpOnly cookie - backend taklifi) /* Eslatma: faqat UI; backend ADMIN_KEY muddatsiz */
     const SESSION_MS = 12 * 60 * 60 * 1000;
 
     function useApi() {
@@ -606,7 +606,7 @@
           setAdminKey("");
           localStorage.removeItem("erp_key");
           localStorage.removeItem("erp_key_at");
-          const err = new Error("Sessiya muddati tugadi вЂ” qayta kiring");
+          const err = new Error("Sessiya muddati tugadi - qayta kiring");
           err.code = 401;
           throw err;
         }
@@ -693,7 +693,7 @@
               <img src="/bd_logo.jpg" alt="Black Diamond" style={{width:40,height:40,borderRadius:8,objectFit:"cover"}} />
               <h1 style={{margin:0}}>Black Diamond Admin</h1>
             </div>
-            <p>Operatsion panel вЂ” faqat xodimlar uchun</p>
+            <p>Operatsion panel - faqat xodimlar uchun</p>
             {err ? <div className="err">{err}</div> : null}
             <label htmlFor="f-op">Ism (operator)</label>
             <input
@@ -799,7 +799,7 @@
           {[1,2,3,4,5].map(function(i){
             return <div key={i} className="dash-kpi" style={{opacity:0.4}}>
               <div className="label">&nbsp;</div>
-              <div className="value">В·В·В·</div>
+              <div className="value">---</div>
             </div>;
           })}
         </div>
@@ -813,10 +813,10 @@
       const foyda = Number(data.bugungi_foyda || 0);
 
       function shortCode(code) {
-        if (!code) return "вЂ”";
+        if (!code) return "-";
         const s = String(code);
         if (s.length <= 14) return s;
-        return s.slice(0, 6) + "вЂ¦" + s.slice(-4);
+        return s.slice(0, 6) + "-" + s.slice(-4);
       }
 
       return (
@@ -837,22 +837,22 @@
             <div className="dash-kpi">
               <div className="label">Bugungi foyda</div>
               <div className={"value" + (foyda < 0 ? " neg" : "")}>{money(foyda)}</div>
-              <div className="trend">вЂ” bugungi</div>
+              <div className="trend">bugungi</div>
             </div>
             <div className="dash-kpi">
               <div className="label">Bugungi savdo</div>
               <div className="value">{money(data.bugungi_savdo)}</div>
-              <div className="trend">вЂ” bugungi</div>
+              <div className="trend">bugungi</div>
             </div>
             <div className="dash-kpi">
               <div className="label">Bugungi naqd</div>
               <div className="value">{money(data.bugungi_naqd_tushum)}</div>
-              <div className="trend">вЂ” tushum</div>
+              <div className="trend">tushum</div>
             </div>
             <div className="dash-kpi">
               <div className="label">Bugungi xarajat</div>
               <div className="value">{money(data.bugungi_xarajat)}</div>
-              <div className="trend">вЂ” chiqim</div>
+              <div className="trend">chiqim</div>
             </div>
             <div className={"dash-kpi" + (Number(data.jami_qarz) > 3000000 ? " dash-kpi-danger" : "")}>
               <div className="label">Qarz</div>
@@ -888,8 +888,8 @@
               <h2>Tayyor mahsulot</h2>
               {skuStock.length === 0 ? (
                 <div className="empty">
-                  <div className="empty-title">Tayyor mahsulot yoвЂq</div>
-                  Qadoqlash boвЂlimidan birinchi partiyani qadoqlang
+                  <div className="empty-title">Tayyor mahsulot yo-q</div>
+                  Qadoqlash bo-limidan birinchi partiyani qadoqlang
                 </div>
               ) : (
                 <div className="table-wrap">
@@ -926,8 +926,8 @@
               <h2>Material</h2>
               {mats.length === 0 ? (
                 <div className="empty">
-                  <div className="empty-title">Material yoвЂq</div>
-                  Katalog -> Material dan qoвЂshing
+                  <div className="empty-title">Material yo-q</div>
+                  Katalog -> Material dan qo-shing
                 </div>
               ) : (
                 <div className="table-wrap">
@@ -957,7 +957,7 @@
             <h2>Faol partiyalar</h2>
             {batches.length === 0 ? (
               <div className="empty">
-                <div className="empty-title">Faol partiya yoвЂq</div>
+                <div className="empty-title">Faol partiya yo-q</div>
                 Ishlab chiqarish -> Partiya dan yangi partiya oching
               </div>
             ) : (
@@ -984,10 +984,10 @@
           </div>
 
           <div className="card tight" style={{ marginTop: 10 }}>
-            <h2>SoвЂnggi buyurtmalar</h2>
+            <h2>So-nggi buyurtmalar</h2>
             {orders.length === 0 ? (
               <div className="empty">
-                <div className="empty-title">Buyurtma yoвЂq</div>
+                <div className="empty-title">Buyurtma yo-q</div>
                 Savdo -> Buyurtma yoki mijoz ilovasidan keladi
               </div>
             ) : (
@@ -1001,7 +1001,7 @@
                     return (
                       <tr key={o.id}>
                         <td title={o.order_code}>{shortCode(o.order_code)}</td>
-                        <td>{o.customer_name || "вЂ”"}</td>
+                        <td>{o.customer_name || "-"}</td>
                         <td>{money(o.total_amount)}</td>
                         <td><span className={"badge " + o.status}>{o.status}</span></td>
                       </tr>
@@ -1043,8 +1043,8 @@
             <h2>Material qoldiq</h2>
             {materials.length === 0 ? (
               <div className="empty">
-                <div className="empty-title">Material qoldiq yoвЂq</div>
-                Katalog -> Material dan qoвЂshing
+                <div className="empty-title">Material qoldiq yo-q</div>
+                Katalog -> Material dan qo-shing
               </div>
             ) : (
               <div className="table-wrap"><table>
@@ -2231,7 +2231,7 @@
           <div className="card">
             <h2>Buyurtmalar</h2>
             <p className="muted" style={{ marginBottom: 10, fontSize: "0.78rem" }}>
-              Telegram/PWA buyurtmalari <b>pending</b> вЂ” Tasdiq yoki Rad.
+              Telegram/PWA buyurtmalari <b>pending</b> - Tasdiq yoki Rad.
             </p>
             <div className="table-wrap">
               <table>
@@ -2265,7 +2265,7 @@
                           <span className="badge" style={{ marginRight: 4 }}>{srcLabel}</span>
                           <span className="order-row-code" title={o.order_code}>
                             {o.order_code && o.order_code.length > 16
-                              ? o.order_code.slice(0, 8) + "вЂ¦" + o.order_code.slice(-4)
+                              ? o.order_code.slice(0, 8) + "-" + o.order_code.slice(-4)
                               : o.order_code}
                           </span>
                           {itemsLine ? (
@@ -2273,7 +2273,7 @@
                           ) : null}
                         </td>
                         <td>
-                          <div>{o.customer_name || "вЂ”"}</div>
+                          <div>{o.customer_name || "-"}</div>
                           {o.phone ? (
                             <div className="muted" style={{ fontWeight: 600, color: "#e8d5a3", fontSize: "0.72rem" }}>
                               {o.phone}
