@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="robots" content="noindex, nofollow" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Briket ERP - Admin</title>
+  <title>Black Diamond — Operatsion tizim</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -55,7 +55,7 @@
       --space-5: 20px;
       --space-6: 24px;
       --row-h: 38px;
-      --sidebar-w: 232px;
+      --nav-h: 64px;
       --focus-ring: 0 0 0 3px var(--accent-muted);
     }
     @media (prefers-reduced-motion: reduce) {
@@ -69,14 +69,12 @@
     body {
       font-family: var(--font);
       font-size: var(--fs-body-lg);
-      background:
-        radial-gradient(1200px 600px at 10% -10%, #1a1608 0%, transparent 55%),
-        radial-gradient(900px 500px at 100% 0%, #141210 0%, transparent 50%),
-        var(--bg);
+      background: var(--bg);
       color: var(--text);
       min-height: 100vh;
       line-height: 1.45;
       -webkit-font-smoothing: antialiased;
+      padding: 0 0 calc(var(--nav-h) + 28px + env(safe-area-inset-bottom, 0px));
     }
     button, input, select, textarea { font-family: inherit; }
     button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {
@@ -85,112 +83,87 @@
     }
     .shell { min-height: 100vh; }
 
-    /* ---------- Sidebar ---------- */
-    .sidebar {
-      display: none;
-      position: fixed; inset: 0 auto 0 0; width: var(--sidebar-w);
-      background: var(--bg-elevated);
-      border-right: 1px solid var(--border-subtle);
-      padding: var(--space-4) var(--space-3);
-      z-index: 20; flex-direction: column;
+    /* Eski Index.html qobig'i: sticky header + 4 pastki menyu */
+    .header {
+      background: linear-gradient(180deg, #1a1608 0%, rgba(10,10,11,0.96) 100%);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 18px 12px;
+      position: sticky; top: 0; z-index: 50;
     }
-    .sidebar .brand-row {
-      display: flex; align-items: center; gap: 10px;
-      padding: 4px 8px 16px;
+    .header-inner {
+      display: flex; align-items: center; gap: 12px;
+      max-width: 640px; margin: 0 auto;
     }
-    .sidebar .brand-kicker {
-      font-size: 0.625rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+    .header-mark {
+      width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+      background: linear-gradient(145deg, #d4b03a 0%, #c9a227 50%, #8a6f12 100%);
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+      box-shadow: 0 2px 10px rgba(201,162,39,0.4);
     }
-    .sidebar .brand-title {
-      color: var(--accent); font-weight: 650; font-size: 0.95rem; letter-spacing: -0.01em;
+    .header-mark img { width: 100%; height: 100%; object-fit: cover; }
+    .header h1 {
+      font-size: 17px; font-weight: 700; letter-spacing: -0.03em;
+      color: var(--text); line-height: 1.2;
     }
-    .side-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
-    .side-nav button {
-      position: relative;
-      display: flex; align-items: center; gap: 10px;
-      background: transparent; border: none; color: var(--muted);
-      text-align: left; padding: 10px 12px 10px 14px;
-      border-radius: var(--radius-sm);
-      cursor: pointer; font-size: var(--fs-body-lg); font-weight: 500;
-      transition: background 0.12s ease, color 0.12s ease;
+    .header p {
+      font-size: 11px; color: var(--muted); margin-top: 2px; font-weight: 500;
     }
-    .side-nav button .nav-ico {
-      width: 18px; height: 18px; flex-shrink: 0; opacity: 0.85;
+    .header-right {
+      margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
     }
-    .side-nav button .nav-ico svg { width: 18px; height: 18px; display: block; }
-    .side-nav button:hover:not(.active) {
-      background: rgba(255,255,255,0.04); color: var(--text);
-    }
-    .side-nav button.active {
-      background: var(--accent-muted);
-      color: var(--text);
-      font-weight: 600;
-    }
-    .side-nav button.active::before {
-      content: "";
-      position: absolute; left: 0; top: 8px; bottom: 8px; width: 2.5px;
-      border-radius: 2px; background: var(--accent);
-    }
-    .side-nav button:focus-visible {
-      outline: none; box-shadow: var(--focus-ring);
-    }
-    .main {
-      padding: 12px 14px 88px;
-      max-width: 1200px; margin: 0 auto;
-    }
-    .mobile-top {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 0 12px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 12px;
-    }
-    .mobile-top h1 { font-size: var(--fs-title); color: var(--text); margin: 0; font-weight: 650; }
+    .header .logout-btn { width: auto; margin: 0; padding: 6px 10px; }
 
-    /* Segment (sub-tabs) */
-    .segment {
-      display: flex; flex-wrap: wrap; gap: 2px;
-      background: var(--bg-elevated); border: 1px solid var(--border-subtle);
-      border-radius: var(--radius); padding: 3px; margin-bottom: 14px;
+    .main {
+      padding: 14px 16px 28px;
+      max-width: 640px; margin: 0 auto;
     }
+
+    /* Segment (sub-tabs) — eski .segments */
+    .segment {
+      display: flex; background: var(--bg-elevated);
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 3px; margin-bottom: 16px; gap: 2px;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .segment::-webkit-scrollbar { display: none; }
     .segment button {
       flex: 1; min-width: 72px; border: none; background: transparent;
-      color: var(--muted); padding: 8px 10px; border-radius: var(--radius-sm);
-      cursor: pointer; font-size: 0.8rem; font-weight: 500;
-      transition: background 0.12s ease, color 0.12s ease;
+      color: var(--muted); padding: 9px 8px; border-radius: 10px;
+      cursor: pointer; font-size: 13px; font-weight: 600;
+      white-space: nowrap;
     }
     .segment button.active {
-      background: var(--card-hover); color: var(--text); font-weight: 600;
-      box-shadow: 0 1px 0 rgba(255,255,255,0.04);
+      background: linear-gradient(180deg, #d4b03a 0%, #c9a227 100%);
+      color: #1a1408; box-shadow: 0 2px 8px rgba(201,162,39,0.3);
     }
     .segment button:hover:not(.active) { color: var(--text); }
     .segment button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
-    /* Bottom nav */
     .bottom-nav {
-      position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
-      display: grid; grid-template-columns: repeat(5, 1fr);
-      background: rgba(20, 21, 23, 0.92);
-      backdrop-filter: blur(12px);
-      border-top: 1px solid var(--border-subtle);
-      padding-bottom: env(safe-area-inset-bottom);
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
+      display: flex;
+      height: var(--nav-h);
+      background: rgba(20,18,16,0.94);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border);
+      padding-bottom: env(safe-area-inset-bottom, 0);
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.4);
     }
     .bottom-nav button {
-      text-align: center; font-size: 0.62rem; padding: 8px 4px 10px;
-      display: flex; flex-direction: column; align-items: center; gap: 3px;
-      min-height: 56px; justify-content: center;
+      flex: 1; text-align: center; font-size: 11px; padding: 8px 4px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
       background: transparent; border: none; color: var(--muted);
-      cursor: pointer; font-weight: 500;
+      cursor: pointer; font-weight: 500; font-family: inherit;
     }
     .bottom-nav button.active { color: var(--accent); }
-    .bottom-nav button .nav-ico { width: 20px; height: 20px; opacity: 0.9; }
-    .bottom-nav button .nav-ico svg { width: 20px; height: 20px; display: block; }
+    .bottom-nav button .nav-ico { width: 22px; height: 22px; }
+    .bottom-nav button .nav-ico svg { width: 22px; height: 22px; display: block; stroke-width: 1.7; }
+    .bottom-nav button.active .nav-ico svg { stroke-width: 2.2; stroke: var(--accent); }
     .bottom-nav button:focus-visible { outline: none; box-shadow: inset var(--focus-ring); }
-
-    @media (min-width: 860px) {
-      .sidebar { display: flex; }
-      .main { margin-left: var(--sidebar-w); padding: 22px 28px 28px; max-width: none; }
-      .mobile-top { display: none; }
-      .bottom-nav { display: none; }
-    }
-    .nav { display: none; }
 
     /* Cards */
     .card {
@@ -442,12 +415,12 @@
       border: 1px solid var(--border-subtle);
     }
 
-    /* Login */
+    /* Login — eski PIN oynasi uslubi, lekin ADMIN_KEY */
     .login-wrap {
       min-height: 100vh; display: flex; align-items: center; justify-content: center;
       padding: 24px;
       background:
-        radial-gradient(800px 400px at 50% 0%, #1a1210 0%, transparent 60%),
+        radial-gradient(ellipse 70% 45% at 50% -10%, rgba(201,162,39,0.15), transparent),
         var(--bg);
     }
     .login-card {
@@ -522,7 +495,7 @@
 
     @media (max-width: 860px) {
       .main {
-        padding: 12px 12px calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+        padding: 14px 16px 28px !important;
         overflow-x: hidden;
       }
       .dash-grid { grid-template-columns: 1fr !important; }
@@ -624,7 +597,6 @@
     }
     .toolbar input[type="search"] { margin: 0; max-width: 280px; }
     .stat-mini { font-size: 0.72rem; color: var(--muted); }
-    .sidebar { background: linear-gradient(180deg, #16130f 0%, #100e0c 100%); }
   </style>
 </head>
 <body>
@@ -675,60 +647,70 @@
     }
 
 
-    // Sessiya muddati: 12 soat (frontend himoya; httpOnly cookie - backend taklifi) /* Eslatma: faqat UI; backend ADMIN_KEY muddatsiz */
+    // Sessiya: sessionStorage + 12 soat. localStorage dagi eski kalit o'chiriladi —
+    // brauzerni yopib qayta ochganda kirish so'raladi.
     const SESSION_MS = 12 * 60 * 60 * 1000;
+    const SS = window.sessionStorage;
+
+    try {
+      localStorage.removeItem("erp_key");
+      localStorage.removeItem("erp_key_at");
+      localStorage.removeItem("erp_operator");
+    } catch (e0) {}
 
     function useApi() {
       const [apiBase, setApiBase] = useState(function () {
         return localStorage.getItem("erp_api") || DEFAULT_API;
       });
       const [adminKey, setAdminKey] = useState(function () {
-        const key = localStorage.getItem("erp_key") || "";
-        const at = Number(localStorage.getItem("erp_key_at") || 0);
+        const key = SS.getItem("erp_key") || "";
+        const at = Number(SS.getItem("erp_key_at") || 0);
         if (key && at && Date.now() - at > SESSION_MS) {
-          localStorage.removeItem("erp_key");
-          localStorage.removeItem("erp_key_at");
-          localStorage.removeItem("erp_operator");
+          SS.removeItem("erp_key");
+          SS.removeItem("erp_key_at");
+          SS.removeItem("erp_operator");
           return "";
         }
         return key;
       });
       const [operatorName, setOperatorName] = useState(function () {
-        return localStorage.getItem("erp_operator") || "";
+        return SS.getItem("erp_operator") || "";
       });
 
       function saveSettings(base, key, operator) {
         setApiBase(base);
         setAdminKey(key);
         if (operator !== undefined) setOperatorName(operator || "");
-        localStorage.setItem("erp_api", base);
-        localStorage.setItem("erp_key", key);
-        localStorage.setItem("erp_key_at", String(Date.now()));
+        try { localStorage.setItem("erp_api", base); } catch (e1) {}
+        SS.setItem("erp_key", key);
+        SS.setItem("erp_key_at", String(Date.now()));
         if (operator !== undefined) {
-          if (operator) localStorage.setItem("erp_operator", operator);
-          else localStorage.removeItem("erp_operator");
+          if (operator) SS.setItem("erp_operator", operator);
+          else SS.removeItem("erp_operator");
         }
       }
 
       const api = useCallback(async function (path, opts) {
         opts = opts || {};
-        // Sessiya muddati tekshiruvi
-        const at = Number(localStorage.getItem("erp_key_at") || 0);
+        const at = Number(SS.getItem("erp_key_at") || 0);
         if (adminKey && at && Date.now() - at > SESSION_MS) {
           setAdminKey("");
-          localStorage.removeItem("erp_key");
-          localStorage.removeItem("erp_key_at");
+          SS.removeItem("erp_key");
+          SS.removeItem("erp_key_at");
           const err = new Error("Sessiya muddati tugadi - qayta kiring");
           err.code = 401;
           throw err;
         }
         const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
         if (adminKey) headers["x-admin-key"] = adminKey;
-        const op = operatorName || localStorage.getItem("erp_operator") || "";
+        const op = operatorName || SS.getItem("erp_operator") || "";
         if (op) headers["x-operator-name"] = op;
         const res = await fetch(apiBase.replace(/\/$/, "") + path, { ...opts, headers: headers });
         const data = await res.json().catch(function () { return {}; });
         if (res.status === 401) {
+          setAdminKey("");
+          SS.removeItem("erp_key");
+          SS.removeItem("erp_key_at");
           const err = new Error(data.error || "Unauthorized");
           err.code = 401;
           throw err;
@@ -742,10 +724,9 @@
       function logout() {
         setAdminKey("");
         setOperatorName("");
-        localStorage.removeItem("erp_key");
-        localStorage.removeItem("erp_key_at");
-        localStorage.removeItem("erp_operator");
-        // Chiqish faqat frontend: localStorage tozalanadi. ADMIN_KEY serverda sessiya muddatisiz.
+        SS.removeItem("erp_key");
+        SS.removeItem("erp_key_at");
+        SS.removeItem("erp_operator");
       }
 
       return {
@@ -803,9 +784,9 @@
           <form className="login-card" onSubmit={submit}>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
               <img src="/bd_logo.jpg" alt="Black Diamond" style={{width:40,height:40,borderRadius:8,objectFit:"cover"}} />
-              <h1 style={{margin:0}}>Black Diamond Admin</h1>
+              <h1 style={{margin:0}}>Black Diamond OPS</h1>
             </div>
-            <p>Operatsion panel - faqat xodimlar uchun</p>
+            <p>Operatsion panelga kirish uchun kalit va ism kiriting</p>
             {err ? <div className="err">{err}</div> : null}
             <label htmlFor="f-op">Ism (operator)</label>
             <input
@@ -813,7 +794,7 @@
               type="text"
               value={name}
               onChange={function (e) { setName(e.target.value); }}
-              placeholder="Masalan: Dilshod"
+              placeholder="Admin Ismi"
               autoComplete="name"
               autoFocus
             />
@@ -2846,14 +2827,14 @@
 
       const modules = [
         {
-          id: "boshqaruv",
-          label: "Boshqaruv",
-          short: "Bosh",
+          id: "dashboard",
+          label: "Dashboard",
+          short: "Dashboard",
           ico: "layout",
           tabs: [{ id: "dashboard", label: "Dashboard" }]
         },
         {
-          id: "ishlab",
+          id: "production",
           label: "Ishlab chiqarish",
           short: "Ishlab",
           ico: "factory",
@@ -2864,46 +2845,34 @@
           ]
         },
         {
-          id: "savdo",
+          id: "sales",
           label: "Savdo",
           short: "Savdo",
           ico: "cart",
           tabs: [
             { id: "orders", label: "Buyurtma" },
-            { id: "payments", label: "Tolov" },
-            { id: "expenses", label: "Xarajat" },
+            { id: "payments", label: "To'lov" },
             { id: "shipments", label: "Yuk" }
           ]
         },
         {
-          id: "hamkor",
-          label: "Hamkorlar",
-          short: "Hamkor",
-          ico: "users",
-          tabs: [
-            { id: "customers", label: "Mijoz" },
-            { id: "partners", label: "Hamkor" }
-          ]
-        },
-        {
-          id: "katalog",
-          label: "Katalog",
-          short: "Katalog",
+          id: "manage",
+          label: "Boshqaruv",
+          short: "Boshqaruv",
           ico: "catalog",
           tabs: [
-            { id: "products", label: "SKU" },
             { id: "materials", label: "Material" },
+            { id: "expenses", label: "Xarajat" },
+            { id: "products", label: "SKU" },
+            { id: "customers", label: "Mijoz" },
+            { id: "partners", label: "Hamkor" },
             { id: "settings", label: "Sozlama" }
           ]
         }
       ];
 
-      const [moduleId, setModuleId] = useState("boshqaruv");
+      const [moduleId, setModuleId] = useState("dashboard");
       const [tab, setTab] = useState("dashboard");
-      const [tmpApi, setTmpApi] = useState(apiBase);
-      const [tmpKey, setTmpKey] = useState(adminKey);
-      const [tmpOp, setTmpOp] = useState(operatorName);
-      const [showTmpKey, setShowTmpKey] = useState(false);
 
       const currentModule = modules.find(function (m) { return m.id === moduleId; }) || modules[0];
 
@@ -2935,42 +2904,23 @@
 
       return (
         <div className="shell">
-          <aside className="sidebar">
-            <div className="brand-row">
-              <img src="/bd_logo.jpg" alt="" width={32} height={32} style={{ borderRadius: 6, objectFit: "cover" }} />
+          <div className="header">
+            <div className="header-inner">
+              <div className="header-mark">
+                <img src="/bd_logo.jpg" alt="" />
+              </div>
               <div>
-                <div className="brand-kicker">Black Diamond</div>
-                <div className="brand-title">Briket ERP</div>
+                <h1>Black Diamond OPS</h1>
+                <p>Ishlab chiqarish · Ombor · Savdo{operatorName ? " · " + operatorName : ""}</p>
+              </div>
+              <div className="header-right">
+                <span className="tz-chip">{tashkentNowLabel()}</span>
+                <button type="button" className="logout-btn" onClick={logout}>Chiqish</button>
               </div>
             </div>
-            <nav className="side-nav" aria-label="Asosiy bo'limlar">
-              {modules.map(function (m) {
-                return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    className={moduleId === m.id ? "active" : ""}
-                    onClick={function () { openModule(m.id); }}
-                    aria-current={moduleId === m.id ? "page" : undefined}
-                  >
-                    <span className="nav-ico"><NavIcon name={m.ico} /></span>
-                    {m.label}
-                  </button>
-                );
-              })}
-            </nav>
-            <p className="muted" style={{ fontSize: "0.7rem", marginTop: 12, paddingLeft: 8 }}>
-              {operatorName ? ("Operator: " + operatorName) : "Operator paneli"}
-            </p>
-            <button type="button" className="logout-btn" onClick={logout}>Chiqish</button>
-          </aside>
+          </div>
 
           <div className="main">
-            <div className="mobile-top">
-              <h1>Briket ERP</h1>
-              <span className="tz-chip">{tashkentNowLabel()}</span>
-            </div>
-
             {currentModule.tabs.length > 1 ? (
               <div className="segment">
                 {currentModule.tabs.map(function (t) {
@@ -2991,7 +2941,7 @@
             {content}
           </div>
 
-          <nav className="bottom-nav" aria-label="Mobil menyu">
+          <nav className="bottom-nav" aria-label="Asosiy menyu">
             {modules.map(function (m) {
               return (
                 <button
