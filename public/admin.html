@@ -1190,7 +1190,7 @@
 
       return (
         <div>
-          <PageHead title="Ombor" sub="Zavod qoldig'i = qadoq − sotuv − yuk. Pending buyurtma hisobga olinmaydi." />
+          <PageHead title="Ombor" sub="Tan narx = ko'mir + retsept + qadoq ish haqi. SKU tannarx > 0 bo'lsa qo'lda. Foyda = optom − tan narx." />
           <div className="card">
             <h2>Material qoldiq</h2>
             {materials.length === 0 ? (
@@ -1226,22 +1226,41 @@
             ) : (
               <div className="table-wrap"><table>
                 <thead>
-                  <tr><th>SKU</th><th>Qadoq</th><th>Sotuv</th><th>Yuk</th><th>Qoldiq</th><th>kg</th></tr>
+                  <tr><th>SKU</th><th>Qoldiq</th><th>Tannarx</th><th>Sotish</th><th>Foyda/dona</th><th>Ombor tannarx</th><th>Ombor savdo</th><th>Kutilgan foyda</th></tr>
                 </thead>
                 <tbody>
                   {products.map(function (p) {
+                    const cost = p.unitCost != null ? p.unitCost : p.cost_price;
+                    const prof = p.margin != null ? p.margin : p.profit_unit;
+                    const cval = p.costValue != null ? p.costValue : p.cost_value;
+                    const pval = p.potentialProfit != null ? p.potentialProfit : p.profit_value;
                     return (
                       <tr key={p.id}>
-                        <td>{p.sku}</td>
-                        <td>{Number(p.packed_qty)}</td>
-                        <td>{Number(p.sold_qty)}</td>
-                        <td>{Number(p.shipped_qty || 0)}</td>
+                        <td>
+                          {p.sku}
+                          {p.cost_override ? <div className="muted" style={{ fontSize: "0.7rem" }}>qo'lda</div> : null}
+                        </td>
                         <td className={Number(p.balance_qty) < 0 ? "neg" : ""}><strong>{Number(p.balance_qty)}</strong></td>
-                        <td>{Number(p.balance_kg).toFixed(1)}</td>
+                        <td>{money(cost)}</td>
+                        <td>{money(p.sell_price != null ? p.sell_price : p.price)}</td>
+                        <td>{money(prof)}</td>
+                        <td>{money(cval)}</td>
+                        <td>{money(p.value)}</td>
+                        <td className={Number(pval) < 0 ? "neg" : ""}>{money(pval)}</td>
                       </tr>
                     );
                   })}
                 </tbody>
+                <tfoot>
+                  <tr>
+                    <td>Jami</td>
+                    <td><strong>{products.reduce(function (a, p) { return a + Number(p.balance_qty || 0); }, 0)}</strong></td>
+                    <td colSpan="3"></td>
+                    <td><strong>{money(products.reduce(function (a, p) { return a + Number(p.costValue != null ? p.costValue : p.cost_value || 0); }, 0))}</strong></td>
+                    <td><strong>{money(products.reduce(function (a, p) { return a + Number(p.value || 0); }, 0))}</strong></td>
+                    <td><strong>{money(products.reduce(function (a, p) { return a + Number(p.potentialProfit != null ? p.potentialProfit : p.profit_value || 0); }, 0))}</strong></td>
+                  </tr>
+                </tfoot>
               </table></div>
             )}
           </div>
@@ -1253,10 +1272,12 @@
     function Products(props) {
       const api = props.api;
       const [list, setList] = useState([]);
-      const emptyForm = { sku: "", weight_kg: "", price: "", description: "", img1: "", img2: "", img3: "" };
+      const emptyForm = { sku: "", weight_kg: "", price: "", cost_price: "", description: "", img1: "", img2: "", img3: "" };
       const [form, setForm] = useState(emptyForm);
       const [editId, setEditId] = useState(null);
-      const [editForm, setEditForm] = useState({ sku: "", weight_kg: "", price: "", description: "", is_active: true, img1: "", img2: "", img3: "" });
+      const [editForm, setEditForm] = useState({ sku: "", weight_kg: "", price: "", cost_price: "", description: "", is_active: true, img1: "", img2: "", img3: "" });
+      const [materials, setMaterials] = useState([]);
+      const [recipeRows, setRecipeRows] = useState([]);
 
       function urlsFrom(f) {
         return [f.img1, f.img2, f.img3].map(function (s) { return String(s || "").trim(); }).filter(Boolean);
@@ -1268,8 +1289,11 @@
       const [msg, setMsg] = useAutoMsg();
 
       const load = useCallback(function () {
-        api("/api/products?active=0")
-          .then(function (r) { setList(r.data || []); })
+        Promise.all([api("/api/products?active=0"), api("/api/materials?active=0")])
+          .then(function (arr) {
+            setList(arr[0].data || []);
+            setMaterials(arr[1].data || []);
+          })
           .catch(function (e) { setMsg({ text: e.message, type: "err" }); });
       }, [api]);
 
@@ -1284,6 +1308,7 @@
               sku: form.sku,
               weight_kg: Number(form.weight_kg) || 0,
               price: Math.round(Number(form.price) || 0),
+              cost_price: Math.round(Number(form.cost_price) || 0),
               description: form.description || null,
               image_urls: urlsFrom(form)
             })
@@ -1303,16 +1328,42 @@
           sku: p.sku || "",
           weight_kg: String(p.weight_kg != null ? p.weight_kg : ""),
           price: String(p.price != null ? p.price : ""),
+          cost_price: "0",
           description: p.description || "",
           is_active: p.is_active !== false,
           img1: imgs.img1,
           img2: imgs.img2,
           img3: imgs.img3
         });
+        setRecipeRows([]);
+        api("/api/products/" + p.id + "/recipes")
+          .then(function (r) {
+            setRecipeRows((r.data || []).map(function (x) {
+              return {
+                material_id: String(x.material_id),
+                qty: String(x.qty != null ? x.qty : ""),
+                line_amount: String(x.line_amount != null ? Math.round(Number(x.line_amount)) : "")
+              };
+            }));
+          })
+          .catch(function () { setRecipeRows([]); });
       }
 
       function cancelEdit() {
         setEditId(null);
+        setRecipeRows([]);
+      }
+
+      function matPrice(id) {
+        const m = materials.filter(function (x) { return String(x.id) === String(id); })[0];
+        return m ? Number(m.price || 0) : 0;
+      }
+      function rowAmount(row) {
+        if (row.line_amount !== "" && row.line_amount != null) return Math.round(Number(row.line_amount) || 0);
+        return Math.round((Number(row.qty) || 0) * matPrice(row.material_id));
+      }
+      function recipeTotal() {
+        return recipeRows.reduce(function (s, row) { return s + rowAmount(row); }, 0);
       }
 
       async function saveEdit(e) {
@@ -1324,13 +1375,27 @@
               sku: editForm.sku,
               weight_kg: Number(editForm.weight_kg) || 0,
               price: Math.round(Number(editForm.price) || 0),
+              cost_price: Math.round(Number(editForm.cost_price) || 0),
               description: editForm.description || null,
               is_active: !!editForm.is_active,
               image_urls: urlsFrom(editForm)
             })
           });
-          setMsg({ text: "SKU yangilandi", type: "ok" });
+          await api("/api/products/" + editId + "/recipes", {
+            method: "PUT",
+            body: JSON.stringify({
+              lines: recipeRows.filter(function (x) { return x.material_id; }).map(function (x) {
+                return {
+                  material_id: Number(x.material_id),
+                  qty: Number(x.qty) || 0,
+                  line_amount: x.line_amount === "" ? null : Math.round(Number(x.line_amount) || 0)
+                };
+              })
+            })
+          });
+          setMsg({ text: "SKU va tan narx saqlandi", type: "ok" });
           setEditId(null);
+          setRecipeRows([]);
           load();
         } catch (err) {
           setMsg({ text: err.message, type: "err" });
@@ -1388,6 +1453,15 @@
                   ) : null}
                 </div>
                 <div>
+                  <label htmlFor="f-cost">Tannarx qo'lda (0 = avto)</label>
+                  <input id="f-cost" type="number" min="0" step="1" value={form.cost_price} onChange={function (e) { setForm({ ...form, cost_price: e.target.value }); }} />
+                  {form.price && form.cost_price ? (
+                    <div className="muted" style={{ fontSize: "0.72rem", marginTop: -4, marginBottom: 8 }}>
+                      Foyda: {money(Math.round(Number(form.price) - Number(form.cost_price)))} so'm
+                    </div>
+                  ) : null}
+                </div>
+                <div>
                   <label htmlFor="f-5">Tavsif (mijoz)</label>
                   <input id="f-5" value={form.description} onChange={function (e) { setForm({ ...form, description: e.target.value }); }} />
                 </div>
@@ -1434,6 +1508,15 @@
                     ) : null}
                   </div>
                   <div>
+                    <label htmlFor="f-ecost">Tannarx qo'lda (0 = avto)</label>
+                    <input id="f-ecost" type="number" min="0" step="1" value={editForm.cost_price} onChange={function (e) { setEditForm({ ...editForm, cost_price: e.target.value }); }} />
+                    {editForm.price && editForm.cost_price ? (
+                      <div className="muted" style={{ fontSize: "0.72rem", marginTop: -4, marginBottom: 8 }}>
+                        Foyda: {money(Math.round(Number(editForm.price) - Number(editForm.cost_price)))} so'm
+                      </div>
+                    ) : null}
+                  </div>
+                  <div>
                     <label htmlFor="f-9">Tavsif (mijoz)</label>
                     <input id="f-9" value={editForm.description} onChange={function (e) { setEditForm({ ...editForm, description: e.target.value }); }} />
                   </div>
@@ -1459,6 +1542,60 @@
                     <input id="f-eimg3" value={editForm.img3} onChange={function (e) { setEditForm({ ...editForm, img3: e.target.value }); }} />
                   </div>
                 </div>
+                <h3 style={{ fontSize: "0.85rem", margin: "12px 0 8px" }}>Tan narx — xomashyo (1 dona)</h3>
+                <p className="muted" style={{ fontSize: "0.72rem", marginTop: 0 }}>Miqdor va summani qo'lda yozing. Summa bo'sh qolsa: miqdor × material narxi. Tan narx = qatorlar yig'indisi.</p>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>Xomashyo</th><th>Miqdor</th><th>Summa (so'm)</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                      {recipeRows.map(function (row, idx) {
+                        return (
+                          <tr key={idx}>
+                            <td>
+                              <select value={row.material_id} onChange={function (e) {
+                                const next = recipeRows.slice();
+                                next[idx] = { ...row, material_id: e.target.value };
+                                setRecipeRows(next);
+                              }}>
+                                <option value="">— tanlang —</option>
+                                {materials.map(function (m) {
+                                  return <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>;
+                                })}
+                              </select>
+                            </td>
+                            <td>
+                              <input type="number" step="0.0001" value={row.qty} onChange={function (e) {
+                                const next = recipeRows.slice();
+                                next[idx] = { ...row, qty: e.target.value };
+                                setRecipeRows(next);
+                              }} />
+                            </td>
+                            <td>
+                              <input type="number" min="0" step="1" value={row.line_amount} placeholder={String(Math.round((Number(row.qty) || 0) * matPrice(row.material_id)))} onChange={function (e) {
+                                const next = recipeRows.slice();
+                                next[idx] = { ...row, line_amount: e.target.value };
+                                setRecipeRows(next);
+                              }} />
+                            </td>
+                            <td>
+                              <button type="button" className="btn-ghost btn-sm" onClick={function () {
+                                setRecipeRows(recipeRows.filter(function (_, i) { return i !== idx; }));
+                              }}>O'chirish</button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "8px 0 12px" }}>
+                  <button type="button" className="btn-ghost btn-sm" onClick={function () {
+                    setRecipeRows(recipeRows.concat([{ material_id: "", qty: "", line_amount: "" }]));
+                  }}>+ qator</button>
+                  <span className="muted">Tan narx: <strong>{money(recipeTotal())}</strong> so'm</span>
+                </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button className="btn" type="submit">Saqlash</button>
                   <button className="btn-ghost" type="button" onClick={cancelEdit}>Bekor</button>
@@ -1471,7 +1608,7 @@
             <h2>Mahsulotlar ({list.length})</h2>
             <div className="table-wrap"><table>
               <thead>
-                <tr><th>SKU</th><th>kg</th><th>Optom</th><th>Mijoz</th><th>Rasm</th><th>Holat</th><th></th></tr>
+                <tr><th>SKU</th><th>kg</th><th>Tannarx</th><th>Optom</th><th>Foyda</th><th>Mijoz</th><th>Rasm</th><th>Holat</th><th></th></tr>
               </thead>
               <tbody>
                 {list.map(function (p) {
@@ -1479,7 +1616,9 @@
                     <tr key={p.id}>
                       <td>{p.sku}</td>
                       <td>{p.weight_kg}</td>
+                      <td>{money(p.cost_price)}</td>
                       <td>{money(p.price)}</td>
+                      <td>{money(Math.round(Number(p.price || 0) - Number(p.cost_price || 0)))}</td>
                       <td>{money(mijozNarx(p.price))}</td>
                       <td>{(p.image_urls && p.image_urls.length) ? p.image_urls.length : 0}</td>
                       <td>
@@ -2730,6 +2869,8 @@
       const api = props.api;
       const [list, setList] = useState([]);
       const [form, setForm] = useState({ category: "", amount: "", payment_method: "cash", note: "" });
+      const [editId, setEditId] = useState(null);
+      const [editForm, setEditForm] = useState({ category: "", amount: "", payment_method: "cash", note: "" });
       const [msg, setMsg] = useAutoMsg();
       const cats = ["Elektr", "Transport", "Ijara", "Ish haqi", "Tamirlash", "Boshqa"];
 
@@ -2761,9 +2902,39 @@
         }
       }
 
+      function startEdit(x) {
+        setEditId(x.id);
+        setEditForm({
+          category: x.category || "",
+          amount: String(Math.round(Number(x.amount || 0))),
+          payment_method: x.payment_method || "cash",
+          note: x.note || ""
+        });
+      }
+
+      async function saveEdit(e) {
+        e.preventDefault();
+        try {
+          await api("/api/expenses/" + editId, {
+            method: "PUT",
+            body: JSON.stringify({
+              category: editForm.category,
+              amount: Math.round(Number(editForm.amount) || 0),
+              payment_method: editForm.payment_method || "cash",
+              note: editForm.note || null
+            })
+          });
+          setMsg({ text: "Xarajat yangilandi", type: "ok" });
+          setEditId(null);
+          load();
+        } catch (err) {
+          setMsg({ text: err.message, type: "err" });
+        }
+      }
+
       return (
         <div>
-          <PageHead title="Xarajatlar" sub="Press va qadoq ish haqi partiyadan avtomatik yoziladi. Bu yerda qolgan xarajat." />
+          <PageHead title="Xarajatlar" sub="Summani qo'lda tuzatish mumkin. Tannarx SKU da alohida yoziladi — avtomatik taqsimlanmaydi." />
           <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
           <div className="card">
             <h2>Yangi xarajat</h2>
@@ -2796,11 +2967,44 @@
               <button className="btn" type="submit">Saqlash</button>
             </form>
           </div>
+          {editId ? (
+            <div className="card">
+              <h2>Xarajatni tuzatish</h2>
+              <form onSubmit={saveEdit}>
+                <div className="form-row">
+                  <div>
+                    <label>Kategoriya</label>
+                    <input value={editForm.category} onChange={function (e) { setEditForm({ ...editForm, category: e.target.value }); }} required />
+                  </div>
+                  <div>
+                    <label>Summa</label>
+                    <input type="number" min="0" step="1" value={editForm.amount} onChange={function (e) { setEditForm({ ...editForm, amount: e.target.value }); }} required />
+                  </div>
+                  <div>
+                    <label>Usul</label>
+                    <select value={editForm.payment_method} onChange={function (e) { setEditForm({ ...editForm, payment_method: e.target.value }); }}>
+                      <option value="cash">Naqd</option>
+                      <option value="card">Karta</option>
+                      <option value="transfer">O'tkazma</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>Izoh</label>
+                    <input value={editForm.note} onChange={function (e) { setEditForm({ ...editForm, note: e.target.value }); }} />
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn" type="submit">Saqlash</button>
+                  <button className="btn-ghost" type="button" onClick={function () { setEditId(null); }}>Bekor</button>
+                </div>
+              </form>
+            </div>
+          ) : null}
           <div className="card">
             <h2>Xarajatlar</h2>
             <div className="table-wrap"><table>
               <thead>
-                <tr><th>Sana</th><th>Kategoriya</th><th>Summa</th><th>Usul</th><th>Izoh</th></tr>
+                <tr><th>Sana</th><th>Kategoriya</th><th>Summa</th><th>Usul</th><th>Izoh</th><th></th></tr>
               </thead>
               <tbody>
                 {list.map(function (x) {
@@ -2811,6 +3015,9 @@
                       <td><strong>{money(x.amount)}</strong></td>
                       <td>{x.payment_method}</td>
                       <td>{x.note || "-"}</td>
+                      <td>
+                        <button type="button" className="btn-ghost btn-sm" onClick={function () { startEdit(x); }}>Tahrir</button>
+                      </td>
                     </tr>
                   );
                 })}
