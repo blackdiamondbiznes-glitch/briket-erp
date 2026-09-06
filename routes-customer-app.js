@@ -398,14 +398,14 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
       }
       const customer = await upsertCustomerFromTelegram(ctx.user);
       const id = Number(req.params.id);
-      const r = await pool.query('SELECT * FROM orders WHERE id = $1', [id]);
+      const r = await pool.query(
+        `SELECT * FROM orders WHERE id = $1 AND (customer_id = $2 OR phone = $3) LIMIT 1`,
+        [id, customer.id, customer.phone || '']
+      );
       if (!r.rows.length) {
         return res.status(404).json({ ok: false, error: 'Buyurtma topilmadi' });
       }
       const ord = r.rows[0];
-      if (String(ord.customer_id) !== String(customer.id) && ord.phone !== customer.phone) {
-        return res.status(403).json({ ok: false, error: 'Ruxsat yo\'q' });
-      }
       if (ord.status !== 'pending') {
         return res.status(400).json({ ok: false, error: 'Faqat kutilayotgan buyurtmani bekor qilish mumkin' });
       }
