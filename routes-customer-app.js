@@ -10,7 +10,6 @@ const crypto = require('crypto');
 module.exports = function registerCustomerApp(app, pool, helpers) {
   const num = helpers.num;
   const sendError = helpers.sendError;
-  const SOLD_STATUSES_SQL = helpers.SOLD_STATUSES.map(function (s) { return "'" + s + "'"; }).join(',');
 
   function validateTelegramInitData(initData, botToken) {
     if (!initData || !botToken) return null;
@@ -136,8 +135,7 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
     }
   });
 
-  // Sotilgan holatlar — pending zaxiraga ta'sir qilmaydi (routes-stock bilan bir xil)
-  const SOLD_STATUSES = `(${SOLD_STATUSES_SQL})`;
+  const SOLD_STATUSES = `('confirmed', 'paid', 'partial', 'closed')`;
 
   app.get('/api/customer/catalog', async (req, res) => {
     try {
@@ -153,7 +151,7 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
           SELECT oi.product_id, SUM(oi.qty) AS sold_qty
           FROM order_items oi
           JOIN orders o ON o.id = oi.order_id
-          WHERE o.status IN (${SOLD_STATUSES_SQL})
+          WHERE o.status IN ${SOLD_STATUSES}
           GROUP BY oi.product_id
         ) sold ON sold.product_id = p.id
         WHERE p.is_active = true
@@ -175,6 +173,22 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
     }
   });
 
+  app.get('/api/customer/settings', async (req, res) => {
+    try {
+      const r = await pool.query(
+        `SELECT key, value FROM settings
+         WHERE key IN ('bulk_discount','bulk_min_qty','customer_phone','customer_telegram')`
+      );
+      const map = {};
+      r.rows.forEach((row) => {
+        map[row.key] = row.value;
+      });
+      res.json({ ok: true, data: map });
+    } catch (err) {
+      sendError(res, err);
+    }
+  });
+
   app.post('/api/customer/orders', async (req, res) => {
     const client = await pool.connect();
     try {
@@ -186,13 +200,6 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
       const { items, phone, address, note, paid_amount } = req.body || {};
       if (!items || !Array.isArray(items) || !items.length) {
         return res.status(400).json({ ok: false, error: "Savat bo'sh" });
-      }
-
-      if (phone) {
-        await client.query(
-          'UPDATE customers SET phone = $1, address = COALESCE($2, address) WHERE id = $3',
-          [String(phone), address || null, customer.id]
-        );
       }
 
       let bulkDisc = 3000;
@@ -245,32 +252,48 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
       const debt = Math.max(0, total - paid);
       const status = 'pending';
 
-      // Nasiya limidi (faqat qarz bo'lsa)
-      const creditLimit = num(customer.credit_limit);
+      const code =
+        'TG-' +
+        new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14) +
+        '-' +
+        Math.floor(10 + Math.random() * 90);
+
+      await client.query('BEGIN');
+
+      if (phone) {
+        await client.query(
+          'UPDATE customers SET phone = $1, address = COALESCE($2, address) WHERE id = $3',
+          [String(phone), address || null, customer.id]
+        );
+      }
+
+      const locked = await client.query(
+        'SELECT id, credit_limit FROM customers WHERE id = $1 FOR UPDATE',
+        [customer.id]
+      );
+      const creditLimit = locked.rows.length
+        ? num(locked.rows[0].credit_limit)
+        : num(customer.credit_limit);
+
       if (debt > 0 && creditLimit > 0) {
-        const dr = await client.query(
+        const debtR = await client.query(
           `SELECT COALESCE(SUM(debt_amount), 0) AS total FROM orders
            WHERE customer_id = $1 AND debt_amount > 0
-             AND status IN (${SOLD_STATUSES_SQL})`,
+             AND status IN ('confirmed','paid','partial','closed')`,
           [customer.id]
         );
-        const existing = num(dr.rows[0].total);
-        if (existing + debt > creditLimit) {
+        const existingDebt = num(debtR.rows[0].total);
+        if (existingDebt + debt > creditLimit) {
+          await client.query('ROLLBACK');
           return res.status(400).json({
             ok: false,
-            error: 'Nasiya limiti oshib ketdi',
+            error: 'Nasiya limiti yetarli emas. Limit: ' +
+              Math.round(creditLimit).toLocaleString('uz-UZ') +
+              ' so\'m. Admin bilan bog\'laning.',
           });
         }
       }
 
-      const seqR = await client.query("SELECT nextval(pg_get_serial_sequence('orders','id')) AS seq");
-      const code =
-        'TG-' +
-        new Date().toISOString().slice(0, 10).replace(/-/g, '') +
-        '-' +
-        String(seqR.rows[0].seq).padStart(6, '0');
-
-      await client.query('BEGIN');
       let ord;
       try {
         ord = await client.query(
@@ -375,53 +398,22 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
       }
       const customer = await upsertCustomerFromTelegram(ctx.user);
       const id = Number(req.params.id);
-      const r = await pool.query(
-        `SELECT * FROM orders WHERE id = $1 AND (customer_id = $2 OR phone = $3) LIMIT 1`,
-        [id, customer.id, customer.phone || '']
-      );
+      const r = await pool.query('SELECT * FROM orders WHERE id = $1', [id]);
       if (!r.rows.length) {
         return res.status(404).json({ ok: false, error: 'Buyurtma topilmadi' });
       }
-      const o = r.rows[0];
-      if (String(o.status) !== 'pending') {
-        return res.status(400).json({
-          ok: false,
-          error: 'Faqat ko\'rib chiqilayotgan buyurtmani bekor qilish mumkin',
-        });
+      const ord = r.rows[0];
+      if (String(ord.customer_id) !== String(customer.id) && ord.phone !== customer.phone) {
+        return res.status(403).json({ ok: false, error: 'Ruxsat yo\'q' });
+      }
+      if (ord.status !== 'pending') {
+        return res.status(400).json({ ok: false, error: 'Faqat kutilayotgan buyurtmani bekor qilish mumkin' });
       }
       const upd = await pool.query(
         `UPDATE orders SET status = 'cancelled', updated_at = NOW() WHERE id = $1 RETURNING *`,
         [id]
       );
       res.json({ ok: true, data: upd.rows[0] });
-    } catch (err) {
-      sendError(res, err);
-    }
-  });
-
-  app.put('/api/customer/profile', async (req, res) => {
-    try {
-      const ctx = getTelegramUser(req);
-      if (!ctx) {
-        return res.status(401).json({ ok: false, error: 'Avval kiring' });
-      }
-      const customer = await upsertCustomerFromTelegram(ctx.user);
-      const { name, phone, address } = req.body || {};
-      const r = await pool.query(
-        `UPDATE customers SET
-           name = COALESCE($1, name),
-           phone = COALESCE($2, phone),
-           address = COALESCE($3, address),
-           updated_at = NOW()
-         WHERE id = $4 RETURNING *`,
-        [
-          name != null ? String(name).trim() : null,
-          phone !== undefined ? phone : null,
-          address !== undefined ? address : null,
-          customer.id,
-        ]
-      );
-      res.json({ ok: true, data: r.rows[0] });
     } catch (err) {
       sendError(res, err);
     }
