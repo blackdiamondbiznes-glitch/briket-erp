@@ -6,7 +6,6 @@ module.exports = function registerV2Routes(app, pool, helpers) {
   const num = helpers.num;
   const sendError = helpers.sendError;
 
-// ========== SETTINGS ==========
 app.get('/api/settings', async (req, res) => {
   try {
     const r = await pool.query('SELECT key, value, description, updated_at FROM settings ORDER BY key');
@@ -60,7 +59,7 @@ async function getSettingsMap() {
 }
 
 function calcUnitPrice(partner, product, qty, settings) {
-  const listPrice = num(product && product.price);
+  const optom = num(product && product.price);
   const q = num(qty);
   const type = partner && partner.type ? String(partner.type) : 'customer';
   const discType = partner && partner.discount_type ? String(partner.discount_type) : 'none';
@@ -68,14 +67,14 @@ function calcUnitPrice(partner, product, qty, settings) {
 
   if (type === 'dealer' || type === 'agent') {
     if (discType === 'fixed_amount') {
-      const unit = Math.max(0, listPrice - discVal);
-      return { list_price: listPrice, unit_price: unit, discount: listPrice - unit, rule: 'fixed_amount' };
+      const unit = Math.max(0, optom - discVal);
+      return { list_price: optom, unit_price: unit, discount: optom - unit, rule: 'fixed_amount' };
     }
     if (discType === 'fixed_percent') {
-      const unit = Math.max(0, Math.round(listPrice * (1 - discVal / 100)));
-      return { list_price: listPrice, unit_price: unit, discount: listPrice - unit, rule: 'fixed_percent' };
+      const unit = Math.max(0, Math.round(optom * (1 - discVal / 100)));
+      return { list_price: optom, unit_price: unit, discount: optom - unit, rule: 'fixed_percent' };
     }
-    return { list_price: listPrice, unit_price: listPrice, discount: 0, rule: 'none' };
+    return { list_price: optom, unit_price: optom, discount: 0, rule: 'none' };
   }
 
   const bulkMinQty = num(settings && settings.bulk_min_qty, 500);
@@ -84,12 +83,12 @@ function calcUnitPrice(partner, product, qty, settings) {
   const weight = num(product && product.weight_kg);
   const totalKg = q * weight;
   const isBulk = q >= bulkMinQty || totalKg >= bulkMinKg;
+  const asosiy = optom + bulkDiscount;
 
-  if (isBulk && bulkDiscount > 0) {
-    const unit = Math.max(0, listPrice - bulkDiscount);
-    return { list_price: listPrice, unit_price: unit, discount: bulkDiscount, rule: 'bulk' };
+  if (isBulk) {
+    return { list_price: asosiy, unit_price: optom, discount: bulkDiscount, rule: 'bulk' };
   }
-  return { list_price: listPrice, unit_price: listPrice, discount: 0, rule: 'none' };
+  return { list_price: asosiy, unit_price: asosiy, discount: 0, rule: 'none' };
 }
 
 app.post('/api/pricing/calc', async (req, res) => {
@@ -204,7 +203,6 @@ app.get('/api/partners/:id/debt', async (req, res) => {
     const id = req.params.id;
     const partner = await pool.query('SELECT * FROM partners WHERE id = $1', [id]);
     if (!partner.rows.length) return res.status(404).json({ ok: false, error: 'Hamkor topilmadi' });
-    // Faqat tasdiqlangan buyurtmalar qarzi (pending hisobga olinmaydi)
     const orderDebt = await pool.query(
       `SELECT COALESCE(SUM(debt_amount),0) AS total FROM orders
        WHERE partner_id = $1 AND debt_amount > 0
@@ -212,8 +210,8 @@ app.get('/api/partners/:id/debt', async (req, res) => {
       [id]
     );
     const shipped = await pool.query(
-      `SELECT COALESCE(SUM(total_amount),0) AS total,
-              COALESCE(SUM(qty - returned_qty),0) AS qty
+      `SELECT COALESCE(SUM(ROUND(unit_price * (qty - COALESCE(returned_qty,0)))),0) AS total,
+              COALESCE(SUM(qty - COALESCE(returned_qty,0)),0) AS qty
        FROM shipments
        WHERE to_partner_id = $1 AND status IN ('given','partial_return','closed')`,
       [id]
@@ -292,7 +290,11 @@ app.post('/api/shipments', async (req, res) => {
       price = calcUnitPrice(toP.rows[0], product, q, settings).unit_price;
     }
     const total = Math.round(price * q);
-    const code = 'SH-' + new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14) + '-' + Math.floor(10 + Math.random() * 90);
+    if (ft === 'factory' && helpers.assertStockForLines) {
+      await helpers.assertStockForLines(pool, [{ product_id: product.id, qty: q }]);
+    }
+    const day = helpers.tashkentDateStr ? helpers.tashkentDateStr().replace(/-/g, '') : new Date().toISOString().slice(0,10).replace(/-/g,'');
+    const code = 'SH-' + day + '-' + Math.floor(10 + Math.random() * 90);
     const r = await pool.query(
       `INSERT INTO shipments (shipment_code, from_type, from_partner_id, to_partner_id, product_id, sku, qty, unit_price, total_amount, note, given_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,COALESCE($11, NOW())) RETURNING *`,
@@ -301,18 +303,30 @@ app.post('/api/shipments', async (req, res) => {
     res.status(201).json({ ok: true, data: r.rows[0] });
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ ok: false, error: 'Kod takrorlandi' });
-    sendError(res, err);
+    sendError(res, err, err.status);
   }
 });
 
 app.patch('/api/shipments/:id', async (req, res) => {
   try {
     const { status, returned_qty, note } = req.body;
+    const cur = await pool.query('SELECT * FROM shipments WHERE id = $1', [req.params.id]);
+    if (!cur.rows.length) return res.status(404).json({ ok: false, error: 'Yuk topilmadi' });
+    const qty = num(cur.rows[0].qty);
+    const ret = returned_qty != null ? num(returned_qty) : num(cur.rows[0].returned_qty);
+    if (ret < 0 || ret > qty + 0.0001) {
+      return res.status(400).json({ ok: false, error: 'returned_qty 0 dan qty gacha bolsin' });
+    }
+    let st = status || cur.rows[0].status;
+    if (returned_qty != null && !status) {
+      if (ret <= 0) st = 'given';
+      else if (ret >= qty) st = 'returned';
+      else st = 'partial_return';
+    }
     const r = await pool.query(
-      `UPDATE shipments SET status = COALESCE($1, status), returned_qty = COALESCE($2, returned_qty), note = COALESCE($3, note) WHERE id = $4 RETURNING *`,
-      [status || null, returned_qty != null ? num(returned_qty) : null, note !== undefined ? note : null, req.params.id]
+      `UPDATE shipments SET status = COALESCE($1, status), returned_qty = $2, note = COALESCE($3, note) WHERE id = $4 RETURNING *`,
+      [st || null, ret, note !== undefined ? note : null, req.params.id]
     );
-    if (!r.rows.length) return res.status(404).json({ ok: false, error: 'Yuk topilmadi' });
     res.json({ ok: true, data: r.rows[0] });
   } catch (err) { sendError(res, err); }
 });
