@@ -22,7 +22,9 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
       const dataCheckString = entries.map(([k, v]) => k + '=' + v).join('\n');
       const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
       const calculated = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-      if (calculated !== hash) return null;
+      const a = Buffer.from(calculated, 'hex');
+      const b = Buffer.from(String(hash), 'hex');
+      if (a.length !== 32 || b.length !== 32 || !crypto.timingSafeEqual(a, b)) return null;
 
       const authDate = Number(params.get('auth_date') || 0);
       if (authDate && Date.now() / 1000 - authDate > 86400) return null;
@@ -142,7 +144,7 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
       const r = await pool.query(`
         SELECT
           p.id, p.sku, p.weight_kg, p.price, p.description, p.image_urls,
-          (COALESCE(pack.total_qty, 0) - COALESCE(sold.sold_qty, 0)) AS balance_qty
+          (COALESCE(pack.total_qty, 0) - COALESCE(sold.sold_qty, 0) - COALESCE(ship.shipped_qty, 0)) AS balance_qty
         FROM products p
         LEFT JOIN (
           SELECT product_id, SUM(qty) AS total_qty FROM packaging GROUP BY product_id
@@ -154,6 +156,11 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
           WHERE o.status IN ${SOLD_STATUSES}
           GROUP BY oi.product_id
         ) sold ON sold.product_id = p.id
+        LEFT JOIN (
+          SELECT product_id, SUM(qty - COALESCE(returned_qty, 0)) AS shipped_qty
+          FROM shipments WHERE from_type = 'factory'
+          GROUP BY product_id
+        ) ship ON ship.product_id = p.id
         WHERE p.is_active = true
         ORDER BY p.sku
       `);
@@ -212,7 +219,7 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
           if (row.key === 'bulk_discount') bulkDisc = num(row.value, 3000);
           if (row.key === 'bulk_min_qty') bulkMin = num(row.value, 500);
         });
-      } catch (e) { /* settings ixtiyoriy */ }
+      } catch (e) {}
 
       const totalQty = items.reduce((s, it) => s + Math.max(0, num(it.qty)), 0);
       const useBulk = totalQty >= bulkMin;
@@ -399,8 +406,8 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
       const customer = await upsertCustomerFromTelegram(ctx.user);
       const id = Number(req.params.id);
       const r = await pool.query(
-        `SELECT * FROM orders WHERE id = $1 AND (customer_id = $2 OR phone = $3) LIMIT 1`,
-        [id, customer.id, customer.phone || '']
+        `SELECT * FROM orders WHERE id = $1 AND customer_id = $2 LIMIT 1`,
+        [id, customer.id]
       );
       if (!r.rows.length) {
         return res.status(404).json({ ok: false, error: 'Buyurtma topilmadi' });
