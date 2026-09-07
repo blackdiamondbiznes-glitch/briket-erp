@@ -6,16 +6,49 @@ function money(n) {
 function Msg(props) {
   if (!props.text) return null;
   return (
-    <div className={"msg " + (props.type || "ok")} onClick={props.onClose}>
+    <div className={"msg toast " + (props.type || "ok")} onClick={props.onClose}>
       {props.text}
     </div>
   );
+}
+
+function V2ConfirmModal(props) {
+  useEffect(function () {
+    if (!props.open) return;
+    function onKey(e) {
+      if (e.key === "Escape") props.onCancel();
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) props.onConfirm();
+    }
+    window.addEventListener("keydown", onKey);
+    return function () { window.removeEventListener("keydown", onKey); };
+  }, [props.open, props.onCancel, props.onConfirm]);
+  if (!props.open) return null;
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true">
+      <div className="modal-card">
+        <p style={{ marginBottom: 14, fontSize: "0.9rem" }}>{props.text}</p>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button className="btn-ghost" type="button" onClick={props.onCancel}>Bekor</button>
+          <button className="btn" type="button" onClick={props.onConfirm}>Tasdiqlash</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function matchQ(q, parts) {
+  const s = String(q || "").trim().toLowerCase();
+  if (!s) return true;
+  return parts.some(function (p) {
+    return String(p == null ? "" : p).toLowerCase().indexOf(s) !== -1;
+  });
 }
 
 window.Partners = function Partners(props) {
   const api = props.api;
   const [list, setList] = useState([]);
   const [filter, setFilter] = useState("");
+  const [q, setQ] = useState("");
   const [form, setForm] = useState({
     name: "", phone: "", address: "", type: "customer",
     parent_id: "", region: "", district: "",
@@ -23,10 +56,12 @@ window.Partners = function Partners(props) {
   });
   const [editId, setEditId] = useState(null);
   const [msg, setMsg] = useState({});
+  const [ferr, setFerr] = useState({});
+  const [confirmState, setConfirmState] = useState({ open: false, id: null });
 
   const load = useCallback(function () {
-    const q = filter ? "?type=" + encodeURIComponent(filter) : "";
-    api("/api/partners" + q)
+    const t = filter ? "?type=" + encodeURIComponent(filter) : "";
+    api("/api/partners" + t)
       .then(function (r) { setList(r.data || []); })
       .catch(function (e) { setMsg({ text: e.message, type: "err" }); });
   }, [api, filter]);
@@ -42,10 +77,15 @@ window.Partners = function Partners(props) {
       discount_type: "none", discount_value: "", credit_limit: "", note: ""
     });
     setEditId(null);
+    setFerr({});
   }
 
   async function submit(e) {
     e.preventDefault();
+    const next = {};
+    if (!String(form.name || "").trim()) next.name = "Ism majburiy";
+    setFerr(next);
+    if (next.name) return;
     try {
       const body = {
         name: form.name,
@@ -76,6 +116,7 @@ window.Partners = function Partners(props) {
 
   function startEdit(p) {
     setEditId(p.id);
+    setFerr({});
     setForm({
       name: p.name || "", phone: p.phone || "", address: p.address || "",
       type: p.type || "customer", parent_id: p.parent_id ? String(p.parent_id) : "",
@@ -87,8 +128,14 @@ window.Partners = function Partners(props) {
     });
   }
 
-  async function softDelete(id) {
-    if (!window.confirm("Hamkorni ochirish (nofaol qilish)?")) return;
+  function askDelete(id) {
+    setConfirmState({ open: true, id: id });
+  }
+
+  async function doDelete() {
+    const id = confirmState.id;
+    setConfirmState({ open: false, id: null });
+    if (!id) return;
     try {
       await api("/api/partners/" + id, { method: "DELETE" });
       setMsg({ text: "Nofaol qilindi", type: "ok" });
@@ -101,8 +148,18 @@ window.Partners = function Partners(props) {
   const typeLabel = { customer: "Mijoz", dealer: "Diler", agent: "Agent" };
   const discLabel = { none: "Yoq", bulk: "Bulk (500+)", fixed_amount: "Doimiy som", fixed_percent: "Doimiy %" };
 
+  const shown = list.filter(function (p) {
+    return matchQ(q, [p.name, p.phone, p.type, typeLabel[p.type], p.region, p.district, p.parent_name, p.note]);
+  });
+
   return (
     <div>
+      <V2ConfirmModal
+        open={confirmState.open}
+        text="Hamkorni ochirish (nofaol qilish)?"
+        onCancel={function () { setConfirmState({ open: false, id: null }); }}
+        onConfirm={doDelete}
+      />
       <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
       <div className="card">
         <h2>{editId ? "Hamkorni tahrirlash #" + editId : "Yangi hamkor"}</h2>
@@ -110,7 +167,8 @@ window.Partners = function Partners(props) {
           <div className="form-row">
             <div>
               <label>Ism *</label>
-              <input value={form.name} onChange={function (e) { setForm(Object.assign({}, form, { name: e.target.value })); }} required />
+              <input value={form.name} onChange={function (e) { setForm(Object.assign({}, form, { name: e.target.value })); }} />
+              {ferr.name ? <div className="field-error">{ferr.name}</div> : null}
             </div>
             <div>
               <label>Rol *</label>
@@ -178,9 +236,15 @@ window.Partners = function Partners(props) {
         </form>
       </div>
       <div className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <h2>Hamkorlar ({list.length})</h2>
-          <select value={filter} onChange={function (e) { setFilter(e.target.value); }} style={{ maxWidth: 160 }}>
+        <div className="toolbar">
+          <h2 style={{ margin: 0 }}>Hamkorlar ({shown.length})</h2>
+          <input
+            type="search"
+            placeholder="Qidiruv: ism, tel, rol..."
+            value={q}
+            onChange={function (e) { setQ(e.target.value); }}
+          />
+          <select value={filter} onChange={function (e) { setFilter(e.target.value); }} style={{ maxWidth: 160, margin: 0 }}>
             <option value="">Hammasi</option>
             <option value="customer">Mijoz</option>
             <option value="dealer">Diler</option>
@@ -194,7 +258,7 @@ window.Partners = function Partners(props) {
             </tr>
           </thead>
           <tbody>
-            {list.map(function (p) {
+            {shown.map(function (p) {
               return (
                 <tr key={p.id}>
                   <td>{p.name}</td>
@@ -209,7 +273,7 @@ window.Partners = function Partners(props) {
                   <td>
                     <button className="btn-ghost" type="button" onClick={function () { startEdit(p); }}>Tahrir</button>
                     {" "}
-                    <button className="btn-ghost" type="button" onClick={function () { softDelete(p.id); }}>Ochirish</button>
+                    <button className="btn-ghost" type="button" onClick={function () { askDelete(p.id); }}>Ochirish</button>
                   </td>
                 </tr>
               );
@@ -226,11 +290,13 @@ window.Shipments = function Shipments(props) {
   const [list, setList] = useState([]);
   const [partners, setPartners] = useState([]);
   const [products, setProducts] = useState([]);
+  const [q, setQ] = useState("");
   const [form, setForm] = useState({
     from_type: "factory", from_partner_id: "", to_partner_id: "",
     product_id: "", qty: "", unit_price: "", note: ""
   });
   const [msg, setMsg] = useState({});
+  const [ferr, setFerr] = useState({});
 
   const load = useCallback(function () {
     Promise.all([
@@ -255,6 +321,12 @@ window.Shipments = function Shipments(props) {
 
   async function submit(e) {
     e.preventDefault();
+    const next = {};
+    if (!form.to_partner_id) next.to_partner_id = "Qabul qiluvchi majburiy";
+    if (!form.product_id) next.product_id = "Mahsulot majburiy";
+    if (!(Number(form.qty) > 0)) next.qty = "Miqdor musbat bo'lsin";
+    setFerr(next);
+    if (Object.keys(next).length) return;
     try {
       await api("/api/shipments", {
         method: "POST",
@@ -274,11 +346,16 @@ window.Shipments = function Shipments(props) {
         from_type: "factory", from_partner_id: "", to_partner_id: "",
         product_id: "", qty: "", unit_price: "", note: ""
       });
+      setFerr({});
       load();
     } catch (err) {
       setMsg({ text: err.message, type: "err" });
     }
   }
+
+  const shown = list.filter(function (s) {
+    return matchQ(q, [s.shipment_code, s.from_name, s.to_name, s.to_type, s.sku, s.note]);
+  });
 
   return (
     <div>
@@ -307,27 +384,30 @@ window.Shipments = function Shipments(props) {
             ) : null}
             <div>
               <label>Kimga *</label>
-              <select value={form.to_partner_id} onChange={function (e) { setForm(Object.assign({}, form, { to_partner_id: e.target.value })); }} required>
+              <select value={form.to_partner_id} onChange={function (e) { setForm(Object.assign({}, form, { to_partner_id: e.target.value })); }}>
                 <option value="">Tanlang...</option>
                 {receivers.map(function (p) {
                   return <option key={p.id} value={p.id}>{p.name} ({p.type})</option>;
                 })}
               </select>
+              {ferr.to_partner_id ? <div className="field-error">{ferr.to_partner_id}</div> : null}
             </div>
           </div>
           <div className="form-row">
             <div>
               <label>Mahsulot *</label>
-              <select value={form.product_id} onChange={function (e) { setForm(Object.assign({}, form, { product_id: e.target.value })); }} required>
+              <select value={form.product_id} onChange={function (e) { setForm(Object.assign({}, form, { product_id: e.target.value })); }}>
                 <option value="">Tanlang...</option>
                 {products.map(function (p) {
                   return <option key={p.id} value={p.id}>{p.sku}</option>;
                 })}
               </select>
+              {ferr.product_id ? <div className="field-error">{ferr.product_id}</div> : null}
             </div>
             <div>
               <label>Miqdor (dona) *</label>
-              <input type="number" value={form.qty} onChange={function (e) { setForm(Object.assign({}, form, { qty: e.target.value })); }} required />
+              <input type="number" value={form.qty} onChange={function (e) { setForm(Object.assign({}, form, { qty: e.target.value })); }} />
+              {ferr.qty ? <div className="field-error">{ferr.qty}</div> : null}
             </div>
             <div>
               <label>Narx (bosh = avto)</label>
@@ -342,7 +422,15 @@ window.Shipments = function Shipments(props) {
         </form>
       </div>
       <div className="card">
-        <h2>Oxirgi yuklar ({list.length})</h2>
+        <div className="toolbar">
+          <h2 style={{ margin: 0 }}>Oxirgi yuklar ({shown.length})</h2>
+          <input
+            type="search"
+            placeholder="Qidiruv: kod, SKU, hamkor..."
+            value={q}
+            onChange={function (e) { setQ(e.target.value); }}
+          />
+        </div>
         <table>
           <thead>
             <tr>
@@ -350,7 +438,7 @@ window.Shipments = function Shipments(props) {
             </tr>
           </thead>
           <tbody>
-            {list.map(function (s) {
+            {shown.map(function (s) {
               return (
                 <tr key={s.id}>
                   <td>{s.shipment_code}</td>

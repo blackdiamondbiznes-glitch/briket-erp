@@ -73,8 +73,9 @@
       --space-4: 16px;
       --space-5: 20px;
       --space-6: 24px;
-      --row-h: 38px;
+      --row-h: 32px;
       --nav-h: 64px;
+      --sidebar-w: 220px;
       --focus-ring: 0 0 0 3px var(--accent-muted);
     }
     @media (prefers-reduced-motion: reduce) {
@@ -114,6 +115,10 @@
     .header-inner {
       display: flex; align-items: center; gap: 12px;
       max-width: 640px; margin: 0 auto;
+    }
+    .header-role {
+      font-size: 10px; color: var(--accent); font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.04em;
     }
     .header-mark {
       width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
@@ -374,7 +379,7 @@
     .btn-ghost:hover { border-color: var(--muted); background: rgba(255,255,255,0.03); }
     .btn-sm { padding: 4px 8px; font-size: 0.72rem; }
 
-    /* Messages */
+    /* Messages — toast */
     .msg {
       padding: 10px 12px; border-radius: var(--radius-sm);
       margin-bottom: 10px; font-size: 0.84rem;
@@ -382,16 +387,22 @@
     }
     .msg.ok { background: var(--success-bg); color: #7ee787; border-color: rgba(63,185,80,0.25); }
     .msg.err { background: var(--danger-bg); color: #ff8a8e; border-color: rgba(229,72,77,0.25); }
+    .msg.toast {
+      position: fixed; top: 16px; right: 16px; z-index: 240;
+      margin: 0; min-width: 220px; max-width: min(360px, calc(100vw - 32px));
+      box-shadow: var(--shadow); cursor: pointer;
+    }
     .muted { color: var(--muted); font-size: 0.8rem; }
 
     /* Badges - 4 semantic states */
     .badge {
-      display: inline-flex; align-items: center;
+      display: inline-flex; align-items: center; gap: 4px;
       padding: 2px 8px; border-radius: 99px;
       font-size: 0.68rem; font-weight: 550; letter-spacing: 0.01em;
       background: rgba(255,255,255,0.06); color: var(--muted);
       border: 1px solid transparent;
     }
+    .badge .mark { font-size: 0.72rem; line-height: 1; }
     .badge.active, .badge.paid, .badge.success,
     .badge.confirmed {
       background: var(--success-bg); color: #7ee787; border-color: rgba(63,185,80,0.2);
@@ -615,7 +626,65 @@
       display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px;
     }
     .toolbar input[type="search"] { margin: 0; max-width: 280px; }
+    .toolbar input[type="date"] { margin: 0; max-width: 150px; }
     .stat-mini { font-size: 0.72rem; color: var(--muted); }
+    .kpi-click { cursor: pointer; }
+    .kpi-click:hover { border-color: var(--accent); }
+    .inline-edit {
+      width: 110px; margin: 0; padding: 4px 6px; font-size: 0.78rem; height: 26px;
+    }
+    .price-cell { cursor: pointer; border-bottom: 1px dashed var(--border); }
+    .bulk-bar {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 8px 10px; margin-bottom: 10px;
+      background: var(--accent-muted); border: 1px solid rgba(201,162,39,0.3);
+      border-radius: var(--radius-sm); font-size: 0.8rem;
+    }
+    .empty-ico { width: 28px; height: 28px; margin: 0 auto 8px; color: var(--muted); }
+    .empty-ico svg { width: 28px; height: 28px; display: block; stroke-width: 1.75; }
+
+    /* Sidebar — faqat ≥860px */
+    .sidebar { display: none; }
+    @media (min-width: 860px) {
+      body { padding-bottom: 0; padding-left: var(--sidebar-w); }
+      .bottom-nav { display: none !important; }
+      .segment.mobile-only { display: none !important; }
+      .header-inner, .main { max-width: 1320px; }
+      .main { padding: 18px 22px 36px; }
+      .sidebar {
+        display: flex; flex-direction: column;
+        position: fixed; left: 0; top: 0; bottom: 0; width: var(--sidebar-w);
+        background: #100e0c; border-right: 1px solid var(--border);
+        z-index: 80; padding: 14px 10px 16px;
+        overflow-y: auto;
+      }
+      .sidebar-brand {
+        font-size: 0.72rem; font-weight: 700; color: var(--accent);
+        letter-spacing: 0.08em; text-transform: uppercase;
+        padding: 4px 8px 12px;
+      }
+      .sidebar-group {
+        font-size: 0.62rem; color: var(--muted); text-transform: uppercase;
+        letter-spacing: 0.06em; padding: 10px 8px 4px; font-weight: 600;
+      }
+      .sidebar button {
+        display: flex; align-items: center; gap: 8px;
+        width: 100%; text-align: left; border: 0; background: transparent;
+        color: var(--muted); padding: 7px 8px; border-radius: 8px;
+        cursor: pointer; font-size: 0.8rem; font-weight: 500;
+      }
+      .sidebar button .nav-ico { width: 16px; height: 16px; flex-shrink: 0; }
+      .sidebar button .nav-ico svg { width: 16px; height: 16px; display: block; stroke-width: 1.75; }
+      .sidebar button:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+      .sidebar button.active {
+        background: var(--accent-muted); color: var(--accent);
+      }
+      .sidebar button.active .nav-ico svg { stroke: var(--accent); stroke-width: 2; }
+    }
+    @media (max-width: 859px) {
+      .sidebar { display: none !important; }
+      .msg.toast { top: auto; bottom: calc(var(--nav-h) + 12px); right: 12px; left: 12px; max-width: none; }
+    }
   </style>
 </head>
 <body>
@@ -646,6 +715,87 @@
       partial: "Qisman", closed: "Yopilgan", cancelled: "Bekor", rejected: "Rad"
     };
     function statusLabel(s) { return STATUS_UZ[String(s || "").toLowerCase()] || s || "-"; }
+    function statusMark(s) {
+      const k = String(s || "").toLowerCase();
+      if (k === "confirmed" || k === "paid" || k === "active" || k === "success") return "✓";
+      if (k === "closed") return "■";
+      if (k === "pending" || k === "partial" || k === "warning") return "⏳";
+      if (k === "rejected" || k === "cancelled" || k === "danger") return "✕";
+      return "•";
+    }
+    function StatusBadge(props) {
+      const raw = String(props.status || "").toLowerCase();
+      const cls = props.className || raw;
+      return (
+        <span className={"badge " + cls}>
+          <span className="mark" aria-hidden="true">{statusMark(raw)}</span>
+          {props.children || statusLabel(raw)}
+        </span>
+      );
+    }
+    function FieldErr(props) {
+      if (!props.text) return null;
+      return <div className="field-error">{props.text}</div>;
+    }
+    function matchQ(q, parts) {
+      const s = String(q || "").trim().toLowerCase();
+      if (!s) return true;
+      return parts.some(function (p) {
+        return String(p == null ? "" : p).toLowerCase().indexOf(s) !== -1;
+      });
+    }
+    function ymdTashkent(d) {
+      if (!d) return "";
+      try {
+        return new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Tashkent", year: "numeric", month: "2-digit", day: "2-digit"
+        }).format(new Date(d));
+      } catch (e) {
+        return String(d).slice(0, 10);
+      }
+    }
+    function inDateRange(val, from, to) {
+      if (!from && !to) return true;
+      const y = ymdTashkent(val);
+      if (!y) return false;
+      if (from && y < from) return false;
+      if (to && y > to) return false;
+      return true;
+    }
+    function downloadCsv(filename, rows, cols) {
+      const esc = function (v) {
+        const s = v == null ? "" : String(v);
+        if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+        return s;
+      };
+      const lines = [cols.map(function (c) { return esc(c.label); }).join(",")];
+      rows.forEach(function (r) {
+        lines.push(cols.map(function (c) { return esc(typeof c.get === "function" ? c.get(r) : r[c.key]); }).join(","));
+      });
+      const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1500);
+    }
+    function Ico(props) {
+      const n = props.name;
+      const common = {
+        viewBox: "0 0 24 24", fill: "none", stroke: "currentColor",
+        strokeWidth: 1.75, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true
+      };
+      if (n === "layout") return <svg {...common}><rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /></svg>;
+      if (n === "factory") return <svg {...common}><path d="M3 21h18" /><path d="M5 21V10l4 3V10l4 3V7l4 3v11" /></svg>;
+      if (n === "cart") return <svg {...common}><circle cx="9" cy="20" r="1" /><circle cx="17" cy="20" r="1" /><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H7" /></svg>;
+      if (n === "users") return <svg {...common}><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" /><circle cx="9.5" cy="7" r="3" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a3 3 0 0 1 0 5.74" /></svg>;
+      if (n === "catalog") return <svg {...common}><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h10" /></svg>;
+      if (n === "box") return <svg {...common}><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><path d="M3.3 7L12 12l8.7-5" /><path d="M12 22V12" /></svg>;
+      if (n === "coin") return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M12 7v10M9.5 9.5c.6-.8 1.5-1.2 2.5-1.2 1.7 0 3 1 3 2.6 0 3.1-6 1.6-6 4.6 0 1.6 1.4 2.6 3.1 2.6 1.1 0 2-.5 2.6-1.3" /></svg>;
+      if (n === "truck") return <svg {...common}><path d="M3 7h11v10H3z" /><path d="M14 10h4l3 3v4h-7z" /><circle cx="7" cy="18" r="2" /><circle cx="18" cy="18" r="2" /></svg>;
+      if (n === "search") return <svg {...common}><circle cx="11" cy="11" r="7" /><path d="M20 20l-3-3" /></svg>;
+      return null;
+    }
     function tashkentNowLabel() {
       try {
         return new Intl.DateTimeFormat("uz-UZ", {
@@ -663,6 +813,17 @@
           <div className="page-actions">{props.children}</div>
         </div>
       );
+    }
+    function formKeyDown(e, onEsc) {
+      if (e.key === "Escape" && typeof onEsc === "function") {
+        e.preventDefault();
+        onEsc();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        const form = e.currentTarget;
+        if (form && typeof form.requestSubmit === "function") form.requestSubmit();
+      }
     }
 
 
@@ -709,17 +870,25 @@
       const [operatorName, setOperatorName] = useState(function () {
         return SS.getItem("erp_operator") || "";
       });
+      // UI-rol: faqat frontend cheklov. Haqiqiy huquq nazorati backendda (P2-DATA).
+      const [uiRole, setUiRole] = useState(function () {
+        return SS.getItem("erp_ui_role") || "admin";
+      });
 
-      function saveSettings(base, key, operator) {
+      function saveSettings(base, key, operator, role) {
         setApiBase(base);
         setAdminKey(key);
         if (operator !== undefined) setOperatorName(operator || "");
+        if (role !== undefined) setUiRole(role || "admin");
         try { localStorage.setItem("erp_api", base); } catch (e1) {}
         SS.setItem("erp_key", key);
         SS.setItem("erp_key_at", String(Date.now()));
         if (operator !== undefined) {
           if (operator) SS.setItem("erp_operator", operator);
           else SS.removeItem("erp_operator");
+        }
+        if (role !== undefined) {
+          SS.setItem("erp_ui_role", role || "admin");
         }
       }
 
@@ -757,9 +926,11 @@
       function logout() {
         setAdminKey("");
         setOperatorName("");
+        setUiRole("admin");
         SS.removeItem("erp_key");
         SS.removeItem("erp_key_at");
         SS.removeItem("erp_operator");
+        SS.removeItem("erp_ui_role");
       }
 
       return {
@@ -767,6 +938,7 @@
         apiBase: apiBase,
         adminKey: adminKey,
         operatorName: operatorName,
+        uiRole: uiRole,
         saveSettings: saveSettings,
         logout: logout
       };
@@ -775,6 +947,7 @@
     function LoginScreen(props) {
       const [key, setKey] = useState("");
       const [name, setName] = useState("");
+      const [role, setRole] = useState("admin");
       const [showKey, setShowKey] = useState(false);
       const [err, setErr] = useState("");
       const [busy, setBusy] = useState(false);
@@ -805,7 +978,7 @@
             setBusy(false);
             return;
           }
-          props.onLogin(key.trim(), name.trim());
+          props.onLogin(key.trim(), name.trim(), role);
         } catch (ex) {
           setErr(ex.message || "Ulanish xatosi");
         }
@@ -831,6 +1004,15 @@
               autoComplete="name"
               autoFocus
             />
+            <label htmlFor="f-role">Rol (faqat UI)</label>
+            <select id="f-role" value={role} onChange={function (e) { setRole(e.target.value); }} style={{ marginBottom: 14 }}>
+              <option value="admin">Admin</option>
+              <option value="operator">Operator</option>
+              <option value="kassir">Kassir</option>
+            </select>
+            <p className="muted" style={{ marginTop: -8, marginBottom: 12, fontSize: "0.72rem" }}>
+              Rol faqat menyuni yashiradi — backend huquq nazorati emas.
+            </p>
             <label htmlFor="f-1">Admin kaliti (ADMIN_KEY)</label>
             <div style={{ position: "relative", marginBottom: 14 }}>
               <input
@@ -862,10 +1044,19 @@
 
 
     function ConfirmModal(props) {
+      useEffect(function () {
+        if (!props.open) return;
+        function onKey(e) {
+          if (e.key === "Escape") props.onCancel();
+          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) props.onConfirm();
+        }
+        window.addEventListener("keydown", onKey);
+        return function () { window.removeEventListener("keydown", onKey); };
+      }, [props.open]);
       if (!props.open) return null;
       return (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal-card">
+        <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={props.onCancel}>
+          <div className="modal-card" onClick={function (e) { e.stopPropagation(); }}>
             <p style={{ marginBottom: 14, fontSize: "0.9rem" }}>{props.text}</p>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button className="btn-ghost" type="button" onClick={props.onCancel}>Bekor</button>
@@ -881,7 +1072,7 @@
       function setMsg(m) {
         setMsgRaw(m || {});
         if (m && m.text) {
-          setTimeout(function () { setMsgRaw({}); }, 4000);
+          setTimeout(function () { setMsgRaw({}); }, 2500);
         }
       }
       return [msg, setMsg];
@@ -890,7 +1081,7 @@
     function Msg(props) {
       if (!props.text) return null;
       return (
-        <div className={"msg " + (props.type || "ok")} onClick={props.onClose}>
+        <div className={"msg toast " + (props.type || "ok")} onClick={props.onClose}>
           {props.text}
         </div>
       );
@@ -899,6 +1090,7 @@
     // ---------- Dashboard ----------
     function Dashboard(props) {
       const api = props.api;
+      const onNavigate = props.onNavigate;
       const [data, setData] = useState(null);
       const [err, setErr] = useState("");
       const [lastUpdated, setLastUpdated] = useState(null);
@@ -978,22 +1170,22 @@
               <div className="trend">savdo − xarajat</div>
               <div className="bar-track"><div className={"bar-fill" + (foyda < 0 ? " neg" : "")} style={{ width: Math.min(100, Math.abs(foyda) / denom * 100) + "%" }} /></div>
             </div>
-            <div className="dash-kpi">
+            <div className="dash-kpi kpi-click" role="button" tabIndex="0" onClick={function () { if (onNavigate) onNavigate("orders"); }}>
               <div className="label">Savdo</div>
               <div className="value">{money(savdo)}</div>
               <div className="trend">tasdiqlangan buyurtmalar</div>
             </div>
-            <div className="dash-kpi">
+            <div className="dash-kpi kpi-click" role="button" tabIndex="0" onClick={function () { if (onNavigate) onNavigate("payments"); }}>
               <div className="label">Naqd tushum</div>
               <div className="value">{money(naqd)}</div>
               <div className="trend">to'lovlar</div>
             </div>
-            <div className="dash-kpi">
+            <div className="dash-kpi kpi-click" role="button" tabIndex="0" onClick={function () { if (onNavigate) onNavigate("expenses"); }}>
               <div className="label">Xarajat</div>
               <div className="value">{money(xarajat)}</div>
               <div className="trend">press / qadoq / boshqa</div>
             </div>
-            <div className={"dash-kpi" + (Number(data.jami_qarz) > 3000000 ? " dash-kpi-danger" : "")}>
+            <div className={"dash-kpi kpi-click" + (Number(data.jami_qarz) > 3000000 ? " dash-kpi-danger" : "")} role="button" tabIndex="0" onClick={function () { if (onNavigate) onNavigate("orders", { debtOnly: true }); }}>
               <div className="label">Qarz</div>
               <div className={"value" + (Number(data.jami_qarz) > 3000000 ? " neg" : "")}>{money(data.jami_qarz)}</div>
               <div className="trend">sotilgan buyurtmalar</div>
@@ -1029,6 +1221,7 @@
               <h2>Tayyor mahsulot (zavod)</h2>
               {skuStock.length === 0 ? (
                 <div className="empty">
+                  <div className="empty-ico"><Ico name="box" /></div>
                   <div className="empty-title">Tayyor mahsulot yo'q</div>
                   Avval qadoqlash qiling
                 </div>
@@ -1069,6 +1262,7 @@
               <h2>Material</h2>
               {mats.length === 0 ? (
                 <div className="empty">
+                  <div className="empty-ico"><Ico name="catalog" /></div>
                   <div className="empty-title">Material yo'q</div>
                   Katalog → Material
                 </div>
@@ -1102,6 +1296,7 @@
               <h2>Faol partiyalar</h2>
               {batches.length === 0 ? (
                 <div className="empty">
+                  <div className="empty-ico"><Ico name="factory" /></div>
                   <div className="empty-title">Faol partiya yo'q</div>
                   Ishlab chiqarish → Partiya
                 </div>
@@ -1137,6 +1332,7 @@
               <h2>So'nggi buyurtmalar</h2>
               {orders.length === 0 ? (
                 <div className="empty">
+                  <div className="empty-ico"><Ico name="cart" /></div>
                   <div className="empty-title">Buyurtma yo'q</div>
                   Savdo yoki mijoz ilovasidan keladi
                 </div>
@@ -1153,7 +1349,7 @@
                           <td title={o.order_code}>{shortCode(o.order_code)}</td>
                           <td>{o.customer_name || "-"}</td>
                           <td>{money(o.total_amount)}</td>
-                          <td><span className={"badge " + o.status}>{statusLabel(o.status)}</span></td>
+                          <td><StatusBadge status={o.status} /></td>
                         </tr>
                       );
                     })}
@@ -1278,6 +1474,10 @@
       const [editForm, setEditForm] = useState({ sku: "", weight_kg: "", price: "", cost_price: "", description: "", is_active: true, img1: "", img2: "", img3: "" });
       const [materials, setMaterials] = useState([]);
       const [recipeRows, setRecipeRows] = useState([]);
+      const [q, setQ] = useState("");
+      const [ferr, setFerr] = useState({});
+      const [inlineId, setInlineId] = useState(null);
+      const [inlineVal, setInlineVal] = useState("");
 
       function urlsFrom(f) {
         return [f.img1, f.img2, f.img3].map(function (s) { return String(s || "").trim(); }).filter(Boolean);
@@ -1301,6 +1501,11 @@
 
       async function submit(e) {
         e.preventDefault();
+        const next = {};
+        if (!String(form.sku || "").trim()) next.sku = "SKU majburiy";
+        if (form.price !== "" && Number(form.price) < 0) next.price = "Narx manfiy bo'lmasin";
+        setFerr(next);
+        if (next.sku || next.price) return;
         try {
           await api("/api/products", {
             method: "POST",
@@ -1315,6 +1520,7 @@
           });
           setMsg({ text: "SKU qo'shildi", type: "ok" });
           setForm(emptyForm);
+          setFerr({});
           load();
         } catch (err) {
           setMsg({ text: err.message, type: "err" });
@@ -1404,6 +1610,34 @@
 
       const [confirmState, setConfirmState] = useState({ open: false, text: "", onConfirm: null });
 
+      async function saveInlinePrice(p) {
+        const next = Math.round(Number(inlineVal));
+        setInlineId(null);
+        if (!Number.isFinite(next) || next < 0) {
+          setMsg({ text: "Narx noto'g'ri", type: "err" });
+          return;
+        }
+        if (next === Math.round(Number(p.price || 0))) return;
+        try {
+          await api("/api/products/" + p.id, {
+            method: "PUT",
+            body: JSON.stringify({
+              sku: p.sku,
+              weight_kg: Number(p.weight_kg) || 0,
+              price: next,
+              cost_price: Math.round(Number(p.cost_price) || 0),
+              description: p.description || null,
+              is_active: p.is_active !== false,
+              image_urls: Array.isArray(p.image_urls) ? p.image_urls : []
+            })
+          });
+          setMsg({ text: "Narx saqlandi", type: "ok" });
+          load();
+        } catch (e) {
+          setMsg({ text: e.message, type: "err" });
+        }
+      }
+
       async function softDelete(id) {
         setConfirmState({
           open: true,
@@ -1433,11 +1667,12 @@
           <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
           <div className="card">
             <h2>Yangi SKU</h2>
-            <form onSubmit={submit}>
+            <form onSubmit={submit} onKeyDown={function (e) { formKeyDown(e); }}>
               <div className="form-row">
                 <div>
                   <label htmlFor="f-2">SKU</label>
-                  <input id="f-2" value={form.sku} onChange={function (e) { setForm({ ...form, sku: e.target.value }); }} required />
+                  <input id="f-2" value={form.sku} onChange={function (e) { setForm({ ...form, sku: e.target.value }); }} />
+                  <FieldErr text={ferr.sku} />
                 </div>
                 <div>
                   <label htmlFor="f-3">Ogirlik (kg)</label>
@@ -1446,6 +1681,7 @@
                 <div>
                   <label htmlFor="f-4">Optom narx (so'm)</label>
                   <input id="f-4" type="number" min="0" step="1" value={form.price} onChange={function (e) { setForm({ ...form, price: e.target.value }); }} />
+                  <FieldErr text={ferr.price} />
                   {form.price ? (
                     <div className="muted" style={{ fontSize: "0.72rem", marginTop: -4, marginBottom: 8 }}>
                       Mijoz: {money(mijozNarx(form.price))} so'm
@@ -1488,7 +1724,7 @@
           {editId ? (
             <div className="card">
               <h2>SKU tahrirlash</h2>
-              <form onSubmit={saveEdit}>
+              <form onSubmit={saveEdit} onKeyDown={function (e) { formKeyDown(e, cancelEdit); }}>
                 <div className="form-row">
                   <div>
                     <label htmlFor="f-6">SKU</label>
@@ -1605,26 +1841,44 @@
           ) : null}
 
           <div className="card">
-            <h2>Mahsulotlar ({list.length})</h2>
+            <div className="toolbar">
+              <h2 style={{ margin: 0 }}>Mahsulotlar ({list.filter(function (p) { return matchQ(q, [p.sku, p.description]); }).length})</h2>
+              <input type="search" placeholder="Qidiruv: SKU..." value={q} onChange={function (e) { setQ(e.target.value); }} />
+            </div>
             <div className="table-wrap"><table>
               <thead>
                 <tr><th>SKU</th><th>kg</th><th>Tannarx</th><th>Optom</th><th>Foyda</th><th>Mijoz</th><th>Rasm</th><th>Holat</th><th></th></tr>
               </thead>
               <tbody>
-                {list.map(function (p) {
+                {list.filter(function (p) { return matchQ(q, [p.sku, p.description]); }).map(function (p) {
                   return (
                     <tr key={p.id}>
                       <td>{p.sku}</td>
                       <td>{p.weight_kg}</td>
                       <td>{money(p.cost_price)}</td>
-                      <td>{money(p.price)}</td>
+                      <td>
+                        {inlineId === p.id ? (
+                          <input
+                            className="inline-edit"
+                            type="number"
+                            autoFocus
+                            value={inlineVal}
+                            onChange={function (e) { setInlineVal(e.target.value); }}
+                            onBlur={function () { saveInlinePrice(p); }}
+                            onKeyDown={function (e) {
+                              if (e.key === "Enter") { e.preventDefault(); saveInlinePrice(p); }
+                              if (e.key === "Escape") setInlineId(null);
+                            }}
+                          />
+                        ) : (
+                          <span className="price-cell" title="Ikki marta bosing" onDoubleClick={function () { setInlineId(p.id); setInlineVal(String(Math.round(Number(p.price) || 0))); }}>{money(p.price)}</span>
+                        )}
+                      </td>
                       <td>{money(Math.round(Number(p.price || 0) - Number(p.cost_price || 0)))}</td>
                       <td>{money(mijozNarx(p.price))}</td>
                       <td>{(p.image_urls && p.image_urls.length) ? p.image_urls.length : 0}</td>
                       <td>
-                        <span className={"badge " + (p.is_active ? "active" : "closed")}>
-                          {p.is_active ? "faol" : "nofaol"}
-                        </span>
+                        <StatusBadge status={p.is_active ? "active" : "closed"}>{p.is_active ? "faol" : "nofaol"}</StatusBadge>
                       </td>
                       <td>
                         <button type="button" className="btn-ghost btn-sm" onClick={function () { startEdit(p); }}>Tahrir</button>
@@ -1652,6 +1906,10 @@
       const [mov, setMov] = useState({ material_id: "", qty: "", unit_price: "", note: "" });
       const [msg, setMsg] = useAutoMsg();
       const [confirmState, setConfirmState] = useState({ open: false, text: "", onConfirm: null });
+      const [q, setQ] = useState("");
+      const [ferr, setFerr] = useState({});
+      const [inlineId, setInlineId] = useState(null);
+      const [inlineVal, setInlineVal] = useState("");
 
       const load = useCallback(function () {
         api("/api/materials?active=0")
@@ -1661,8 +1919,37 @@
 
       useEffect(function () { load(); }, [load]);
 
+      async function saveInlinePrice(m) {
+        const next = Number(inlineVal);
+        setInlineId(null);
+        if (!Number.isFinite(next) || next < 0) {
+          setMsg({ text: "Narx noto'g'ri", type: "err" });
+          return;
+        }
+        if (next === Number(m.price || 0)) return;
+        try {
+          await api("/api/materials/" + m.id, {
+            method: "PUT",
+            body: JSON.stringify({
+              name: m.name,
+              unit: m.unit || "kg",
+              price: next,
+              is_active: m.is_active !== false
+            })
+          });
+          setMsg({ text: "Narx saqlandi", type: "ok" });
+          load();
+        } catch (e) {
+          setMsg({ text: e.message, type: "err" });
+        }
+      }
+
       async function submitMat(e) {
         e.preventDefault();
+        const next = {};
+        if (!String(form.name || "").trim()) next.name = "Nomi majburiy";
+        setFerr(next);
+        if (next.name) return;
         try {
           await api("/api/materials", {
             method: "POST",
@@ -1763,7 +2050,8 @@
               <div className="form-row">
                 <div>
                   <label htmlFor="f-11">Nomi</label>
-                  <input id="f-11" value={form.name} onChange={function (e) { setForm({ ...form, name: e.target.value }); }} required />
+                  <input id="f-11" value={form.name} onChange={function (e) { setForm({ ...form, name: e.target.value }); }} />
+                  <FieldErr text={ferr.name} />
                 </div>
                 <div>
                   <label htmlFor="f-12">Birlik</label>
@@ -1813,7 +2101,7 @@
           {editId && (
             <div className="card">
               <h2>Tahrirlash #{editId}</h2>
-              <form onSubmit={saveEdit}>
+              <form onSubmit={saveEdit} onKeyDown={function (e) { formKeyDown(e, function () { setEditId(null); }); }}>
                 <div className="form-row">
                   <div>
                     <label>Nomi</label>
@@ -1841,7 +2129,10 @@
             </div>
           )}
           <div className="card">
-            <h2>Materiallar</h2>
+            <div className="toolbar">
+              <h2 style={{ margin: 0 }}>Materiallar ({list.filter(function (m) { return matchQ(q, [m.name, m.unit]); }).length})</h2>
+              <input type="search" placeholder="Qidiruv: nomi..." value={q} onChange={function (e) { setQ(e.target.value); }} />
+            </div>
             <div className="table-wrap">
               <table>
                 <thead>
@@ -1851,14 +2142,33 @@
                   </tr>
                 </thead>
                 <tbody>
-                  {list.map(function (m) {
+                  {list.filter(function (m) { return matchQ(q, [m.name, m.unit]); }).map(function (m) {
                     return (
                       <tr key={m.id}>
                         <td>{m.id}</td>
                         <td>{m.name}</td>
                         <td>{m.unit}</td>
-                        <td>{money(m.price)}</td>
-                        <td>{m.is_active ? "faol" : "nofaol"}</td>
+                        <td>
+                          {inlineId === m.id ? (
+                            <input
+                              className="inline-edit"
+                              type="number"
+                              autoFocus
+                              value={inlineVal}
+                              onChange={function (e) { setInlineVal(e.target.value); }}
+                              onBlur={function () { saveInlinePrice(m); }}
+                              onKeyDown={function (e) {
+                                if (e.key === "Enter") { e.preventDefault(); saveInlinePrice(m); }
+                                if (e.key === "Escape") setInlineId(null);
+                              }}
+                            />
+                          ) : (
+                            <span className="price-cell" title="Ikki marta bosing" onDoubleClick={function () { setInlineId(m.id); setInlineVal(String(m.price != null ? m.price : "")); }}>{money(m.price)}</span>
+                          )}
+                        </td>
+                        <td>
+                          <StatusBadge status={m.is_active ? "active" : "closed"}>{m.is_active ? "faol" : "nofaol"}</StatusBadge>
+                        </td>
                         <td className="sticky-actions">
                           <button type="button" className="btn-ghost btn-sm" onClick={function () { startEdit(m); }}>Tahrir</button>
                           {m.is_active && (
@@ -1884,6 +2194,19 @@
       });
       const [msg, setMsg] = useAutoMsg();
       const [confirmState, setConfirmState] = useState({ open: false, text: "", onConfirm: null });
+      const [ferr, setFerr] = useState({});
+
+      function copyBatch(b) {
+        setForm({
+          bags_count: String(b.bags_count != null ? b.bags_count : ""),
+          bag_price: String(b.bag_price != null ? b.bag_price : ""),
+          dry_kg: String(b.dry_kg != null ? b.dry_kg : ""),
+          workers_count: String(b.workers_count != null ? b.workers_count : ""),
+          press_wage: String(b.press_wage != null ? b.press_wage : ""),
+          note: b.note ? ("Nusxa: " + b.note) : "Nusxa"
+        });
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
 
       function deleteBatch(id) {
         setConfirmState({
@@ -1912,6 +2235,12 @@
 
       async function submit(e) {
         e.preventDefault();
+        const next = {};
+        if (!(Number(form.bags_count) > 0)) next.bags_count = "Qop soni musbat bo'lsin";
+        if (!(Number(form.bag_price) > 0)) next.bag_price = "Qop narxi musbat bo'lsin";
+        if (!(Number(form.dry_kg) > 0)) next.dry_kg = "Quruq kg musbat bo'lsin";
+        setFerr(next);
+        if (Object.keys(next).length) return;
         try {
           await api("/api/batches", {
             method: "POST",
@@ -1943,19 +2272,22 @@
           <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
           <div className="card">
             <h2>Yangi partiya</h2>
-            <form onSubmit={submit}>
+            <form onSubmit={submit} onKeyDown={function (e) { formKeyDown(e); }}>
               <div className="form-row-3">
                 <div>
                   <label htmlFor="f-19">Qop soni *</label>
-                  <input id="f-19" type="number" value={form.bags_count} onChange={function (e) { setForm({ ...form, bags_count: e.target.value }); }} required />
+                  <input id="f-19" type="number" value={form.bags_count} onChange={function (e) { setForm({ ...form, bags_count: e.target.value }); }} />
+                  <FieldErr text={ferr.bags_count} />
                 </div>
                 <div>
                   <label htmlFor="f-20">1 qop narxi *</label>
-                  <input id="f-20" type="number" value={form.bag_price} onChange={function (e) { setForm({ ...form, bag_price: e.target.value }); }} required />
+                  <input id="f-20" type="number" value={form.bag_price} onChange={function (e) { setForm({ ...form, bag_price: e.target.value }); }} />
+                  <FieldErr text={ferr.bag_price} />
                 </div>
                 <div>
                   <label htmlFor="f-21">Quruq kg *</label>
-                  <input id="f-21" type="number" step="0.1" value={form.dry_kg} onChange={function (e) { setForm({ ...form, dry_kg: e.target.value }); }} required />
+                  <input id="f-21" type="number" step="0.1" value={form.dry_kg} onChange={function (e) { setForm({ ...form, dry_kg: e.target.value }); }} />
+                  <FieldErr text={ferr.dry_kg} />
                 </div>
                 <div>
                   <label htmlFor="f-22">Ishchilar</label>
@@ -1988,18 +2320,17 @@
                   return (
                     <tr key={b.id}>
                       <td>{b.batch_code}</td>
-                      <td><span className={"badge " + b.status}>{b.status}</span></td>
+                      <td><StatusBadge status={b.status} /></td>
                       <td>{b.bags_count}</td>
                       <td>{b.dry_kg}</td>
                       <td>{b.packed_kg}</td>
                       <td><strong>{b.remaining_kg}</strong></td>
                       <td>{b.loss_percent}%</td>
                       <td className="sticky-actions">
+                        <button type="button" className="btn-ghost btn-sm" onClick={function () { copyBatch(b); }}>Nusxa</button>
                         {canDel ? (
                           <button type="button" className="btn-ghost btn-sm" onClick={function () { deleteBatch(b.id); }}>O'chirish</button>
-                        ) : (
-                          <span className="muted">—</span>
-                        )}
+                        ) : null}
                       </td>
                     </tr>
                   );
@@ -2023,6 +2354,7 @@
       });
       const [msg, setMsg] = useAutoMsg();
       const [confirmState, setConfirmState] = useState({ open: false, text: "", onConfirm: null });
+      const [ferr, setFerr] = useState({});
 
       function deleteBatch(id) {
         setConfirmState({
@@ -2084,6 +2416,11 @@
 
       async function submit(e) {
         e.preventDefault();
+        const next = {};
+        if (!form.product_id) next.product_id = "Mahsulot majburiy";
+        if (!(Number(form.qty) > 0)) next.qty = "Dona musbat bo'lsin";
+        setFerr(next);
+        if (next.product_id || next.qty) return;
         try {
           await api("/api/packaging", {
             method: "POST",
@@ -2097,6 +2434,7 @@
           });
           setMsg({ text: "Qadoqlandi", type: "ok" });
           setForm({ ...form, qty: "" });
+          setFerr({});
           load();
         } catch (err) {
           setMsg({ text: err.message, type: "err" });
@@ -2108,20 +2446,22 @@
           <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
           <div className="card">
             <h2>Qadoqlash</h2>
-            <form onSubmit={submit}>
+            <form onSubmit={submit} onKeyDown={function (e) { formKeyDown(e); }}>
               <div className="form-row">
                 <div>
                   <label htmlFor="f-25">Mahsulot *</label>
-                  <select id="f-25" value={form.product_id} onChange={function (e) { setForm({ ...form, product_id: e.target.value }); }} required>
+                  <select id="f-25" value={form.product_id} onChange={function (e) { setForm({ ...form, product_id: e.target.value }); }}>
                     <option value="">Tanlang</option>
                     {products.map(function (p) {
                       return <option key={p.id} value={p.id}>{p.sku} ({p.weight_kg} kg)</option>;
                     })}
                   </select>
+                  <FieldErr text={ferr.product_id} />
                 </div>
                 <div>
                   <label htmlFor="f-26">Dona *</label>
-                  <input id="f-26" type="number" value={form.qty} onChange={function (e) { setForm({ ...form, qty: e.target.value }); }} required />
+                  <input id="f-26" type="number" value={form.qty} onChange={function (e) { setForm({ ...form, qty: e.target.value }); }} />
+                  <FieldErr text={ferr.qty} />
                 </div>
                 <div>
                   <label htmlFor="f-27">1 dona ish haqi</label>
@@ -2189,6 +2529,8 @@
       const [editForm, setEditForm] = useState({ name: "", phone: "", address: "", credit_limit: "", is_active: true });
       const [msg, setMsg] = useAutoMsg();
       const [confirmState, setConfirmState] = useState({ open: false, text: "", onConfirm: null });
+      const [q, setQ] = useState("");
+      const [ferr, setFerr] = useState({});
 
       const load = useCallback(function () {
         api("/api/customers")
@@ -2205,10 +2547,11 @@
 
       async function submit(e) {
         e.preventDefault();
-        if (form.phone && !phoneSoftOk(form.phone)) {
-          setMsg({ text: "Telefon formati shubhali (+998... tavsiya etiladi)", type: "err" });
-          return;
-        }
+        const next = {};
+        if (!String(form.name || "").trim()) next.name = "Ism majburiy";
+        if (form.phone && !phoneSoftOk(form.phone)) next.phone = "Telefon formati shubhali (+998...)";
+        setFerr(next);
+        if (next.name || next.phone) return;
         try {
           await api("/api/customers", {
             method: "POST",
@@ -2295,11 +2638,13 @@
               <div className="form-row">
                 <div>
                   <label htmlFor="f-30">Ism</label>
-                  <input id="f-30" value={form.name} onChange={function (e) { setForm({ ...form, name: e.target.value }); }} required />
+                  <input id="f-30" value={form.name} onChange={function (e) { setForm({ ...form, name: e.target.value }); }} />
+                  <FieldErr text={ferr.name} />
                 </div>
                 <div>
                   <label htmlFor="f-31">Telefon</label>
                   <input id="f-31" value={form.phone} onChange={function (e) { setForm({ ...form, phone: e.target.value }); }} placeholder="+998..." />
+                  <FieldErr text={ferr.phone} />
                 </div>
                 <div>
                   <label htmlFor="f-32">Manzil</label>
@@ -2316,7 +2661,7 @@
           {editId && (
             <div className="card">
               <h2>Tahrirlash #{editId}</h2>
-              <form onSubmit={saveEdit}>
+              <form onSubmit={saveEdit} onKeyDown={function (e) { formKeyDown(e, function () { setEditId(null); }); }}>
                 <div className="form-row">
                   <div>
                     <label>Ism</label>
@@ -2348,7 +2693,10 @@
             </div>
           )}
           <div className="card">
-            <h2>Mijozlar ro'yxati</h2>
+            <div className="toolbar">
+              <h2 style={{ margin: 0 }}>Mijozlar ro'yxati</h2>
+              <input type="search" placeholder="Qidiruv: ism, telefon..." value={q} onChange={function (e) { setQ(e.target.value); }} />
+            </div>
             <div className="table-wrap">
               <table>
                 <thead>
@@ -2358,14 +2706,14 @@
                   </tr>
                 </thead>
                 <tbody>
-                  {list.map(function (c) {
+                  {list.filter(function (c) { return matchQ(q, [c.name, c.phone, c.address]); }).map(function (c) {
                     return (
                       <tr key={c.id}>
                         <td>{c.id}</td>
                         <td>{c.name}</td>
                         <td>{c.phone || "—"}</td>
                         <td>{money(c.credit_limit)}</td>
-                        <td>{c.is_active === false ? "nofaol" : "faol"}</td>
+                        <td><StatusBadge status={c.is_active === false ? "closed" : "active"}>{c.is_active === false ? "nofaol" : "faol"}</StatusBadge></td>
                         <td className="sticky-actions">
                           <button type="button" className="btn-ghost btn-sm" onClick={function () { startEdit(c); }}>Tahrir</button>
                           {c.is_active !== false && (
@@ -2395,6 +2743,17 @@
       const [lines, setLines] = useState([{ product_id: "", qty: "", unit_price: "" }]);
       const [priceCfg, setPriceCfg] = useState({ bulk_discount: 3000, bulk_min_qty: 500, bulk_min_kg: 1000 });
       const [msg, setMsg] = useAutoMsg();
+      const [q, setQ] = useState("");
+      const [dateFrom, setDateFrom] = useState("");
+      const [dateTo, setDateTo] = useState("");
+      const [ferr, setFerr] = useState({});
+      const [selected, setSelected] = useState({});
+      const debtOnlyInit = !!(props.pageFilter && props.pageFilter.debtOnly);
+      const [debtOnly, setDebtOnly] = useState(debtOnlyInit);
+
+      useEffect(function () {
+        setDebtOnly(!!(props.pageFilter && props.pageFilter.debtOnly));
+      }, [props.pageFilter]);
 
       function unitForProduct(p, qty) {
         if (!p) return 0;
@@ -2469,10 +2828,11 @@
               unit_price: Number(l.unit_price) || 0
             };
           });
-        if (!items.length) {
-          setMsg({ text: "Kamida 1 ta mahsulot kiriting", type: "err" });
-          return;
-        }
+        const next = {};
+        if (!String(form.customer_name || "").trim()) next.customer_name = "Ism majburiy";
+        if (!items.length) next.items = "Kamida 1 ta mahsulot kiriting";
+        setFerr(next);
+        if (next.customer_name || next.items) return;
         try {
           await api("/api/orders", {
             method: "POST",
@@ -2506,6 +2866,62 @@
         }
       }
 
+      function copyOrder(o) {
+        setForm({
+          customer_id: o.customer_id ? String(o.customer_id) : "",
+          customer_name: o.customer_name || "",
+          phone: o.phone || "",
+          paid_amount: "",
+          note: o.note ? ("Nusxa: " + o.note) : "Nusxa"
+        });
+        const its = (o.items && o.items.length)
+          ? o.items.map(function (it) {
+              return {
+                product_id: it.product_id ? String(it.product_id) : "",
+                qty: String(it.qty != null ? it.qty : ""),
+                unit_price: String(it.unit_price != null ? it.unit_price : "")
+              };
+            })
+          : [{ product_id: "", qty: "", unit_price: "" }];
+        setLines(its);
+        setFerr({});
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      const shown = list.filter(function (o) {
+        if (debtOnly && !(Number(o.debt_amount) > 0)) return false;
+        if (!inDateRange(o.ordered_at || o.created_at, dateFrom, dateTo)) return false;
+        return matchQ(q, [
+          o.order_code, o.customer_name, o.phone, o.status, statusLabel(o.status),
+          o.note, o.admin_note, o.source
+        ]);
+      });
+      const pendingIds = shown.filter(function (o) { return o.status === "pending"; }).map(function (o) { return o.id; });
+      const selectedPending = pendingIds.filter(function (id) { return !!selected[id]; });
+
+      async function bulkConfirm() {
+        if (!selectedPending.length) return;
+        let ok = 0;
+        let fail = 0;
+        for (let i = 0; i < selectedPending.length; i++) {
+          try {
+            await api("/api/orders/" + selectedPending[i] + "/status", {
+              method: "PATCH",
+              body: JSON.stringify({ status: "confirmed" })
+            });
+            ok += 1;
+          } catch (e) {
+            fail += 1;
+          }
+        }
+        setSelected({});
+        setMsg({
+          text: fail ? (ok + " tasdiqlandi, " + fail + " xato") : (ok + " buyurtma tasdiqlandi"),
+          type: fail ? "err" : "ok"
+        });
+        load();
+      }
+
       return (
         <div>
           <ConfirmModal
@@ -2518,7 +2934,7 @@
           <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
           <div className="card">
             <h2>Yangi buyurtma</h2>
-            <form onSubmit={submit}>
+            <form onSubmit={submit} onKeyDown={function (e) { formKeyDown(e); }}>
               <div className="form-row">
                 <div>
                   <label htmlFor="f-34">Mijoz (ro'yxat)</label>
@@ -2531,7 +2947,8 @@
                 </div>
                 <div>
                   <label htmlFor="f-35">Ism *</label>
-                  <input id="f-35" value={form.customer_name} onChange={function (e) { setForm({ ...form, customer_name: e.target.value }); }} required />
+                  <input id="f-35" value={form.customer_name} onChange={function (e) { setForm({ ...form, customer_name: e.target.value }); }} />
+                  <FieldErr text={ferr.customer_name} />
                 </div>
                 <div>
                   <label htmlFor="f-36">Telefon</label>
@@ -2590,6 +3007,7 @@
                   Miqdor {priceCfg.bulk_min_qty}+ dona yoki {priceCfg.bulk_min_kg} kg dan — optom.
                   Undan kam — optom + {money(priceCfg.bulk_discount)} so'm. Qo'lda o'zgartirish mumkin.
                 </p>
+                <FieldErr text={ferr.items} />
               </div>
               <div className="total-box">
                 <span>Jami</span>
@@ -2603,14 +3021,71 @@
             </form>
           </div>
           <div className="card">
-            <h2>Buyurtmalar</h2>
+            <h2>Buyurtmalar ({shown.length})</h2>
             <p className="muted" style={{ marginBottom: 10, fontSize: "0.78rem" }}>
               Telegram/PWA buyurtmalari <b>pending</b> - Tasdiq yoki Rad.
             </p>
+            <div className="toolbar">
+              <input
+                type="search"
+                placeholder="Qidiruv: kod, mijoz, tel..."
+                value={q}
+                onChange={function (e) { setQ(e.target.value); }}
+              />
+              <input type="date" value={dateFrom} onChange={function (e) { setDateFrom(e.target.value); }} title="Dan" />
+              <input type="date" value={dateTo} onChange={function (e) { setDateTo(e.target.value); }} title="Gacha" />
+              <label className="stat-mini" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <input
+                  type="checkbox"
+                  checked={debtOnly}
+                  onChange={function (e) { setDebtOnly(e.target.checked); }}
+                  style={{ width: "auto", margin: 0 }}
+                />
+                Faqat qarz
+              </label>
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                onClick={function () {
+                  downloadCsv("buyurtmalar.csv", shown, [
+                    { label: "Kod", get: function (r) { return r.order_code; } },
+                    { label: "Mijoz", get: function (r) { return r.customer_name; } },
+                    { label: "Tel", get: function (r) { return r.phone; } },
+                    { label: "Holat", get: function (r) { return statusLabel(r.status); } },
+                    { label: "Summa", get: function (r) { return Math.round(Number(r.total_amount) || 0); } },
+                    { label: "Qarz", get: function (r) { return Math.round(Number(r.debt_amount) || 0); } },
+                    { label: "Sana", get: function (r) { return ymdTashkent(r.ordered_at || r.created_at); } }
+                  ]);
+                }}
+              >
+                CSV
+              </button>
+            </div>
+            {selectedPending.length > 0 ? (
+              <div className="bulk-bar">
+                <strong>{selectedPending.length} ta tanlandi</strong>
+                <button type="button" className="btn btn-sm" onClick={bulkConfirm}>Tasdiqlash</button>
+                <button type="button" className="btn-ghost btn-sm" onClick={function () { setSelected({}); }}>Bekor</button>
+              </div>
+            ) : null}
             <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
+                    <th>
+                      <input
+                        type="checkbox"
+                        style={{ width: "auto", margin: 0 }}
+                        checked={pendingIds.length > 0 && selectedPending.length === pendingIds.length}
+                        onChange={function (e) {
+                          const on = e.target.checked;
+                          const next = Object.assign({}, selected);
+                          pendingIds.forEach(function (id) { next[id] = on; });
+                          setSelected(next);
+                        }}
+                        aria-label="Barcha pending"
+                      />
+                    </th>
                     <th>Buyurtma</th>
                     <th>Mijoz</th>
                     <th>Summa</th>
@@ -2619,23 +3094,13 @@
                   </tr>
                 </thead>
                 <tbody>
-                  {list.map(function (o) {
+                  {shown.map(function (o) {
                     var src = o.source || "admin";
                     var srcLabel = src === "telegram" ? "TG" : (src === "pwa" ? "PWA" : "Admin");
-                    var st = (function (status) {
-                      var s = String(status || "").toLowerCase();
-                      if (s === "confirmed") return { cls: "badge confirmed", text: "Tasdiqlangan" };
-                      if (s === "paid") return { cls: "badge paid", text: "To'langan" };
-                      if (s === "closed") return { cls: "badge closed", text: "Yopilgan" };
-                      if (s === "pending") return { cls: "badge pending", text: "Kutilmoqda" };
-                      if (s === "partial") return { cls: "badge partial", text: "Qisman" };
-                      if (s === "rejected") return { cls: "badge rejected", text: "Rad etilgan" };
-                      if (s === "cancelled") return { cls: "badge cancelled", text: "Bekor" };
-                      return { cls: "badge", text: status || "-" };
-                    })(o.status);
                     var itemsLine = o.items && o.items.length
                       ? o.items.map(function (i) { return i.sku + " x " + i.qty; }).join(", ")
                       : "";
+                    var trail = o.admin_note || o.updated_by || o.operator_name || "";
                     return (
                       <tr
                         key={o.id}
@@ -2645,6 +3110,19 @@
                             : undefined
                         }
                       >
+                        <td>
+                          {o.status === "pending" ? (
+                            <input
+                              type="checkbox"
+                              style={{ width: "auto", margin: 0 }}
+                              checked={!!selected[o.id]}
+                              onChange={function (e) {
+                                setSelected(Object.assign({}, selected, { [o.id]: e.target.checked }));
+                              }}
+                              aria-label={"Tanlash " + (o.order_code || o.id)}
+                            />
+                          ) : null}
+                        </td>
                         <td>
                           <span className="badge" style={{ marginRight: 4 }}>{srcLabel}</span>
                           <span className="order-row-code" title={o.order_code}>
@@ -2666,6 +3144,9 @@
                           {o.note ? (
                             <div className="muted" style={{ fontSize: "0.7rem" }}>{o.note}</div>
                           ) : null}
+                          {trail ? (
+                            <div className="muted" style={{ fontSize: "0.68rem" }}>Oxirgi: {trail}</div>
+                          ) : null}
                         </td>
                         <td>
                           {money(o.total_amount)}
@@ -2674,12 +3155,14 @@
                           ) : null}
                         </td>
                         <td>
-                          <span className={"badge " + st.cls}>{st.text}</span>
+                          <StatusBadge status={o.status} />
                           {Number(o.paid_amount) > 0 && String(o.status) === "pending" ? (
                             <div className="muted" style={{ fontSize: "0.68rem" }}>niyat {money(o.paid_amount)}</div>
                           ) : null}
                         </td>
-                        <td style={{ whiteSpace: "nowrap" }}>
+                        <td className="sticky-actions" style={{ whiteSpace: "nowrap" }}>
+                          <button className="btn-ghost btn-sm" type="button" onClick={function () { copyOrder(o); }}>Nusxa</button>
+                          {" "}
                           {o.status === "pending" ? (
                             <span>
                               <button
@@ -2739,6 +3222,10 @@
         customer_id: "", order_id: "", amount: "", method: "cash", note: ""
       });
       const [msg, setMsg] = useAutoMsg();
+      const [q, setQ] = useState("");
+      const [dateFrom, setDateFrom] = useState("");
+      const [dateTo, setDateTo] = useState("");
+      const [ferr, setFerr] = useState({});
 
       const load = useCallback(function () {
         Promise.all([
@@ -2758,6 +3245,10 @@
 
       async function submit(e) {
         e.preventDefault();
+        const next = {};
+        if (!(Number(form.amount) > 0)) next.amount = "Summa musbat bo'lsin";
+        setFerr(next);
+        if (next.amount) return;
         try {
           const r = await api("/api/payments", {
             method: "POST",
@@ -2774,11 +3265,17 @@
             type: "ok"
           });
           setForm({ customer_id: "", order_id: "", amount: "", method: "cash", note: "" });
+          setFerr({});
           load();
         } catch (err) {
           setMsg({ text: err.message, type: "err" });
         }
       }
+
+      const shown = list.filter(function (p) {
+        if (!inDateRange(p.paid_at || p.created_at, dateFrom, dateTo)) return false;
+        return matchQ(q, [p.customer_name, p.order_code, p.method, p.note, p.amount]);
+      });
 
       return (
         <div>
@@ -2786,7 +3283,7 @@
           <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
           <div className="card">
             <h2>Qarz to'lovi</h2>
-            <form onSubmit={submit}>
+            <form onSubmit={submit} onKeyDown={function (e) { formKeyDown(e); }}>
               <div className="form-row">
                 <div>
                   <label htmlFor="f-42">Mijoz</label>
@@ -2821,7 +3318,8 @@
                 </div>
                 <div>
                   <label htmlFor="f-44">Summa *</label>
-                  <input id="f-44" type="number" value={form.amount} onChange={function (e) { setForm({ ...form, amount: e.target.value }); }} required />
+                  <input id="f-44" type="number" value={form.amount} onChange={function (e) { setForm({ ...form, amount: e.target.value }); }} />
+                  <FieldErr text={ferr.amount} />
                 </div>
                 <div>
                   <label htmlFor="f-45">Usul</label>
@@ -2840,13 +3338,33 @@
             </form>
           </div>
           <div className="card">
-            <h2>Songgi tolovlar</h2>
+            <div className="toolbar">
+              <h2 style={{ margin: 0 }}>So'nggi to'lovlar ({shown.length})</h2>
+              <input type="search" placeholder="Qidiruv: mijoz, kod..." value={q} onChange={function (e) { setQ(e.target.value); }} />
+              <input type="date" value={dateFrom} onChange={function (e) { setDateFrom(e.target.value); }} />
+              <input type="date" value={dateTo} onChange={function (e) { setDateTo(e.target.value); }} />
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                onClick={function () {
+                  downloadCsv("tolovlar.csv", shown, [
+                    { label: "Sana", get: function (r) { return ymdTashkent(r.paid_at || r.created_at); } },
+                    { label: "Mijoz", get: function (r) { return r.customer_name; } },
+                    { label: "Buyurtma", get: function (r) { return r.order_code; } },
+                    { label: "Summa", get: function (r) { return Math.round(Number(r.amount) || 0); } },
+                    { label: "Usul", get: function (r) { return r.method; } }
+                  ]);
+                }}
+              >
+                CSV
+              </button>
+            </div>
             <div className="table-wrap"><table>
               <thead>
                 <tr><th>Sana</th><th>Mijoz</th><th>Buyurtma</th><th>Summa</th><th>Usul</th></tr>
               </thead>
               <tbody>
-                {list.map(function (p) {
+                {shown.map(function (p) {
                   return (
                     <tr key={p.id}>
                       <td>{p.paid_at ? new Date(p.paid_at).toLocaleString("uz-UZ") : "-"}</td>
@@ -2872,6 +3390,10 @@
       const [editId, setEditId] = useState(null);
       const [editForm, setEditForm] = useState({ category: "", amount: "", payment_method: "cash", note: "" });
       const [msg, setMsg] = useAutoMsg();
+      const [q, setQ] = useState("");
+      const [dateFrom, setDateFrom] = useState("");
+      const [dateTo, setDateTo] = useState("");
+      const [ferr, setFerr] = useState({});
       const cats = ["Elektr", "Transport", "Ijara", "Ish haqi", "Tamirlash", "Boshqa"];
 
       const load = useCallback(function () {
@@ -2884,6 +3406,11 @@
 
       async function submit(e) {
         e.preventDefault();
+        const next = {};
+        if (!String(form.category || "").trim()) next.category = "Kategoriya majburiy";
+        if (!(Number(form.amount) > 0)) next.amount = "Summa musbat bo'lsin";
+        setFerr(next);
+        if (next.category || next.amount) return;
         try {
           await api("/api/expenses", {
             method: "POST",
@@ -2896,6 +3423,7 @@
           });
           setMsg({ text: "Xarajat yozildi", type: "ok" });
           setForm({ category: "", amount: "", payment_method: "cash", note: "" });
+          setFerr({});
           load();
         } catch (err) {
           setMsg({ text: err.message, type: "err" });
@@ -2932,24 +3460,31 @@
         }
       }
 
+      const shown = list.filter(function (x) {
+        if (!inDateRange(x.expense_date || x.created_at, dateFrom, dateTo)) return false;
+        return matchQ(q, [x.category, x.payment_method, x.note, x.amount]);
+      });
+
       return (
         <div>
           <PageHead title="Xarajatlar" sub="Summani qo'lda tuzatish mumkin. Tannarx SKU da alohida yoziladi — avtomatik taqsimlanmaydi." />
           <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
           <div className="card">
             <h2>Yangi xarajat</h2>
-            <form onSubmit={submit}>
+            <form onSubmit={submit} onKeyDown={function (e) { formKeyDown(e, function () { setFerr({}); }); }}>
               <div className="form-row">
                 <div>
                   <label htmlFor="f-47">Kategoriya *</label>
-                  <input id="f-47" list="exp-cats" value={form.category} onChange={function (e) { setForm({ ...form, category: e.target.value }); }} required />
+                  <input id="f-47" list="exp-cats" value={form.category} onChange={function (e) { setForm({ ...form, category: e.target.value }); }} />
                   <datalist id="exp-cats">
                     {cats.map(function (c) { return <option key={c} value={c} />; })}
                   </datalist>
+                  <FieldErr text={ferr.category} />
                 </div>
                 <div>
                   <label htmlFor="f-48">Summa *</label>
-                  <input id="f-48" type="number" value={form.amount} onChange={function (e) { setForm({ ...form, amount: e.target.value }); }} required />
+                  <input id="f-48" type="number" value={form.amount} onChange={function (e) { setForm({ ...form, amount: e.target.value }); }} />
+                  <FieldErr text={ferr.amount} />
                 </div>
                 <div>
                   <label htmlFor="f-49">Usul</label>
@@ -2970,7 +3505,7 @@
           {editId ? (
             <div className="card">
               <h2>Xarajatni tuzatish</h2>
-              <form onSubmit={saveEdit}>
+              <form onSubmit={saveEdit} onKeyDown={function (e) { formKeyDown(e, function () { setEditId(null); }); }}>
                 <div className="form-row">
                   <div>
                     <label>Kategoriya</label>
@@ -3001,13 +3536,33 @@
             </div>
           ) : null}
           <div className="card">
-            <h2>Xarajatlar</h2>
+            <div className="toolbar">
+              <h2 style={{ margin: 0 }}>Xarajatlar ({shown.length})</h2>
+              <input type="search" placeholder="Qidiruv: kategoriya, izoh..." value={q} onChange={function (e) { setQ(e.target.value); }} />
+              <input type="date" value={dateFrom} onChange={function (e) { setDateFrom(e.target.value); }} />
+              <input type="date" value={dateTo} onChange={function (e) { setDateTo(e.target.value); }} />
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                onClick={function () {
+                  downloadCsv("xarajatlar.csv", shown, [
+                    { label: "Sana", get: function (r) { return ymdTashkent(r.expense_date || r.created_at); } },
+                    { label: "Kategoriya", get: function (r) { return r.category; } },
+                    { label: "Summa", get: function (r) { return Math.round(Number(r.amount) || 0); } },
+                    { label: "Usul", get: function (r) { return r.payment_method; } },
+                    { label: "Izoh", get: function (r) { return r.note; } }
+                  ]);
+                }}
+              >
+                CSV
+              </button>
+            </div>
             <div className="table-wrap"><table>
               <thead>
                 <tr><th>Sana</th><th>Kategoriya</th><th>Summa</th><th>Usul</th><th>Izoh</th><th></th></tr>
               </thead>
               <tbody>
-                {list.map(function (x) {
+                {shown.map(function (x) {
                   return (
                     <tr key={x.id}>
                       <td>{x.expense_date ? new Date(x.expense_date).toLocaleDateString("uz-UZ") : "-"}</td>
@@ -3037,13 +3592,26 @@
       const saveSettings = apiHook.saveSettings;
       const logout = apiHook.logout;
       const operatorName = apiHook.operatorName || "";
+      const uiRole = apiHook.uiRole || "admin";
+      const [pageFilter, setPageFilter] = useState({});
+      const [moduleId, setModuleId] = useState("dashboard");
+      const [tab, setTab] = useState("dashboard");
+
+      useEffect(function () {
+        if (!adminKey) return;
+        if (uiRole === "kassir" && tab !== "orders" && tab !== "payments") {
+          setModuleId("sales");
+          setTab("orders");
+          setPageFilter({});
+        }
+      }, [adminKey, uiRole]);
 
       if (!adminKey) {
         return (
           <LoginScreen
             apiBase={apiBase}
-            onLogin={function (k, opName) {
-              saveSettings(apiBase || window.location.origin, k, opName || "");
+            onLogin={function (k, opName, role) {
+              saveSettings(apiBase || window.location.origin, k, opName || "", role || "admin");
             }}
           />
         );
@@ -3051,63 +3619,7 @@
 
       // Lucide-style line icons (inline SVG)
       function NavIcon(props) {
-        const n = props.name;
-        const common = {
-          viewBox: "0 0 24 24",
-          fill: "none",
-          stroke: "currentColor",
-          strokeWidth: 1.75,
-          strokeLinecap: "round",
-          strokeLinejoin: "round",
-          "aria-hidden": true
-        };
-        if (n === "layout") {
-          return (
-            <svg {...common}>
-              <rect x="3" y="3" width="7" height="9" rx="1" />
-              <rect x="14" y="3" width="7" height="5" rx="1" />
-              <rect x="14" y="12" width="7" height="9" rx="1" />
-              <rect x="3" y="16" width="7" height="5" rx="1" />
-            </svg>
-          );
-        }
-        if (n === "factory") {
-          return (
-            <svg {...common}>
-              <path d="M3 21h18" />
-              <path d="M5 21V10l4 3V10l4 3V7l4 3v11" />
-            </svg>
-          );
-        }
-        if (n === "cart") {
-          return (
-            <svg {...common}>
-              <circle cx="9" cy="20" r="1" />
-              <circle cx="17" cy="20" r="1" />
-              <path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H7" />
-            </svg>
-          );
-        }
-        if (n === "users") {
-          return (
-            <svg {...common}>
-              <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
-              <circle cx="9.5" cy="7" r="3" />
-              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a3 3 0 0 1 0 5.74" />
-            </svg>
-          );
-        }
-        if (n === "catalog") {
-          return (
-            <svg {...common}>
-              <path d="M4 6h16" />
-              <path d="M4 12h16" />
-              <path d="M4 18h10" />
-            </svg>
-          );
-        }
-        return null;
+        return <Ico name={props.name} />;
       }
 
       const modules = [
@@ -3156,28 +3668,59 @@
         }
       ];
 
-      const [moduleId, setModuleId] = useState("dashboard");
-      const [tab, setTab] = useState("dashboard");
+      // UI-rol filtri — xavfsizlik chegarasi emas, faqat menyu.
+      const ROLE_TABS = {
+        admin: null,
+        operator: ["dashboard", "batches", "packaging", "stock", "orders", "payments", "shipments", "materials", "expenses", "products", "customers", "partners"],
+        kassir: ["orders", "payments"]
+      };
+      const allowedTabs = ROLE_TABS[uiRole] || null;
+      const visModules = modules.map(function (m) {
+        const tabs = allowedTabs ? m.tabs.filter(function (t) { return allowedTabs.indexOf(t.id) !== -1; }) : m.tabs;
+        return Object.assign({}, m, { tabs: tabs });
+      }).filter(function (m) { return m.tabs.length > 0; });
 
-      const currentModule = modules.find(function (m) { return m.id === moduleId; }) || modules[0];
+      const currentModule = visModules.find(function (m) { return m.id === moduleId; }) || visModules[0] || modules[0];
 
       function openModule(id) {
-        const m = modules.find(function (x) { return x.id === id; });
+        const m = visModules.find(function (x) { return x.id === id; });
         if (!m) return;
         setModuleId(id);
         setTab(m.tabs[0].id);
+        setPageFilter({});
       }
 
       function openSub(id) {
         setTab(id);
+        setPageFilter({});
       }
 
+      function goTo(tabId, extra) {
+        let found = null;
+        visModules.forEach(function (m) {
+          m.tabs.forEach(function (t) {
+            if (t.id === tabId) found = { mid: m.id, tid: t.id };
+          });
+        });
+        if (!found) return;
+        setModuleId(found.mid);
+        setTab(found.tid);
+        setPageFilter(extra || {});
+      }
+
+      const TAB_ICO = {
+        dashboard: "layout", batches: "factory", packaging: "box", stock: "box",
+        orders: "cart", payments: "coin", shipments: "truck",
+        materials: "catalog", expenses: "coin", products: "box",
+        customers: "users", partners: "users", settings: "catalog"
+      };
+
       let content = null;
-      if (tab === "dashboard") content = <Dashboard api={api} />;
+      if (tab === "dashboard") content = <Dashboard api={api} onNavigate={goTo} />;
       else if (tab === "stock") content = <Stock api={api} />;
       else if (tab === "batches") content = <Batches api={api} />;
       else if (tab === "packaging") content = <Packaging api={api} />;
-      else if (tab === "orders") content = <Orders api={api} />;
+      else if (tab === "orders") content = <Orders api={api} pageFilter={pageFilter} />;
       else if (tab === "payments") content = <Payments api={api} />;
       else if (tab === "expenses") content = <Expenses api={api} />;
       else if (tab === "products") content = <Products api={api} />;
@@ -3189,6 +3732,30 @@
 
       return (
         <div className="shell">
+          <aside className="sidebar" aria-label="Sahifalar">
+            <div className="sidebar-brand">Black Diamond</div>
+            {visModules.map(function (m) {
+              return (
+                <div key={m.id}>
+                  <div className="sidebar-group">{m.short}</div>
+                  {m.tabs.map(function (t) {
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        className={tab === t.id ? "active" : ""}
+                        onClick={function () { setModuleId(m.id); setTab(t.id); setPageFilter({}); }}
+                      >
+                        <span className="nav-ico"><NavIcon name={TAB_ICO[t.id] || m.ico} /></span>
+                        {t.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </aside>
+
           <div className="header">
             <div className="header-inner">
               <div className="header-mark">
@@ -3199,14 +3766,15 @@
                 <p>Ishlab chiqarish · Ombor · Savdo{operatorName ? " · " + operatorName : ""}</p>
               </div>
               <div className="header-right">
+                <span className="header-role">{uiRole}</span>
                 <button type="button" className="logout-btn" onClick={logout}>Chiqish</button>
               </div>
             </div>
           </div>
 
           <div className="main">
-            {currentModule.tabs.length > 1 ? (
-              <div className="segment">
+            {currentModule && currentModule.tabs.length > 1 ? (
+              <div className="segment mobile-only">
                 {currentModule.tabs.map(function (t) {
                   return (
                     <button
@@ -3226,7 +3794,7 @@
           </div>
 
           <nav className="bottom-nav" aria-label="Asosiy menyu">
-            {modules.map(function (m) {
+            {visModules.map(function (m) {
               return (
                 <button
                   key={m.id}
