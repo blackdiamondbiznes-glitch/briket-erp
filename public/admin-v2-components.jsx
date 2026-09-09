@@ -4,10 +4,26 @@ function money(n) {
   return Number(n || 0).toLocaleString("uz-UZ");
 }
 function Msg(props) {
+  useEffect(function () {
+    if (!props.text || !props.onClose) return;
+    var ms = props.type === "err" ? 6000 : 2500;
+    var id = setTimeout(props.onClose, ms);
+    return function () { clearTimeout(id); };
+  }, [props.text, props.type, props.onClose]);
   if (!props.text) return null;
   return (
-    <div className={"msg toast " + (props.type || "ok")} onClick={props.onClose}>
-      {props.text}
+    <div className={"msg toast " + (props.type || "ok")} onClick={props.onClose} role="status">
+      <span style={{ flex: 1 }}>{props.text}</span>
+      <button type="button" className="msg-x" aria-label="Yopish" onClick={props.onClose}>×</button>
+    </div>
+  );
+}
+
+function V2Empty(props) {
+  return (
+    <div className="empty-state empty">
+      <div className="empty-title">{props.title || "Ro'yxat bo'sh"}</div>
+      {props.sub ? <div className="muted">{props.sub}</div> : null}
     </div>
   );
 }
@@ -130,6 +146,10 @@ window.Partners = function Partners(props) {
       credit_limit: p.credit_limit != null ? String(p.credit_limit) : "",
       note: p.note || ""
     });
+    setTimeout(function () {
+      var el = document.getElementById("v2-partner-form");
+      if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   }
 
   function askDelete(id) {
@@ -168,7 +188,7 @@ window.Partners = function Partners(props) {
       <div className="card">
         <h2>{editId ? "Hamkorni tahrirlash #" + editId : "Yangi hamkor"}</h2>
         <div className="hint-box">Bu ro'yxat — Yuk (diler/agent) bo'limida ishlatiladi. Oddiy mijoz uchun Mijozlar sahifasini oching.</div>
-        <form onSubmit={submit}>
+        <form id="v2-partner-form" onSubmit={submit}>
           <div className="form-row">
             <div>
               <label>Ism *</label>
@@ -256,35 +276,43 @@ window.Partners = function Partners(props) {
             <option value="agent">Agent</option>
           </select>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Ism</th><th>Rol</th><th>Tel</th><th>Chegirma</th><th>Limit</th><th>Diler</th><th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {shown.map(function (p) {
-              return (
-                <tr key={p.id}>
-                  <td>{p.name}</td>
-                  <td>{typeLabel[p.type] || p.type}</td>
-                  <td>{p.phone || "-"}</td>
-                  <td>
-                    {discLabel[p.discount_type] || p.discount_type}
-                    {Number(p.discount_value) > 0 ? " · " + money(p.discount_value) : ""}
-                  </td>
-                  <td>{money(p.credit_limit)}</td>
-                  <td>{p.parent_name || "-"}</td>
-                  <td>
-                    <button className="btn-ghost" type="button" onClick={function () { startEdit(p); }}>Tahrir</button>
-                    {" "}
-                    <button className="btn-ghost" type="button" onClick={function () { askDelete(p.id); }}>Ochirish</button>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ism</th><th>Rol</th><th>Tel</th><th>Chegirma</th><th>Limit</th><th>Diler</th><th className="sticky-actions">Amallar</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.length === 0 ? (
+                <tr>
+                  <td colSpan="7">
+                    <V2Empty title="Hamkor yo'q" sub="Yuqoridagi forma orqali qo'shing" />
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ) : shown.map(function (p) {
+                return (
+                  <tr key={p.id}>
+                    <td>{p.name}</td>
+                    <td>{typeLabel[p.type] || p.type}</td>
+                    <td>{p.phone || "-"}</td>
+                    <td>
+                      {discLabel[p.discount_type] || p.discount_type}
+                      {Number(p.discount_value) > 0 ? " · " + money(p.discount_value) : ""}
+                    </td>
+                    <td>{money(p.credit_limit)}</td>
+                    <td>{p.parent_name || "-"}</td>
+                    <td className="sticky-actions">
+                      <button className="btn-ghost btn-sm" type="button" onClick={function () { startEdit(p); }}>Tahrir</button>
+                      {" "}
+                      <button className="btn-danger btn-sm" type="button" onClick={function () { askDelete(p.id); }}>O'chirish</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -440,28 +468,37 @@ window.Shipments = function Shipments(props) {
             onChange={function (e) { setQ(e.target.value); }}
           />
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Kod</th><th>Kimdan</th><th>Kimga</th><th>SKU</th><th>Dona</th><th>Summa</th><th>Sana</th>
-            </tr>
-          </thead>
-          <tbody>
-            {shown.map(function (s) {
-              return (
-                <tr key={s.id}>
-                  <td>{s.shipment_code}</td>
-                  <td>{s.from_type === "factory" ? "Zavod" : (s.from_name || "Diler")}</td>
-                  <td>{s.to_name} ({s.to_type})</td>
-                  <td>{s.sku}</td>
-                  <td>{s.qty}</td>
-                  <td>{money(s.total_amount)}</td>
-                  <td>{s.given_at ? String(s.given_at).slice(0, 10) : "-"}</td>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Kod</th><th>Kimdan</th><th>Kimga</th><th>SKU</th><th>Dona</th><th>Summa</th><th>Sana</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.length === 0 ? (
+                <tr>
+                  <td colSpan="7">
+                    <V2Empty title="Yuk yo'q" sub="Yuqorida yuk berish formasidan boshlang" />
+                  </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ) : shown.map(function (s) {
+                var toRole = s.to_type === "dealer" ? "Diler" : (s.to_type === "agent" ? "Agent" : (s.to_type || ""));
+                return (
+                  <tr key={s.id}>
+                    <td>{s.shipment_code}</td>
+                    <td>{s.from_type === "factory" ? "Zavod" : (s.from_name || "Diler")}</td>
+                    <td>{s.to_name}{toRole ? " (" + toRole + ")" : ""}</td>
+                    <td>{s.sku}</td>
+                    <td>{s.qty}</td>
+                    <td>{money(s.total_amount)}</td>
+                    <td>{s.given_at ? String(s.given_at).slice(0, 10) : "-"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -493,14 +530,20 @@ window.BizSettings = function BizSettings(props) {
 
   useEffect(function () { load(); }, [load]);
 
+  const [busy, setBusy] = useState(false);
+
   async function submit(e) {
     e.preventDefault();
+    if (busy) return;
+    setBusy(true);
     try {
       await api("/api/settings", { method: "PUT", body: JSON.stringify(form) });
       setMsg({ text: "Sozlamalar saqlandi", type: "ok" });
       load();
     } catch (err) {
       setMsg({ text: err.message, type: "err" });
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -531,7 +574,7 @@ window.BizSettings = function BizSettings(props) {
               <input type="number" value={form.default_credit_limit} onChange={function (e) { setForm(Object.assign({}, form, { default_credit_limit: e.target.value })); }} />
             </div>
           </div>
-          <button className="btn" type="submit">Saqlash</button>
+          <button className="btn" type="submit" disabled={busy}>{busy ? "Saqlanmoqda..." : "Saqlash"}</button>
         </form>
       </div>
     </div>
