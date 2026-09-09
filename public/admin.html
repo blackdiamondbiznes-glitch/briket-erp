@@ -730,6 +730,39 @@
       .sidebar { display: none !important; }
       .msg.toast { top: auto; bottom: calc(var(--nav-h) + 12px); right: 12px; left: 12px; max-width: none; }
     }
+
+    .msg.toast { display: flex; align-items: flex-start; gap: 8px; }
+    .msg.toast .mark { flex: 0 0 auto; }
+    .msg.toast .msg-x {
+      margin-left: auto; border: 0; background: transparent; color: inherit;
+      cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 2px;
+    }
+    .empty-state { text-align: center; padding: 28px 16px; color: var(--muted); }
+    .crumb { font-size: 0.72rem; color: var(--muted); font-weight: 500; }
+    .crumb b { color: var(--text); font-weight: 650; }
+    .price-edit { display: inline-flex; align-items: center; gap: 6px; }
+    .price-edit button {
+      border: 0; background: transparent; color: var(--accent); cursor: pointer;
+      padding: 2px; font-size: 0.85rem; line-height: 1;
+    }
+    .login-card input.invalid { border-color: var(--danger); }
+    .hint-box {
+      font-size: 0.78rem; color: var(--muted); margin-bottom: 10px;
+      padding: 8px 10px; background: var(--bg-mid); border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+    }
+    .remember {
+      display: flex; align-items: center; gap: 8px; margin: 0 0 14px;
+      font-size: 0.8rem; color: var(--muted);
+    }
+    .remember input { width: auto; margin: 0; }
+    @media (max-width: 700px) {
+      .table-wrap tbody td.sticky-actions {
+        flex-direction: column; align-items: stretch; justify-content: flex-start;
+      }
+      .table-wrap tbody td.sticky-actions::before { flex: 0 0 100%; max-width: none; }
+      .table-wrap tbody td.sticky-actions > * { max-width: 100%; }
+    }
   </style>
 </head>
 <body>
@@ -848,6 +881,15 @@
         }).format(new Date());
       } catch (e) { return new Date().toLocaleString("uz-UZ"); }
     }
+    function EmptyState(props) {
+      return (
+        <div className="empty-state empty">
+          <div className="empty-ico"><Ico name={props.icon || "box"} /></div>
+          <div className="empty-title">{props.title || "Ro'yxat bo'sh"}</div>
+          {props.sub ? <div>{props.sub}</div> : null}
+        </div>
+      );
+    }
     function PageHead(props) {
       return (
         <div className="page-head">
@@ -875,6 +917,7 @@
     // Sessiya: sessionStorage + 12 soat. localStorage dagi eski kalit o'chiriladi —
     // brauzerni yopib qayta ochganda kirish so'raladi.
     const SESSION_MS = 12 * 60 * 60 * 1000;
+    const SESSION_LONG_MS = 7 * 24 * 60 * 60 * 1000;
     const SS = (function () {
       try {
         var s = window.sessionStorage;
@@ -892,9 +935,11 @@
     })();
 
     try {
-      localStorage.removeItem("erp_key");
-      localStorage.removeItem("erp_key_at");
-      localStorage.removeItem("erp_operator");
+      if (localStorage.getItem("erp_persist") !== "1") {
+        localStorage.removeItem("erp_key");
+        localStorage.removeItem("erp_key_at");
+        localStorage.removeItem("erp_operator");
+      }
     } catch (e0) {}
 
     function useApi() {
@@ -916,7 +961,7 @@
         return SS.getItem("erp_operator") || "Admin";
       });
 
-      function saveSettings(base, key, operator) {
+      function saveSettings(base, key, operator, remember) {
         setApiBase(base);
         setAdminKey(key);
         const op = operator || "Admin";
@@ -925,7 +970,19 @@
         SS.setItem("erp_key", key);
         SS.setItem("erp_key_at", String(Date.now()));
         SS.setItem("erp_operator", op);
-        try { SS.removeItem("erp_ui_role"); } catch (e2) {}
+        try {
+          if (remember) {
+            localStorage.setItem("erp_persist", "1");
+            localStorage.setItem("erp_key", key);
+            localStorage.setItem("erp_key_at", String(Date.now()));
+            localStorage.setItem("erp_operator", op);
+          } else {
+            localStorage.removeItem("erp_persist");
+            localStorage.removeItem("erp_key");
+            localStorage.removeItem("erp_key_at");
+            localStorage.removeItem("erp_operator");
+          }
+        } catch (e2) {}
       }
 
       const api = useCallback(async function (path, opts) {
@@ -982,6 +1039,7 @@
       const [showKey, setShowKey] = useState(false);
       const [err, setErr] = useState("");
       const [busy, setBusy] = useState(false);
+      const [remember, setRemember] = useState(false);
 
       async function submit(e) {
         e.preventDefault();
@@ -1005,7 +1063,7 @@
             setBusy(false);
             return;
           }
-          props.onLogin(key.trim());
+          props.onLogin(key.trim(), remember);
         } catch (ex) {
           setErr(ex.message || "Ulanish xatosi");
         }
@@ -1031,6 +1089,7 @@
                 placeholder="Parol"
                 autoComplete="current-password"
                 autoFocus
+                className={err ? "invalid" : ""}
                 style={{ marginBottom: 0, paddingRight: 44 }}
               />
               <button
@@ -1043,6 +1102,10 @@
                 {showKey ? "Yashir" : "Ko'r"}
               </button>
             </div>
+            <label className="remember">
+              <input type="checkbox" checked={remember} onChange={function (e) { setRemember(e.target.checked); }} />
+              Meni eslab qol (7 kun)
+            </label>
             <button className="btn" type="submit" disabled={busy}>
               {busy ? "Tekshirilmoqda..." : "Kirish"}
             </button>
@@ -1081,7 +1144,10 @@
       function setMsg(m) {
         setMsgRaw(m || {});
         if (m && m.text) {
-          setTimeout(function () { setMsgRaw({}); }, 2500);
+          const ms = m.type === "err" ? 6000 : 2500;
+          setTimeout(function () {
+            setMsgRaw(function (cur) { return cur && cur.text === m.text ? {} : cur; });
+          }, ms);
         }
       }
       return [msg, setMsg];
@@ -1089,9 +1155,13 @@
 
     function Msg(props) {
       if (!props.text) return null;
+      const typ = props.type || "ok";
+      const mark = typ === "err" ? "✕" : "✓";
       return (
-        <div className={"msg toast " + (props.type || "ok")} onClick={props.onClose}>
-          {props.text}
+        <div className={"msg toast " + typ} role="status">
+          <span className="mark" aria-hidden="true">{mark}</span>
+          <span style={{ flex: 1 }}>{props.text}</span>
+          <button type="button" className="msg-x" aria-label="Yopish" onClick={props.onClose}>×</button>
         </div>
       );
     }
@@ -1427,7 +1497,7 @@
           <div className="card">
             <h2>Mahsulot qoldiq</h2>
             {products.length === 0 ? (
-              <div className="empty">Bosh</div>
+              <EmptyState icon="box" title="Mahsulot qoldiq yo'q" sub="Avval qadoqlash qiling" />
             ) : (
               <div className="table-wrap"><table>
                 <thead>
@@ -1880,7 +1950,10 @@
                             }}
                           />
                         ) : (
-                          <span className="price-cell" title="Ikki marta bosing" onDoubleClick={function () { setInlineId(p.id); setInlineVal(String(Math.round(Number(p.price) || 0))); }}>{money(p.price)}</span>
+                          <span className="price-edit">
+                            <span className="price-cell">{money(p.price)}</span>
+                            <button type="button" aria-label="Narxni tahrirlash" onClick={function () { setInlineId(p.id); setInlineVal(String(Math.round(Number(p.price) || 0))); }}>✎</button>
+                          </span>
                         )}
                       </td>
                       <td>{money(Math.round(Number(p.price || 0) - Number(p.cost_price || 0)))}</td>
@@ -2172,7 +2245,10 @@
                               }}
                             />
                           ) : (
-                            <span className="price-cell" title="Ikki marta bosing" onDoubleClick={function () { setInlineId(m.id); setInlineVal(String(m.price != null ? m.price : "")); }}>{money(m.price)}</span>
+                            <span className="price-edit">
+                              <span className="price-cell">{money(m.price)}</span>
+                              <button type="button" aria-label="Narxni tahrirlash" onClick={function () { setInlineId(m.id); setInlineVal(String(m.price != null ? m.price : "")); }}>✎</button>
+                            </span>
                           )}
                         </td>
                         <td>
@@ -2199,11 +2275,13 @@
       const api = props.api;
       const [list, setList] = useState([]);
       const [form, setForm] = useState({
-        bags_count: "", bag_price: "", dry_kg: "", workers_count: "", press_wage: "", note: ""
+        bags_count: "", bag_price: "", dry_kg: "", workers_count: "", press_wage: "", note: "", material_id: ""
       });
+      const [materials, setMaterials] = useState([]);
       const [msg, setMsg] = useAutoMsg();
       const [confirmState, setConfirmState] = useState({ open: false, text: "", onConfirm: null });
       const [ferr, setFerr] = useState({});
+      const [busy, setBusy] = useState(false);
 
       function copyBatch(b) {
         setForm({
@@ -2235,8 +2313,11 @@
       }
 
       const load = useCallback(function () {
-        api("/api/batches")
-          .then(function (r) { setList(r.data || []); })
+        Promise.all([api("/api/batches"), api("/api/materials")])
+          .then(function (arr) {
+            setList(arr[0].data || []);
+            setMaterials(arr[1].data || []);
+          })
           .catch(function (e) { setMsg({ text: e.message, type: "err" }); });
       }, [api]);
 
@@ -2250,8 +2331,10 @@
         if (!(Number(form.dry_kg) > 0)) next.dry_kg = "Quruq kg musbat bo'lsin";
         setFerr(next);
         if (Object.keys(next).length) return;
+        if (busy) return;
+        setBusy(true);
         try {
-          await api("/api/batches", {
+          const r = await api("/api/batches", {
             method: "POST",
             body: JSON.stringify({
               bags_count: Number(form.bags_count),
@@ -2259,15 +2342,17 @@
               dry_kg: Number(form.dry_kg),
               workers_count: Number(form.workers_count) || 0,
               press_wage: Number(form.press_wage) || 0,
-              note: form.note || null
+              note: form.note || null,
+              material_id: form.material_id ? Number(form.material_id) : null
             })
           });
-          setMsg({ text: "Partiya yaratildi", type: "ok" });
-          setForm({ bags_count: "", bag_price: "", dry_kg: "", workers_count: "", press_wage: "", note: "" });
+          setMsg({ text: (r && r.warning) ? ("Partiya yaratildi. " + r.warning) : "Partiya yaratildi", type: (r && r.warning) ? "err" : "ok" });
+          setForm({ bags_count: "", bag_price: "", dry_kg: "", workers_count: "", press_wage: "", note: "", material_id: form.material_id || "" });
           load();
         } catch (err) {
           setMsg({ text: err.message, type: "err" });
         }
+        setBusy(false);
       }
 
       return (
@@ -2307,11 +2392,20 @@
                   <input id="f-23" type="number" value={form.press_wage} onChange={function (e) { setForm({ ...form, press_wage: e.target.value }); }} />
                 </div>
                 <div>
+                  <label htmlFor="f-24m">Material</label>
+                  <select id="f-24m" value={form.material_id} onChange={function (e) { setForm({ ...form, material_id: e.target.value }); }}>
+                    <option value="">Avto (ko'mir)</option>
+                    {materials.map(function (m) {
+                      return <option key={m.id} value={m.id}>{m.name}</option>;
+                    })}
+                  </select>
+                </div>
+                <div>
                   <label htmlFor="f-24">Izoh</label>
                   <input id="f-24" value={form.note} onChange={function (e) { setForm({ ...form, note: e.target.value }); }} />
                 </div>
               </div>
-              <button className="btn" type="submit">Partiya yaratish</button>
+              <button className="btn" type="submit" disabled={busy}>{busy ? "Saqlanmoqda..." : "Partiya yaratish"}</button>
             </form>
           </div>
           <div className="card">
@@ -2430,6 +2524,8 @@
         if (!(Number(form.qty) > 0)) next.qty = "Dona musbat bo'lsin";
         setFerr(next);
         if (next.product_id || next.qty) return;
+        if (busyPack) return;
+        setBusyPack(true);
         try {
           await api("/api/packaging", {
             method: "POST",
@@ -2448,6 +2544,7 @@
         } catch (err) {
           setMsg({ text: err.message, type: "err" });
         }
+        setBusyPack(false);
       }
 
       return (
@@ -2490,7 +2587,7 @@
                   </select>
                 </div>
               </div>
-              <button className="btn" type="submit">Qadoqlash</button>
+              <button className="btn" type="submit" disabled={busyPack}>{busyPack ? "Saqlanmoqda..." : "Qadoqlash"}</button>
             </form>
           </div>
           <div className="card">
@@ -2643,6 +2740,7 @@
           <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
           <div className="card">
             <h2>Yangi mijoz</h2>
+            <div className="hint-box">Bu ro'yxat — Buyurtma (Savdo) bo'limida ishlatiladi. Diler/agent uchun Hamkorlar sahifasini oching.</div>
             <form onSubmit={submit}>
               <div className="form-row">
                 <div>
@@ -2757,6 +2855,7 @@
       const [dateTo, setDateTo] = useState("");
       const [ferr, setFerr] = useState({});
       const [selected, setSelected] = useState({});
+      const [busy, setBusy] = useState(false);
       const debtOnlyInit = !!(props.pageFilter && props.pageFilter.debtOnly);
       const [debtOnly, setDebtOnly] = useState(debtOnlyInit);
 
@@ -2828,6 +2927,7 @@
 
       async function submit(e) {
         e.preventDefault();
+        if (busy) return;
         const items = lines
           .filter(function (l) { return l.product_id && Number(l.qty) > 0; })
           .map(function (l) {
@@ -2842,6 +2942,7 @@
         if (!items.length) next.items = "Kamida 1 ta mahsulot kiriting";
         setFerr(next);
         if (next.customer_name || next.items) return;
+        setBusy(true);
         try {
           await api("/api/orders", {
             method: "POST",
@@ -2861,6 +2962,7 @@
         } catch (err) {
           setMsg({ text: err.message, type: "err" });
         }
+        setBusy(false);
       }
 
       async function setStatus(id, status) {
@@ -2974,8 +3076,8 @@
                   return (
                     <div className="line-row" key={i}>
                       <div>
-                        <label htmlFor="f-38">SKU</label>
-                        <select id="f-38" value={l.product_id} onChange={function (e) { setLine(i, "product_id", e.target.value); }}>
+                        <label htmlFor={"sku-" + i}>SKU</label>
+                        <select id={"sku-" + i} value={l.product_id} onChange={function (e) { setLine(i, "product_id", e.target.value); }}>
                           <option value="">Tanlang</option>
                           {products.map(function (p) {
                             return <option key={p.id} value={p.id}>{p.sku} · optom {money(p.price)}</option>;
@@ -2983,12 +3085,12 @@
                         </select>
                       </div>
                       <div>
-                        <label htmlFor="f-39">Dona</label>
-                        <input id="f-39" type="number" min="1" step="1" value={l.qty} onChange={function (e) { setLine(i, "qty", e.target.value); }} />
+                        <label htmlFor={"qty-" + i}>Dona</label>
+                        <input id={"qty-" + i} type="number" min="1" step="1" value={l.qty} onChange={function (e) { setLine(i, "qty", e.target.value); }} />
                       </div>
                       <div>
-                        <label htmlFor="f-40">Birlik narx</label>
-                        <input id="f-40" type="number" min="0" step="1" value={l.unit_price} onChange={function (e) { setLine(i, "unit_price", e.target.value); }} />
+                        <label htmlFor={"price-" + i}>Birlik narx</label>
+                        <input id={"price-" + i} type="number" min="0" step="1" value={l.unit_price} onChange={function (e) { setLine(i, "unit_price", e.target.value); }} />
                       </div>
                       <button
                         type="button"
@@ -3026,7 +3128,7 @@
                 <label htmlFor="f-41">Izoh</label>
                 <input id="f-41" value={form.note} onChange={function (e) { setForm({ ...form, note: e.target.value }); }} />
               </div>
-              <button className="btn" type="submit">Buyurtma yaratish</button>
+              <button className="btn" type="submit" disabled={busy}>{busy ? "Saqlanmoqda..." : "Buyurtma yaratish"}</button>
             </form>
           </div>
           <div className="card">
@@ -3236,6 +3338,7 @@
       const [dateFrom, setDateFrom] = useState("");
       const [dateTo, setDateTo] = useState("");
       const [ferr, setFerr] = useState({});
+      const [busy, setBusy] = useState(false);
 
       const load = useCallback(function () {
         Promise.all([
@@ -3259,6 +3362,8 @@
         if (!(Number(form.amount) > 0)) next.amount = "Summa musbat bo'lsin";
         setFerr(next);
         if (next.amount) return;
+        if (busy) return;
+        setBusy(true);
         try {
           const r = await api("/api/payments", {
             method: "POST",
@@ -3280,6 +3385,7 @@
         } catch (err) {
           setMsg({ text: err.message, type: "err" });
         }
+        setBusy(false);
       }
 
       const shown = list.filter(function (p) {
@@ -3344,7 +3450,7 @@
                   <input id="f-46" value={form.note} onChange={function (e) { setForm({ ...form, note: e.target.value }); }} />
                 </div>
               </div>
-              <button className="btn" type="submit">Tolov qabul qilish</button>
+              <button className="btn" type="submit" disabled={busy}>{busy ? "Saqlanmoqda..." : "Tolov qabul qilish"}</button>
             </form>
           </div>
           <div className="card">
@@ -3610,8 +3716,8 @@
         return (
           <LoginScreen
             apiBase={apiBase}
-            onLogin={function (k) {
-              saveSettings(apiBase || window.location.origin, k, "Admin");
+            onLogin={function (k, remember) {
+              saveSettings(apiBase || window.location.origin, k, "Admin", remember);
             }}
           />
         );
@@ -3671,6 +3777,7 @@
       const visModules = modules;
 
       const currentModule = visModules.find(function (m) { return m.id === moduleId; }) || visModules[0] || modules[0];
+      const currentTab = (currentModule && currentModule.tabs || []).find(function (x) { return x.id === tab; }) || (currentModule && currentModule.tabs[0]) || { id: tab, label: tab };
 
       function openModule(id) {
         const m = visModules.find(function (x) { return x.id === id; });
@@ -3752,8 +3859,8 @@
                 <img src="/bd_logo.jpg" alt="" />
               </div>
               <div>
-                <h1>Black Diamond OPS</h1>
-                <p>Ishlab chiqarish · Ombor · Savdo{operatorName ? " · " + operatorName : ""}</p>
+                <h1>Black Diamond OPS{currentTab ? " · " + currentTab.label : ""}</h1>
+                <p className="crumb">{currentModule ? currentModule.label : ""}{currentTab && currentModule && currentTab.label !== currentModule.label ? " → " : ""}{currentTab && currentModule && currentTab.label !== currentModule.label ? <b>{currentTab.label}</b> : null}{operatorName ? " · " + operatorName : ""}</p>
               </div>
               <div className="header-right">
                 <button type="button" className="logout-btn" onClick={logout}>Chiqish</button>
@@ -3827,7 +3934,6 @@
         if (root) _tblObs.observe(root, { childList: true, subtree: true });
         labelTables();
       });
-      setInterval(labelTables, 800);
     }
     (function bootAdmin() {
       if (!window.React || !window.ReactDOM) {

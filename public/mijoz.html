@@ -578,7 +578,7 @@ function productImages(p) {
   return [];
 }
 
-/* DB price = yirik (chegirmali). Asosiy = price + bulk_discount */
+/* DB price = optom. Asosiy (500 gacha) = price + bulk_discount */
 function prices(p, settings) {
   const disc = Number(settings.bulk_discount) || 3000;
   const yirik = Number(p.price) || 0;
@@ -604,7 +604,14 @@ function Loading({ text }) {
 function Gallery({ images, alt }) {
   const [i, setI] = useState(0);
   if (!images || !images.length) {
-    return <div className="product-img" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666', minHeight: 240 }}>Rasm yo'q</div>;
+    return (
+      <div className="product-img" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 240, background: 'var(--card, #141210)' }}>
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" style={{ opacity: 0.45 }}>
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+          <path d="M3.3 7L12 12l8.7-5"/><path d="M12 22V12"/>
+        </svg>
+      </div>
+    );
   }
   const n = images.length;
   return (
@@ -641,6 +648,7 @@ function Lightbox({ images, index, onClose }) {
 }
 
 function ProductCard({ p, settings, onAdd, onDetail, onLightbox }) {
+  const [added, setAdded] = useState(false);
   const [qtyStr, setQtyStr] = useState('0');
   const qty = Math.max(0, parseInt(qtyStr, 10) || 0);
   const { asosiy, yirik, disc, minQty } = prices(p, settings);
@@ -688,14 +696,16 @@ function ProductCard({ p, settings, onAdd, onDetail, onLightbox }) {
 
         <button
           className={'btn ' + (out ? 'btn-warn' : '')}
-          style={{ opacity: qty < 1 ? 0.55 : 1 }}
+          style={{ opacity: qty < 1 ? 0.55 : 1, background: added ? 'var(--ok, #157347)' : undefined }}
           onClick={() => {
             if (qty < 1) return;
             onAdd(p, qty);
             setQtyStr('0');
+            setAdded(true);
+            setTimeout(() => setAdded(false), 1600);
           }}
         >
-          Savatga
+          {added ? '✓ Qo‘shildi' : 'Savatga'}
         </button>
         <button className="btn btn-secondary" onClick={() => onDetail(p)}>Batafsil</button>
       </div>
@@ -742,7 +752,9 @@ function DetailPage({ p, settings, onClose, onAdd, showMsg }) {
             )}
           </>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>Rasm yo'q</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7L12 12l8.7-5"/><path d="M12 22V12"/></svg>
+          </div>
         )}
       </div>
       <div className="detail-body">
@@ -833,6 +845,17 @@ function Catalog({ katalog, settings, loading, onAdd, onDetail, onLightbox, tipO
   );
 }
 
+function formatUzPhone(raw) {
+  let d = String(raw || '').replace(/\D/g, '');
+  if (d.startsWith('998')) d = d.slice(3);
+  d = d.slice(0, 9);
+  let out = '+998';
+  if (d.length) out += ' ' + d.slice(0, 2);
+  if (d.length > 2) out += ' ' + d.slice(2, 5);
+  if (d.length > 5) out += ' ' + d.slice(5, 7);
+  if (d.length > 7) out += ' ' + d.slice(7, 9);
+  return out;
+}
 function Savat({ cart, katalog, settings, user, setCart, showMsg, onOrdered, onGoCatalog }) {
   const [tolangan, setTolangan] = useState('');
   const [muddat, setMuddat] = useState('');
@@ -935,7 +958,13 @@ function Savat({ cart, katalog, settings, user, setCart, showMsg, onOrdered, onG
         <div className="card-title">Savat</div>
         <div className="meta" style={{ marginBottom: 10 }}>{user.name || 'Mijoz'} · {phone || '—'}</div>
 
-        {lines.map((l) => {
+        {[['Hozir mavjud', false], ['Kutish kerak (3–7 kun)', true]].map(function (sec) {
+          const part = lines.filter(function (l) { return ((Number(l.p.balance_qty) || 0) <= 0) === sec[1]; });
+          if (!part.length) return null;
+          return (
+            <div key={sec[0]}>
+              <div className="card-title" style={{ marginTop: 8, fontSize: 13 }}>{sec[0]}</div>
+        {part.map((l) => {
           const display = qtyStr[l.p.id] !== undefined ? qtyStr[l.p.id] : String(l.qty);
           const out = (Number(l.p.balance_qty) || 0) <= 0;
           const imgs = productImages(l.p);
@@ -967,6 +996,9 @@ function Savat({ cart, katalog, settings, user, setCart, showMsg, onOrdered, onG
             </div>
           );
         })}
+            </div>
+          );
+        })}
 
         <div className="total-box">
           <div className="row"><span>Jami dona</span><span>{jamiDona}</span></div>
@@ -975,6 +1007,9 @@ function Savat({ cart, katalog, settings, user, setCart, showMsg, onOrdered, onG
           <div className="row big"><span>Jami summa</span><span>{money(jami)} so‘m</span></div>
         </div>
 
+        {!yirik && jamiDona > 0 && jamiDona >= Math.max(1, minQty - 150) ? (
+          <div className="bulk-note">Yana {minQty - jamiDona} dona — yirik narxga o‘tasiz.</div>
+        ) : null}
         {yirik && (
           <div className="bulk-note">Siz {minQty}+ dona xarid qilyapsiz — yirik chegirma qo‘llanmoqda.</div>
         )}
@@ -988,14 +1023,17 @@ function Savat({ cart, katalog, settings, user, setCart, showMsg, onOrdered, onG
         </div>
 
         <label>Telefon *</label>
-        <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+998 ..." />
-        <div className="pay-note" style={{ marginTop: 6 }}>Maslahat: O'zbekiston uchun +998XXXXXXXXX formatida yozing</div>
+        <input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(formatUzPhone(e.target.value))} placeholder="+998 90 123 45 67" />
+        <div className="pay-note" style={{ marginTop: 6 }}>Format: +998 XX XXX XX XX</div>
 
         <label>Manzil</label>
         <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Yetkazib berish manzili" />
 
-        <label>Naqd to‘lanadigan summa</label>
-        <input type="number" value={tolangan} onChange={(e) => setTolangan(e.target.value)} placeholder="0" />
+        <label>Hozir to‘laysizmi? Summani kiriting (ixtiyoriy)</label>
+        <input type="number" value={tolangan} onChange={(e) => setTolangan(e.target.value)} placeholder="0 — keyin to‘lash mumkin" />
+        <div className="pay-note">
+          Qolgan qarz: <b>{money(Math.max(0, jami - (Number(String(tolangan).replace(/\s/g, '')) || 0)))} so‘m</b> — buyurtma tasdiqlanganda naqd yoki karta orqali to‘lanadi.
+        </div>
 
         <label>Qarz qaytarish sanasi (max 7 kun)</label>
         <input type="date" value={muddat} min={minDate()} max={maxDate()} onChange={(e) => setMuddat(e.target.value)} />
@@ -1091,6 +1129,7 @@ function Buyurtmalar({ orders, loading, onReload, orderSuccess, onClearSuccess, 
             <div className="order-card" key={b.id}>
               <strong>{b.order_code}</strong>
               <span className={'badge ' + st.badgeCls}>{st.text}</span>
+              {Number(b.debt_amount) > 0 ? <span className="badge badge-no" style={{ marginLeft: 6 }}>Qarz bor</span> : null}
               <div className="meta">{b.created_at ? new Date(b.created_at).toLocaleString('uz-UZ') : ''}</div>
               {(b.items || []).map((it, i) => (
                 <div className="meta" key={i}>• {it.sku} × {it.qty}</div>
@@ -1211,7 +1250,7 @@ function App() {
   const showMsg = useCallback((text, err) => {
     setMsg({ text, err: !!err });
     if (msgTimer.current) clearTimeout(msgTimer.current);
-    msgTimer.current = setTimeout(() => setMsg(null), 4000);
+    msgTimer.current = setTimeout(() => setMsg(null), err ? 6000 : 2500);
   }, []);
 
   const loadCatalog = useCallback(async () => {
@@ -1268,7 +1307,9 @@ function App() {
   return (
     <>
       {!online && (
-        <div className="offline-banner">Internet aloqasi yo'q — oxirgi ko'rilgan ma'lumotlar ko'rsatilmoqda</div>
+        <div className="offline-banner">Internet aloqasi yo'q — oxirgi ko'rilgan ma'lumotlar ko'rsatilmoqda
+          <button type="button" className="btn btn-secondary" style={{ marginLeft: 8, padding: '4px 8px', width: 'auto' }} onClick={loadCatalog}>Qayta urinish</button>
+        </div>
       )}
       {tab === 'catalog' && !detail && (
         <Catalog
