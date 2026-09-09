@@ -529,11 +529,14 @@
     .card { overflow: hidden; }
     .table-wrap {
       display: block; width: 100%; max-width: 100%;
-      overflow-x: auto !important;
+      overflow-x: auto; /* no !important — cards override at <=700 */
       -webkit-overflow-scrolling: touch;
     }
-    .table-wrap table { width: 100%; min-width: 560px; }
-    th, td { white-space: nowrap; }
+    .table-wrap table { width: 100%; }
+    @media (min-width: 701px) {
+      .table-wrap table { min-width: 560px; }
+      th, td { white-space: nowrap; }
+    }
     .segment {
       flex-wrap: nowrap !important;
       overflow-x: auto;
