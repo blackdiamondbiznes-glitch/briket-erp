@@ -327,6 +327,12 @@
       font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted);
       max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
+    .note-text {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      max-width: 280px;
+    }
 
     /* Forms */
     input, select, textarea {
@@ -588,7 +594,40 @@
         text-transform: uppercase;
         letter-spacing: 0.03em;
         text-align: left;
-        flex: 0 0 38%;
+        flex: 0 0 96px;
+        max-width: 38%;
+      }
+      .table-wrap tbody td > * {
+        min-width: 0;
+        max-width: calc(100% - 108px);
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      .table-wrap tbody td.cell-note,
+      .table-wrap tbody td.cell-stack {
+        flex-wrap: wrap;
+        text-align: left;
+      }
+      .table-wrap tbody td.cell-note::before,
+      .table-wrap tbody td.cell-stack::before {
+        flex: 0 0 100%;
+        max-width: none;
+        margin-bottom: 4px;
+      }
+      .table-wrap tbody td.cell-note > *,
+      .table-wrap tbody td.cell-stack > * {
+        max-width: 100%;
+        text-align: left;
+      }
+      .table-wrap tbody td.sticky-actions {
+        white-space: normal !important;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .note-text {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        word-break: break-word;
       }
     }
 
@@ -3088,6 +3127,7 @@
                     </th>
                     <th>Buyurtma</th>
                     <th>Mijoz</th>
+                    <th>Izoh</th>
                     <th>Summa</th>
                     <th>Holat</th>
                     <th className="sticky-actions">Amallar</th>
@@ -3141,12 +3181,12 @@
                               {o.phone}
                             </div>
                           ) : null}
-                          {o.note ? (
-                            <div className="muted" style={{ fontSize: "0.7rem" }}>{o.note}</div>
-                          ) : null}
                           {trail ? (
                             <div className="muted" style={{ fontSize: "0.68rem" }}>Oxirgi: {trail}</div>
                           ) : null}
+                        </td>
+                        <td className="cell-note">
+                          {o.note ? <div className="note-text muted" style={{ fontSize: "0.78rem" }}>{o.note}</div> : <span className="muted">—</span>}
                         </td>
                         <td>
                           {money(o.total_amount)}
@@ -3160,7 +3200,7 @@
                             <div className="muted" style={{ fontSize: "0.68rem" }}>niyat {money(o.paid_amount)}</div>
                           ) : null}
                         </td>
-                        <td className="sticky-actions" style={{ whiteSpace: "nowrap" }}>
+                        <td className="sticky-actions">
                           <button className="btn-ghost btn-sm" type="button" onClick={function () { copyOrder(o); }}>Nusxa</button>
                           {" "}
                           {o.status === "pending" ? (
