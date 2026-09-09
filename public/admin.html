@@ -980,12 +980,70 @@
       font-size: 0.8rem; color: var(--muted);
     }
     .remember input { width: auto; margin: 0; }
+    /* Mobil Amallar: yonma-yon ixcham chip (to'liq kenglik emas) */
     @media (max-width: 700px) {
       .table-wrap tbody td.sticky-actions {
-        flex-direction: column; align-items: stretch; justify-content: flex-start;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+        gap: 6px !important;
+        width: 100% !important;
       }
-      .table-wrap tbody td.sticky-actions::before { flex: 0 0 100%; max-width: none; }
-      .table-wrap tbody td.sticky-actions > * { max-width: 100%; }
+      .table-wrap tbody td.sticky-actions::before {
+        display: none !important;
+        content: none !important;
+      }
+      .table-wrap tbody td.sticky-actions > * {
+        max-width: none !important;
+        width: auto !important;
+        flex: 0 0 auto !important;
+      }
+      .table-wrap tbody td.sticky-actions .btn,
+      .table-wrap tbody td.sticky-actions .btn-sm,
+      .table-wrap tbody td.sticky-actions .btn-ghost,
+      .table-wrap tbody td.sticky-actions .btn-danger {
+        width: auto !important;
+        flex: 0 0 auto !important;
+        min-width: 0 !important;
+        min-height: 36px !important;
+        height: auto !important;
+        padding: 6px 12px !important;
+        margin: 0 !important;
+        border-radius: 999px !important;
+        font-size: 0.72rem !important;
+        font-weight: 650 !important;
+        line-height: 1.15 !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-shadow: none !important;
+      }
+      .table-wrap tbody td.sticky-actions .btn-ghost {
+        background: #fff !important;
+        border: 1px solid var(--border) !important;
+        color: var(--text) !important;
+      }
+      .table-wrap tbody td.sticky-actions .btn-danger {
+        background: rgba(239, 68, 68, 0.1) !important;
+        border: 1px solid rgba(239, 68, 68, 0.35) !important;
+        color: var(--danger) !important;
+      }
+      .table-wrap tbody td.sticky-actions .btn:not(.btn-ghost):not(.btn-danger) {
+        padding: 6px 12px !important;
+        border-radius: 999px !important;
+      }
+      /* Orders ichidagi span wrapper ham chip qatorini buzmasin */
+      .table-wrap tbody td.sticky-actions > span {
+        display: inline-flex !important;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        max-width: none !important;
+        width: auto !important;
+      }
     }
   </style>
 </head>
