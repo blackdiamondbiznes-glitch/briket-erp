@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="robots" content="noindex, nofollow" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#0a0a0b" />
-  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#f4efe4" />
+  <meta name="color-scheme" content="light" />
   <title>Black Diamond — Operatsion tizim</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script>
@@ -34,20 +34,20 @@
   <style>
     /* ========== Design tokens - Black Diamond ERP ========== */
     :root {
-      /* Black Diamond OPS - qora + oltin */
-      --bg: #0a0a0b;
-      --bg-mid: #0e0c0a;
-      --bg-elevated: #141210;
-      --card: #141210;
-      --card-hover: #1a1814;
-      --border: #2e2a22;
-      --border-subtle: #2a261e;
-      --text: #f5f0e6;
-      --muted: #a39b88;
-      --accent: #c9a227;
-      --accent-hover: #d4b03a;
-      --accent-muted: rgba(201, 162, 39, 0.14);
-      --accent-text: #1a1408;
+      /* Black Diamond OPS — ochiq fon, oltin aksent (ko'chada o'qiladi) */
+      --bg: #f4efe4;
+      --bg-mid: #efe8d8;
+      --bg-elevated: #fffdf8;
+      --card: #ffffff;
+      --card-hover: #f7f1e4;
+      --border: #d9d0b8;
+      --border-subtle: #e6decc;
+      --text: #1c1914;
+      --muted: #6b6456;
+      --accent: #9a7b14;
+      --accent-hover: #7e640e;
+      --accent-muted: rgba(154, 123, 20, 0.14);
+      --accent-text: #fffdf6;
       --danger: #ef4444;
       --danger-bg: rgba(239, 68, 68, 0.12);
       --warning: #eab308;
@@ -56,24 +56,24 @@
       --success-bg: rgba(34, 197, 94, 0.12);
       --info: #38bdf8;
       --info-bg: rgba(56, 189, 248, 0.12);
-      --radius-sm: 10px;
-      --radius: 14px;
-      --radius-lg: 16px;
-      --shadow: 0 8px 28px rgba(0,0,0,0.45);
+      --radius-sm: 6px;
+      --radius: 8px;
+      --radius-lg: 10px;
+      --shadow: 0 8px 24px rgba(40, 32, 12, 0.08);
       --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
       --fs-label: 0.6875rem;
       --fs-body: 0.8125rem;
       --fs-body-lg: 0.875rem;
       --fs-title: 1rem;
-      --fs-kpi: 1.25rem;
+      --fs-kpi: 1.35rem;
       --space-1: 4px;
       --space-2: 8px;
       --space-3: 12px;
       --space-4: 16px;
       --space-5: 20px;
       --space-6: 24px;
-      --row-h: 32px;
+      --row-h: 34px;
       --nav-h: 64px;
       --sidebar-w: 220px;
       --focus-ring: 0 0 0 3px var(--accent-muted);
@@ -105,7 +105,7 @@
 
     /* Eski Index.html qobig'i: sticky header + 4 pastki menyu */
     .header {
-      background: linear-gradient(180deg, #1a1608 0%, rgba(10,10,11,0.96) 100%);
+      background: rgba(255,253,248,0.96);
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
       border-bottom: 1px solid var(--border);
@@ -148,7 +148,7 @@
     /* Segment (sub-tabs) — eski .segments */
     .segment {
       display: flex; background: var(--bg-elevated);
-      border: 1px solid var(--border); border-radius: 12px;
+      border: 1px solid var(--border); border-radius: 8px;
       padding: 3px; margin-bottom: 16px; gap: 2px;
       overflow-x: auto; -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
@@ -156,7 +156,7 @@
     .segment::-webkit-scrollbar { display: none; }
     .segment button {
       flex: 1; min-width: 72px; border: none; background: transparent;
-      color: var(--muted); padding: 9px 8px; border-radius: 10px;
+      color: var(--muted); padding: 8px 8px; border-radius: 6px;
       cursor: pointer; font-size: 13px; font-weight: 600;
       white-space: nowrap;
     }
@@ -171,7 +171,7 @@
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
       display: flex;
       height: var(--nav-h);
-      background: rgba(20,18,16,0.94);
+      background: rgba(255,253,248,0.96);
       backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       border-top: 1px solid var(--border);
       padding-bottom: env(safe-area-inset-bottom, 0);
@@ -192,10 +192,10 @@
     /* Cards */
     .card {
       background: var(--card);
-      border: 1px solid var(--border-subtle);
+      border: 1px solid var(--border);
       border-radius: var(--radius-lg);
-      padding: 14px 16px;
-      margin-bottom: 12px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
     }
     .card h2 {
       font-size: 0.8125rem; margin-bottom: 12px;
@@ -216,34 +216,34 @@
       overflow: hidden;
       background: var(--card);
       border-radius: var(--radius);
-      padding: 14px 14px 12px;
+      padding: 10px 12px 10px 14px;
       border: 1px solid var(--border);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+      box-shadow: none;
     }
     .kpi::before, .dash-kpi::before {
       content: "";
-      position: absolute; top: 0; left: 0; right: 0; height: 2px;
-      background: linear-gradient(90deg, transparent, var(--accent), transparent);
-      opacity: 0.75;
+      position: absolute; top: 8px; bottom: 8px; left: 0; width: 3px;
+      background: var(--accent);
+      border-radius: 0 2px 2px 0;
     }
     .kpi .label, .dash-kpi .label {
-      font-size: var(--fs-label); color: var(--muted);
-      text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500;
+      font-size: 0.68rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;
     }
     .kpi .value, .dash-kpi .value {
       font-size: var(--fs-kpi); font-weight: 700; margin-top: 4px;
-      line-height: 1.2; font-variant-numeric: tabular-nums;
-      letter-spacing: -0.02em;
+      line-height: 1.15; font-variant-numeric: tabular-nums;
+      letter-spacing: -0.03em; color: var(--text);
     }
     .kpi .trend, .dash-kpi .trend {
-      margin-top: 6px; font-size: 0.7rem; color: var(--muted);
+      margin-top: 4px; font-size: 0.68rem; color: var(--muted);
       min-height: 1em;
     }
     .dash-kpis {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 8px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
     .dash-kpis.cols-5 {
       grid-template-columns: 1fr 1fr;
@@ -272,13 +272,13 @@
       font-size: 0.78rem; padding: 8px 12px; border-radius: var(--radius-sm); margin-bottom: 6px;
       border: 1px solid transparent;
     }
-    .dash-alert.danger { background: var(--danger-bg); color: #ff8a8e; border-color: rgba(229,72,77,0.25); }
-    .dash-alert.warn { background: var(--warning-bg); color: #ffc857; border-color: rgba(245,166,35,0.25); }
+    .dash-alert.danger { background: var(--danger-bg); color: var(--danger); border-color: rgba(229,72,77,0.25); }
+    .dash-alert.warn { background: var(--warning-bg); color: var(--warning); border-color: rgba(245,166,35,0.25); }
     .dash-grid {
       display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;
     }
     .neg {
-      color: #ff8a8e; font-weight: 700;
+      color: var(--danger); font-weight: 700;
       font-variant-numeric: tabular-nums;
     }
     .neg::before { content: ""; font-weight: 600; opacity: 0.9; }
@@ -301,11 +301,13 @@
     /* Tables - dense enterprise */
     .table-wrap {
       width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;
-      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--card);
     }
     table {
       width: 100%; border-collapse: collapse;
-      font-size: var(--fs-body);
+      font-size: 0.8rem;
       min-width: 560px;
     }
     th, td {
@@ -317,12 +319,15 @@
       font-variant-numeric: tabular-nums;
     }
     th {
-      color: var(--muted); font-weight: 550; font-size: var(--fs-label);
+      color: var(--muted); font-weight: 650; font-size: 0.68rem;
       text-transform: uppercase; letter-spacing: 0.04em;
-      background: var(--bg-elevated);
+      background: var(--bg-mid);
       position: sticky; top: 0; z-index: 1;
+      height: 30px;
     }
-    tbody tr:hover { background: rgba(255,255,255,0.02); }
+    tbody tr:nth-child(even) { background: rgba(154,123,20,0.035); }
+    tbody tr:hover { background: var(--card-hover); }
+    tbody tr:last-child td { border-bottom: none; }
     .order-row-code {
       font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted);
       max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -362,14 +367,15 @@
       .form-row, .form-row-3 { grid-template-columns: 1fr; }
     }
     .field-error {
-      font-size: 0.72rem; color: #ff8a8e; margin: -4px 0 8px;
+      font-size: 0.72rem; color: var(--danger); margin: -4px 0 8px;
     }
 
     /* Buttons */
     .btn {
       background: var(--accent); color: var(--accent-text); border: none;
-      padding: 9px 16px; border-radius: var(--radius-sm);
-      font-weight: 600; cursor: pointer; font-size: var(--fs-body-lg);
+      padding: 8px 14px; border-radius: var(--radius-sm);
+      font-weight: 600; cursor: pointer; font-size: 0.84rem;
+      letter-spacing: 0.01em;
       transition: background 0.12s ease, transform 0.08s ease;
     }
     .btn:hover { background: var(--accent-hover); }
@@ -377,13 +383,13 @@
     .btn:disabled { opacity: 0.45; cursor: not-allowed; }
     .btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
     .btn-ghost {
-      background: transparent; border: 1px solid var(--border); color: var(--text);
+      background: var(--card); border: 1px solid var(--border); color: var(--text);
       padding: 5px 10px; border-radius: var(--radius-sm); cursor: pointer;
-      font-size: 0.78rem; font-weight: 500;
+      font-size: 0.75rem; font-weight: 600;
       transition: border-color 0.12s ease, background 0.12s ease;
     }
-    .btn-ghost:hover { border-color: var(--muted); background: rgba(255,255,255,0.03); }
-    .btn-sm { padding: 4px 8px; font-size: 0.72rem; }
+    .btn-ghost:hover { border-color: var(--accent); background: var(--accent-muted); color: var(--accent-hover); }
+    .btn-sm { padding: 3px 8px; font-size: 0.72rem; border-radius: 5px; }
 
     /* Messages — toast */
     .msg {
@@ -391,8 +397,8 @@
       margin-bottom: 10px; font-size: 0.84rem;
       border: 1px solid transparent;
     }
-    .msg.ok { background: var(--success-bg); color: #7ee787; border-color: rgba(63,185,80,0.25); }
-    .msg.err { background: var(--danger-bg); color: #ff8a8e; border-color: rgba(229,72,77,0.25); }
+    .msg.ok { background: var(--success-bg); color: var(--success); border-color: rgba(63,185,80,0.25); }
+    .msg.err { background: var(--danger-bg); color: var(--danger); border-color: rgba(229,72,77,0.25); }
     .msg.toast {
       position: fixed; top: 16px; right: 16px; z-index: 240;
       margin: 0; min-width: 220px; max-width: min(360px, calc(100vw - 32px));
@@ -405,25 +411,25 @@
       display: inline-flex; align-items: center; gap: 4px;
       padding: 2px 8px; border-radius: 99px;
       font-size: 0.68rem; font-weight: 550; letter-spacing: 0.01em;
-      background: rgba(255,255,255,0.06); color: var(--muted);
+      background: var(--bg-mid); color: var(--muted);
       border: 1px solid transparent;
     }
     .badge .mark { font-size: 0.72rem; line-height: 1; }
     .badge.active, .badge.paid, .badge.success,
     .badge.confirmed {
-      background: var(--success-bg); color: #7ee787; border-color: rgba(63,185,80,0.2);
+      background: var(--success-bg); color: var(--success); border-color: rgba(63,185,80,0.2);
     }
     .badge.closed, .badge.neutral {
-      background: rgba(255,255,255,0.05); color: var(--muted);
+      background: var(--bg-mid); color: var(--muted);
     }
     .badge.partial, .badge.pending, .badge.warning {
-      background: var(--warning-bg); color: #ffc857; border-color: rgba(245,166,35,0.2);
+      background: var(--warning-bg); color: var(--warning); border-color: rgba(245,166,35,0.2);
     }
     .badge.rejected, .badge.cancelled, .badge.danger {
-      background: var(--danger-bg); color: #ff8a8e; border-color: rgba(229,72,77,0.2);
+      background: var(--danger-bg); color: var(--danger); border-color: rgba(229,72,77,0.2);
     }
     .badge.info {
-      background: var(--info-bg); color: #79b8ff; border-color: rgba(88,166,255,0.2);
+      background: var(--info-bg); color: var(--info); border-color: rgba(88,166,255,0.2);
     }
 
     .empty {
@@ -483,7 +489,7 @@
       font-weight: 700; background: var(--accent); color: var(--accent-text); cursor: pointer;
     }
     .login-card .btn:hover { background: var(--accent-hover); }
-    .login-card .err { color: #ff8a8e; font-size: 0.85rem; margin-bottom: 10px; }
+    .login-card .err { color: var(--danger); font-size: 0.85rem; margin-bottom: 10px; }
     .logout-btn {
       margin-top: 8px; width: 100%; padding: 8px; border-radius: var(--radius-sm);
       border: 1px solid var(--border-subtle); background: transparent; color: var(--muted);
@@ -552,7 +558,7 @@
     }
   
     th.sticky-actions, td.sticky-actions {
-      position: sticky; right: 0; background: var(--card, #141210);
+      position: sticky; right: 0; background: var(--card);
       box-shadow: -6px 0 8px rgba(0,0,0,0.25); z-index: 2;
     }
     @media (min-width: 861px) {
@@ -581,7 +587,7 @@
         padding: 7px 0 !important;
         height: auto !important;
         white-space: normal !important;
-        border-bottom: 1px solid rgba(255,255,255,0.05);
+        border-bottom: 1px solid var(--border-subtle);
         font-size: 0.84rem;
         text-align: right;
       }
@@ -656,7 +662,7 @@
     @media (min-width: 720px) {
       .dash-kpis.cols-5 .kpi-hero { grid-column: span 1; }
     }
-    .bar-track { height: 6px; background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden; margin-top: 8px; }
+    .bar-track { height: 6px; background: rgba(28,25,20,0.08); border-radius: 99px; overflow: hidden; margin-top: 8px; }
     .bar-fill { height: 100%; background: linear-gradient(90deg, #8a7018, var(--accent)); }
     .bar-fill.neg { background: #ef4444; }
     .split-2 { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 12px; }
@@ -668,7 +674,7 @@
     .toolbar input[type="date"] { margin: 0; max-width: 150px; }
     .stat-mini { font-size: 0.72rem; color: var(--muted); }
     .kpi-click { cursor: pointer; }
-    .kpi-click:hover { border-color: var(--accent); }
+    .kpi-click:hover { border-color: var(--accent); background: var(--card-hover); }
     .inline-edit {
       width: 110px; margin: 0; padding: 4px 6px; font-size: 0.78rem; height: 26px;
     }
@@ -693,7 +699,7 @@
       .sidebar {
         display: flex; flex-direction: column;
         position: fixed; left: 0; top: 0; bottom: 0; width: var(--sidebar-w);
-        background: #100e0c; border-right: 1px solid var(--border);
+        background: #fffdf8; border-right: 1px solid var(--border);
         z-index: 80; padding: 14px 10px 16px;
         overflow-y: auto;
       }
@@ -714,7 +720,7 @@
       }
       .sidebar button .nav-ico { width: 16px; height: 16px; flex-shrink: 0; }
       .sidebar button .nav-ico svg { width: 16px; height: 16px; display: block; stroke-width: 1.75; }
-      .sidebar button:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+      .sidebar button:hover { background: var(--card-hover); color: var(--text); }
       .sidebar button.active {
         background: var(--accent-muted); color: var(--accent);
       }
@@ -907,28 +913,19 @@
         return key;
       });
       const [operatorName, setOperatorName] = useState(function () {
-        return SS.getItem("erp_operator") || "";
-      });
-      // UI-rol: faqat frontend cheklov. Haqiqiy huquq nazorati backendda (P2-DATA).
-      const [uiRole, setUiRole] = useState(function () {
-        return SS.getItem("erp_ui_role") || "admin";
+        return SS.getItem("erp_operator") || "Admin";
       });
 
-      function saveSettings(base, key, operator, role) {
+      function saveSettings(base, key, operator) {
         setApiBase(base);
         setAdminKey(key);
-        if (operator !== undefined) setOperatorName(operator || "");
-        if (role !== undefined) setUiRole(role || "admin");
+        const op = operator || "Admin";
+        setOperatorName(op);
         try { localStorage.setItem("erp_api", base); } catch (e1) {}
         SS.setItem("erp_key", key);
         SS.setItem("erp_key_at", String(Date.now()));
-        if (operator !== undefined) {
-          if (operator) SS.setItem("erp_operator", operator);
-          else SS.removeItem("erp_operator");
-        }
-        if (role !== undefined) {
-          SS.setItem("erp_ui_role", role || "admin");
-        }
+        SS.setItem("erp_operator", op);
+        try { SS.removeItem("erp_ui_role"); } catch (e2) {}
       }
 
       const api = useCallback(async function (path, opts) {
@@ -964,11 +961,9 @@
 
       function logout() {
         setAdminKey("");
-        setOperatorName("");
-        setUiRole("admin");
+        setOperatorName("Admin");
         SS.removeItem("erp_key");
         SS.removeItem("erp_key_at");
-        SS.removeItem("erp_operator");
         SS.removeItem("erp_ui_role");
       }
 
@@ -977,7 +972,6 @@
         apiBase: apiBase,
         adminKey: adminKey,
         operatorName: operatorName,
-        uiRole: uiRole,
         saveSettings: saveSettings,
         logout: logout
       };
@@ -985,8 +979,6 @@
 
     function LoginScreen(props) {
       const [key, setKey] = useState("");
-      const [name, setName] = useState("");
-      const [role, setRole] = useState("admin");
       const [showKey, setShowKey] = useState(false);
       const [err, setErr] = useState("");
       const [busy, setBusy] = useState(false);
@@ -994,11 +986,7 @@
       async function submit(e) {
         e.preventDefault();
         if (!key.trim()) {
-          setErr("Admin kalitini kiriting");
-          return;
-        }
-        if (!name.trim()) {
-          setErr("Ismingizni kiriting (audit uchun)");
+          setErr("Parolni kiriting");
           return;
         }
         setBusy(true);
@@ -1008,16 +996,16 @@
           const res = await fetch(base + "/api/dashboard", {
             headers: {
               "x-admin-key": key.trim(),
-              "x-operator-name": name.trim()
+              "x-operator-name": "Admin"
             }
           });
           const data = await res.json().catch(function () { return {}; });
           if (!res.ok) {
-            setErr(data.error || "Kalit noto'g'ri");
+            setErr(data.error || "Parol noto'g'ri");
             setBusy(false);
             return;
           }
-          props.onLogin(key.trim(), name.trim(), role);
+          props.onLogin(key.trim());
         } catch (ex) {
           setErr(ex.message || "Ulanish xatosi");
         }
@@ -1031,36 +1019,18 @@
               <img src="/bd_logo.jpg" alt="Black Diamond" style={{width:40,height:40,borderRadius:8,objectFit:"cover"}} />
               <h1 style={{margin:0}}>Black Diamond OPS</h1>
             </div>
-            <p>Operatsion panelga kirish uchun kalit va ism kiriting</p>
+            <p>Kirish uchun parolni yozing</p>
             {err ? <div className="err">{err}</div> : null}
-            <label htmlFor="f-op">Ism (operator)</label>
-            <input
-              id="f-op"
-              type="text"
-              value={name}
-              onChange={function (e) { setName(e.target.value); }}
-              placeholder="Ismingiz"
-              autoComplete="name"
-              autoFocus
-            />
-            <label htmlFor="f-role">Rol (faqat UI)</label>
-            <select id="f-role" value={role} onChange={function (e) { setRole(e.target.value); }} style={{ marginBottom: 14 }}>
-              <option value="admin">Admin</option>
-              <option value="operator">Operator</option>
-              <option value="kassir">Kassir</option>
-            </select>
-            <p className="muted" style={{ marginTop: -8, marginBottom: 12, fontSize: "0.72rem" }}>
-              Rol faqat menyuni yashiradi — backend huquq nazorati emas.
-            </p>
-            <label htmlFor="f-1">Admin kaliti (ADMIN_KEY)</label>
+            <label htmlFor="f-1">Parol</label>
             <div style={{ position: "relative", marginBottom: 14 }}>
               <input
                 id="f-1"
                 type={showKey ? "text" : "password"}
                 value={key}
                 onChange={function (e) { setKey(e.target.value); }}
-                placeholder="Kalitni kiriting"
+                placeholder="Parol"
                 autoComplete="current-password"
+                autoFocus
                 style={{ marginBottom: 0, paddingRight: 44 }}
               />
               <button
@@ -1250,7 +1220,7 @@
               })}
             </div>
           ) : (
-            <div className="dash-alert" style={{ background: "var(--success-bg)", color: "#7ee787", marginBottom: 10 }}>
+            <div className="dash-alert" style={{ background: "var(--success-bg)", color: "var(--success)", marginBottom: 10 }}>
               Ogohlantirish yo'q — zaxira va qarz normal.
             </div>
           )}
@@ -3177,7 +3147,7 @@
                         <td>
                           <div>{o.customer_name || "-"}</div>
                           {o.phone ? (
-                            <div className="muted" style={{ fontWeight: 600, color: "#e8d5a3", fontSize: "0.72rem" }}>
+                            <div className="muted" style={{ fontWeight: 600, color: "var(--accent)", fontSize: "0.72rem" }}>
                               {o.phone}
                             </div>
                           ) : null}
@@ -3631,27 +3601,17 @@
       const adminKey = apiHook.adminKey;
       const saveSettings = apiHook.saveSettings;
       const logout = apiHook.logout;
-      const operatorName = apiHook.operatorName || "";
-      const uiRole = apiHook.uiRole || "admin";
+      const operatorName = apiHook.operatorName || "Admin";
       const [pageFilter, setPageFilter] = useState({});
       const [moduleId, setModuleId] = useState("dashboard");
       const [tab, setTab] = useState("dashboard");
-
-      useEffect(function () {
-        if (!adminKey) return;
-        if (uiRole === "kassir" && tab !== "orders" && tab !== "payments") {
-          setModuleId("sales");
-          setTab("orders");
-          setPageFilter({});
-        }
-      }, [adminKey, uiRole]);
 
       if (!adminKey) {
         return (
           <LoginScreen
             apiBase={apiBase}
-            onLogin={function (k, opName, role) {
-              saveSettings(apiBase || window.location.origin, k, opName || "", role || "admin");
+            onLogin={function (k) {
+              saveSettings(apiBase || window.location.origin, k, "Admin");
             }}
           />
         );
@@ -3708,17 +3668,7 @@
         }
       ];
 
-      // UI-rol filtri — xavfsizlik chegarasi emas, faqat menyu.
-      const ROLE_TABS = {
-        admin: null,
-        operator: ["dashboard", "batches", "packaging", "stock", "orders", "payments", "shipments", "materials", "expenses", "products", "customers", "partners"],
-        kassir: ["orders", "payments"]
-      };
-      const allowedTabs = ROLE_TABS[uiRole] || null;
-      const visModules = modules.map(function (m) {
-        const tabs = allowedTabs ? m.tabs.filter(function (t) { return allowedTabs.indexOf(t.id) !== -1; }) : m.tabs;
-        return Object.assign({}, m, { tabs: tabs });
-      }).filter(function (m) { return m.tabs.length > 0; });
+      const visModules = modules;
 
       const currentModule = visModules.find(function (m) { return m.id === moduleId; }) || visModules[0] || modules[0];
 
@@ -3806,7 +3756,6 @@
                 <p>Ishlab chiqarish · Ombor · Savdo{operatorName ? " · " + operatorName : ""}</p>
               </div>
               <div className="header-right">
-                <span className="header-role">{uiRole}</span>
                 <button type="button" className="logout-btn" onClick={logout}>Chiqish</button>
               </div>
             </div>
