@@ -581,25 +581,38 @@
     /* MOBILE CARD TABLES — dense by default (S25 / narrow) */
     @media (max-width: 700px) {
       .table-wrap { overflow-x: visible !important; }
-      .table-wrap table { min-width: 0 !important; width: 100% !important; }
+      .table-wrap table,
+      .table-wrap thead,
+      .table-wrap tbody,
+      .table-wrap tfoot {
+        display: block !important;
+        width: 100% !important;
+        min-width: 0 !important;
+      }
       .table-wrap thead { display: none !important; }
 
-      .table-wrap tbody tr {
+      .table-wrap tbody tr,
+      .table-wrap tfoot tr {
         display: flex !important;
         flex-wrap: wrap;
         align-items: baseline;
-        gap: 2px 8px;
+        gap: 4px 8px;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box;
         margin-bottom: 6px;
-        padding: 8px 10px;
+        padding: 10px 12px;
         border: 1px solid var(--border-subtle);
         border-radius: var(--radius);
         background: var(--bg-elevated);
       }
 
-      .table-wrap tbody td {
+      .table-wrap tbody td,
+      .table-wrap tfoot td {
         display: inline-flex !important;
         width: auto !important;
-        max-width: none !important;
+        max-width: 100% !important;
+        box-sizing: border-box;
         align-items: baseline;
         gap: 4px;
         padding: 0 !important;
@@ -675,19 +688,12 @@
         content: none !important;
       }
 
-      /* Money / last metric when no action column */
+      /* Last metric: keep as labeled chip (not orphan money on the right) */
       .table-wrap tbody tr:not(:has(td.sticky-actions)) td:last-child {
-        order: 2;
-        flex: 0 0 auto;
-        margin-left: auto;
-        font-size: 0.84rem;
-        font-weight: 700;
+        order: 3;
+        font-size: 0.72rem;
+        font-weight: 600;
         color: var(--text);
-        justify-content: flex-end;
-      }
-      .table-wrap tbody tr:not(:has(td.sticky-actions)) td:last-child::before {
-        display: none !important;
-        content: none !important;
       }
 
       /* With actions: emphasize remaining / key col before actions */
@@ -742,6 +748,74 @@
         white-space: pre-wrap;
         overflow-wrap: anywhere;
         word-break: break-word;
+      }
+
+
+      /* Metric chips wrap in pairs on wide lists (Ombor mahsulot) */
+      .table-wrap tbody td[data-label]:not([data-label=""]):not([data-label="SKU"]):not([data-label="Nomi"]):not([data-label="Kod"]):not([data-label="Buyurtma"]):not([data-label="Ism"]) {
+        flex: 1 1 calc(50% - 8px);
+        min-width: 120px;
+      }
+      .table-wrap tbody tr:not(:has(td.sticky-actions)) td:last-child {
+        flex: 1 1 calc(50% - 8px);
+        margin-left: 0;
+        justify-content: flex-start;
+      }
+      .table-wrap tbody tr:not(:has(td.sticky-actions)) td:last-child[data-label]:not([data-label=""])::before {
+        display: inline !important;
+        content: attr(data-label) ":" !important;
+      }
+      .table-wrap tbody td:empty,
+      .table-wrap tfoot td:empty,
+      .table-wrap .desk-only {
+        display: none !important;
+      }
+      @media (min-width: 701px) {
+        .table-wrap .desk-only { display: table-cell !important; }
+      }
+      .table-wrap tfoot tr.row-total {
+        background: var(--accent-muted);
+        border-color: rgba(201,162,39,0.35);
+      }
+      .table-wrap tfoot tr.row-total td {
+        font-weight: 700;
+        color: var(--text);
+        font-size: 0.78rem;
+      }
+      .table-wrap tfoot tr.row-total td[data-label="Jami"] {
+        flex: 1 1 100%;
+        font-size: 0.9rem;
+      }
+      .table-wrap tfoot tr.row-total td[data-label="Jami"]::before {
+        display: none !important;
+        content: none !important;
+      }
+
+      /* Action buttons: keep pill shape, don't inherit chip flex */
+      .table-wrap tbody td.sticky-actions {
+        display: flex !important;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+      .table-wrap tbody td.sticky-actions .btn,
+      .table-wrap tbody td.sticky-actions .btn-sm,
+      .table-wrap tbody td.sticky-actions .btn-ghost,
+      .table-wrap tbody td.sticky-actions .btn-danger {
+        width: auto !important;
+        min-width: 44px;
+        min-height: 40px !important;
+        padding: 8px 14px !important;
+        margin: 0 !important;
+        flex: 0 0 auto !important;
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px !important;
+        font-size: 0.8rem !important;
+        line-height: 1.2;
+        white-space: nowrap;
       }
 
       .dash-more {
@@ -1690,7 +1764,7 @@
                     const pval = p.potentialProfit != null ? p.potentialProfit : p.profit_value;
                     return (
                       <tr key={p.id}>
-                        <td>
+                        <td data-label="SKU">
                           {p.sku}
                           {p.cost_override ? <div className="muted" style={{ fontSize: "0.7rem" }}>qo'lda</div> : null}
                         </td>
@@ -1705,14 +1779,14 @@
                     );
                   })}
                 </tbody>
-                <tfoot>
+                                <tfoot>
                   <tr className="row-total">
                     <td data-label="Jami">Jami</td>
                     <td data-label="Qoldiq"><strong>{products.reduce(function (a, p) { return a + Number(p.balance_qty || 0); }, 0)}</strong></td>
-                    <td colSpan="3"></td>
-                    <td><strong>{money(products.reduce(function (a, p) { return a + Number(p.costValue != null ? p.costValue : p.cost_value || 0); }, 0))}</strong></td>
-                    <td><strong>{money(products.reduce(function (a, p) { return a + Number(p.value || 0); }, 0))}</strong></td>
-                    <td><strong>{money(products.reduce(function (a, p) { return a + Number(p.potentialProfit != null ? p.potentialProfit : p.profit_value || 0); }, 0))}</strong></td>
+                    <td className="desk-only" colSpan="3"></td>
+                    <td data-label="Ombor tannarx"><strong>{money(products.reduce(function (a, p) { return a + Number(p.costValue != null ? p.costValue : p.cost_value || 0); }, 0))}</strong></td>
+                    <td data-label="Ombor savdo"><strong>{money(products.reduce(function (a, p) { return a + Number(p.value || 0); }, 0))}</strong></td>
+                    <td data-label="Kutilgan foyda"><strong>{money(products.reduce(function (a, p) { return a + Number(p.potentialProfit != null ? p.potentialProfit : p.profit_value || 0); }, 0))}</strong></td>
                   </tr>
                 </tfoot>
               </table></div>
