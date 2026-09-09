@@ -2458,6 +2458,11 @@
       const [msg, setMsg] = useAutoMsg();
       const [confirmState, setConfirmState] = useState({ open: false, text: "", onConfirm: null });
       const [ferr, setFerr] = useState({});
+      const [loading, setLoading] = useState(true);
+      const [loadingMore, setLoadingMore] = useState(false);
+      const [offset, setOffset] = useState(0);
+      const [hasMore, setHasMore] = useState(true);
+      const [busyPack, setBusyPack] = useState(false);
 
       function deleteBatch(id) {
         setConfirmState({
@@ -2475,10 +2480,6 @@
           }
         });
       }
-      const [loading, setLoading] = useState(true);
-      const [loadingMore, setLoadingMore] = useState(false);
-      const [offset, setOffset] = useState(0);
-      const [hasMore, setHasMore] = useState(true);
 
       const load = useCallback(function () {
         setLoading(true);

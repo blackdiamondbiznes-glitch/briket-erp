@@ -302,6 +302,7 @@ window.Shipments = function Shipments(props) {
   });
   const [msg, setMsg] = useState({});
   const [ferr, setFerr] = useState({});
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(function () {
     Promise.all([
