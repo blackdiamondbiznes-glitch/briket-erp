@@ -613,7 +613,12 @@
       }
 
       .table-wrap tbody td::before {
+        content: none;
+        display: none;
+      }
+      .table-wrap tbody td[data-label]:not([data-label=""])::before {
         content: attr(data-label) ":";
+        display: inline;
         color: var(--muted);
         font-size: 0.65rem;
         font-weight: 600;
@@ -631,7 +636,7 @@
         word-break: break-word;
       }
 
-      /* Title row */
+      /* Title row: first labeled cell, or first-child if it has content label / no empty */
       .table-wrap tbody td:first-child {
         order: 1;
         flex: 1 1 calc(100% - 120px);
@@ -640,6 +645,32 @@
         color: var(--text);
       }
       .table-wrap tbody td:first-child::before {
+        display: none !important;
+        content: none !important;
+      }
+      /* Checkbox / empty first col — shrink, don't act as title */
+      .table-wrap tbody td:first-child[data-label=""] {
+        flex: 0 0 auto;
+        width: auto;
+        font-weight: 500;
+        order: 0;
+      }
+      .table-wrap tbody td[data-label="Buyurtma"],
+      .table-wrap tbody td[data-label="Kod"],
+      .table-wrap tbody td[data-label="SKU"],
+      .table-wrap tbody td[data-label="Nomi"],
+      .table-wrap tbody td[data-label="Ism"] {
+        order: 1;
+        flex: 1 1 calc(100% - 120px);
+        font-size: 0.84rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .table-wrap tbody td[data-label="Buyurtma"]::before,
+      .table-wrap tbody td[data-label="Kod"]::before,
+      .table-wrap tbody td[data-label="SKU"]::before,
+      .table-wrap tbody td[data-label="Nomi"]::before,
+      .table-wrap tbody td[data-label="Ism"]::before {
         display: none !important;
         content: none !important;
       }
@@ -719,9 +750,28 @@
         min-height: 44px;
       }
 
+      .table-wrap tbody tr.row-total {
+        background: var(--accent-muted);
+        border-color: rgba(201,162,39,0.35);
+      }
+      .table-wrap tbody tr.row-total td {
+        font-weight: 700;
+        color: var(--text);
+        font-size: 0.78rem;
+      }
+      .table-wrap tbody tr.row-total td::before { display: none !important; content: none !important; }
+
+
       /* keep dash-dense as alias (same rules) */
     }
 
+    .login-card .pwd-row, .login-card .password-field {
+      display: flex; align-items: stretch; gap: 0;
+    }
+    .login-card .pwd-row input, .login-card .password-field input { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+    .login-card .pwd-toggle, .login-card button.pwd-toggle {
+      flex: 0 0 auto; min-width: 52px; border-top-left-radius: 0; border-bottom-left-radius: 0;
+    }
     @media (max-width: 860px) {
       input, select, textarea {
         background: #ffffff !important;
@@ -1447,12 +1497,12 @@
                       const bal = Number(s.balance_qty);
                       return (
                         <tr key={s.id}>
-                          <td>{s.sku}</td>
-                          <td>{Number(s.packed_qty)}</td>
-                          <td>{Number(s.sold_qty)}</td>
-                          <td>{Number(s.shipped_qty || 0)}</td>
-                          <td className={bal < 0 ? "neg" : ""}><strong>{bal}</strong></td>
-                          <td>{money(s.value)}</td>
+                          <td data-label="SKU">{s.sku}</td>
+                          <td data-label="Qadoq">{Number(s.packed_qty)}</td>
+                          <td data-label="Sotuv">{Number(s.sold_qty)}</td>
+                          <td data-label="Yuk">{Number(s.shipped_qty || 0)}</td>
+                          <td data-label="Qoldiq" className={bal < 0 ? "neg" : ""}><strong>{bal}</strong></td>
+                          <td data-label="Qiymat">{money(s.value)}</td>
                         </tr>
                       );
                     })}
@@ -1482,10 +1532,10 @@
                       const bal = Number(m.balance);
                       return (
                         <tr key={m.id}>
-                          <td>{m.name}</td>
-                          <td>{m.unit}</td>
-                          <td className={bal < 0 ? "neg" : ""}><strong>{bal}</strong></td>
-                          <td>{money(m.value)}</td>
+                          <td data-label="Nomi">{m.name}</td>
+                          <td data-label="Birlik">{m.unit}</td>
+                          <td data-label="Qoldiq" className={bal < 0 ? "neg" : ""}><strong>{bal}</strong></td>
+                          <td data-label="Qiymat">{money(m.value)}</td>
                         </tr>
                       );
                     })}
@@ -1518,10 +1568,10 @@
                       const dry = Number(b.dry_kg) || 1;
                       return (
                         <tr key={b.id}>
-                          <td>{b.batch_code}</td>
-                          <td>{Number(b.dry_kg).toFixed(1)}</td>
-                          <td>{Number(b.packed_kg).toFixed(1)}</td>
-                          <td>
+                          <td data-label="Kod">{b.batch_code}</td>
+                          <td data-label="Quruq">{Number(b.dry_kg).toFixed(1)}</td>
+                          <td data-label="Qadoq">{Number(b.packed_kg).toFixed(1)}</td>
+                          <td data-label="Qoldiq">
                             {rem.toFixed(1)}
                             <div className="bar-track"><div className="bar-fill" style={{ width: Math.min(100, rem / dry * 100) + "%" }} /></div>
                           </td>
@@ -1553,10 +1603,10 @@
                     {dashSlice(orders, "order").map(function (o) {
                       return (
                         <tr key={o.id}>
-                          <td title={o.order_code}>{shortCode(o.order_code)}</td>
-                          <td>{o.customer_name || "-"}</td>
-                          <td>{money(o.total_amount)}</td>
-                          <td><StatusBadge status={o.status} /></td>
+                          <td data-label="Kod" title={o.order_code}>{shortCode(o.order_code)}</td>
+                          <td data-label="Mijoz">{o.customer_name || "-"}</td>
+                          <td data-label="Summa">{money(o.total_amount)}</td>
+                          <td data-label="Holat"><StatusBadge status={o.status} /></td>
                         </tr>
                       );
                     })}
@@ -1611,11 +1661,11 @@
                   {materials.map(function (m) {
                     return (
                       <tr key={m.id}>
-                        <td>{m.name}</td>
-                        <td>{m.unit}</td>
-                        <td>{Number(m.total_in)}</td>
-                        <td>{Number(m.total_out)}</td>
-                        <td><strong>{Number(m.balance)}</strong></td>
+                        <td data-label="Nomi">{m.name}</td>
+                        <td data-label="Birlik">{m.unit}</td>
+                        <td data-label="Kirim">{Number(m.total_in)}</td>
+                        <td data-label="Chiqim">{Number(m.total_out)}</td>
+                        <td data-label="Qoldiq"><strong>{Number(m.balance)}</strong></td>
                       </tr>
                     );
                   })}
@@ -1644,21 +1694,21 @@
                           {p.sku}
                           {p.cost_override ? <div className="muted" style={{ fontSize: "0.7rem" }}>qo'lda</div> : null}
                         </td>
-                        <td className={Number(p.balance_qty) < 0 ? "neg" : ""}><strong>{Number(p.balance_qty)}</strong></td>
-                        <td>{money(cost)}</td>
-                        <td>{money(p.sell_price != null ? p.sell_price : p.price)}</td>
-                        <td>{money(prof)}</td>
-                        <td>{money(cval)}</td>
-                        <td>{money(p.value)}</td>
-                        <td className={Number(pval) < 0 ? "neg" : ""}>{money(pval)}</td>
+                        <td data-label="Qoldiq" className={Number(p.balance_qty) < 0 ? "neg" : ""}><strong>{Number(p.balance_qty)}</strong></td>
+                        <td data-label="Tannarx">{money(cost)}</td>
+                        <td data-label="Sotish">{money(p.sell_price != null ? p.sell_price : p.price)}</td>
+                        <td data-label="Foyda/dona">{money(prof)}</td>
+                        <td data-label="Ombor tannarx">{money(cval)}</td>
+                        <td data-label="Ombor savdo">{money(p.value)}</td>
+                        <td data-label="Kutilgan foyda" className={Number(pval) < 0 ? "neg" : ""}>{money(pval)}</td>
                       </tr>
                     );
                   })}
                 </tbody>
                 <tfoot>
-                  <tr>
-                    <td>Jami</td>
-                    <td><strong>{products.reduce(function (a, p) { return a + Number(p.balance_qty || 0); }, 0)}</strong></td>
+                  <tr className="row-total">
+                    <td data-label="Jami">Jami</td>
+                    <td data-label="Qoldiq"><strong>{products.reduce(function (a, p) { return a + Number(p.balance_qty || 0); }, 0)}</strong></td>
                     <td colSpan="3"></td>
                     <td><strong>{money(products.reduce(function (a, p) { return a + Number(p.costValue != null ? p.costValue : p.cost_value || 0); }, 0))}</strong></td>
                     <td><strong>{money(products.reduce(function (a, p) { return a + Number(p.value || 0); }, 0))}</strong></td>
@@ -2061,7 +2111,7 @@
                 {list.filter(function (p) { return matchQ(q, [p.sku, p.description]); }).map(function (p) {
                   return (
                     <tr key={p.id}>
-                      <td>{p.sku}</td>
+                      <td data-label="SKU">{p.sku}</td>
                       <td>{p.weight_kg}</td>
                       <td>{money(p.cost_price)}</td>
                       <td>
@@ -2356,9 +2406,9 @@
                   {list.filter(function (m) { return matchQ(q, [m.name, m.unit]); }).map(function (m) {
                     return (
                       <tr key={m.id}>
-                        <td>{m.id}</td>
-                        <td>{m.name}</td>
-                        <td>{m.unit}</td>
+                        <td data-label="ID">{m.id}</td>
+                        <td data-label="Nomi">{m.name}</td>
+                        <td data-label="Birlik">{m.unit}</td>
                         <td>
                           {inlineId === m.id ? (
                             <input
@@ -2383,7 +2433,7 @@
                         <td>
                           <StatusBadge status={m.is_active ? "active" : "closed"}>{m.is_active ? "faol" : "nofaol"}</StatusBadge>
                         </td>
-                        <td className="sticky-actions">
+                        <td className="sticky-actions" data-label="Amallar">
                           <button type="button" className="btn-ghost btn-sm" onClick={function () { startEdit(m); }}>Tahrir</button>
                           {m.is_active && (
                             <button type="button" className="btn-danger btn-sm" onClick={function () { softDelete(m.id); }}>O'chirish</button>
@@ -2551,14 +2601,14 @@
                   const canDel = Number(b.packed_kg) === 0 || Number(b.packed_kg) === 0.0;
                   return (
                     <tr key={b.id}>
-                      <td>{b.batch_code}</td>
-                      <td><StatusBadge status={b.status} /></td>
-                      <td>{b.bags_count}</td>
-                      <td>{b.dry_kg}</td>
-                      <td>{b.packed_kg}</td>
-                      <td><strong>{b.remaining_kg}</strong></td>
-                      <td>{b.loss_percent}%</td>
-                      <td className="sticky-actions">
+                      <td data-label="Kod">{b.batch_code}</td>
+                      <td data-label="Holat"><StatusBadge status={b.status} /></td>
+                      <td data-label="Qop">{b.bags_count}</td>
+                      <td data-label="Quruq">{b.dry_kg}</td>
+                      <td data-label="Qadoq">{b.packed_kg}</td>
+                      <td data-label="Qolgan"><strong>{b.remaining_kg}</strong></td>
+                      <td data-label="Yoqotish %">{b.loss_percent}%</td>
+                      <td className="sticky-actions" data-label="Amallar">
                         <button type="button" className="btn-ghost btn-sm" onClick={function () { copyBatch(b); }}>Nusxa</button>
                         {canDel ? (
                           <button type="button" className="btn-danger btn-sm" onClick={function () { deleteBatch(b.id); }}>O'chirish</button>
@@ -2733,11 +2783,11 @@
                   {list.map(function (p) {
                     return (
                       <tr key={p.id}>
-                        <td>{p.sku}</td>
-                        <td>{p.qty}</td>
-                        <td>{p.kg}</td>
-                        <td>{p.batch_code || "-"}</td>
-                        <td>{money(p.total_wage)}</td>
+                        <td data-label="SKU">{p.sku}</td>
+                        <td data-label="Dona">{p.qty}</td>
+                        <td data-label="kg">{p.kg}</td>
+                        <td data-label="Partiya">{p.batch_code || "-"}</td>
+                        <td data-label="Ish haqi">{money(p.total_wage)}</td>
                       </tr>
                     );
                   })}
@@ -2946,12 +2996,12 @@
                   {list.filter(function (c) { return matchQ(q, [c.name, c.phone, c.address]); }).map(function (c) {
                     return (
                       <tr key={c.id}>
-                        <td>{c.id}</td>
-                        <td>{c.name}</td>
-                        <td>{c.phone || "—"}</td>
-                        <td>{money(c.credit_limit)}</td>
-                        <td><StatusBadge status={c.is_active === false ? "closed" : "active"}>{c.is_active === false ? "nofaol" : "faol"}</StatusBadge></td>
-                        <td className="sticky-actions">
+                        <td data-label="ID">{c.id}</td>
+                        <td data-label="Ism">{c.name}</td>
+                        <td data-label="Telefon">{c.phone || "—"}</td>
+                        <td data-label="Limit">{money(c.credit_limit)}</td>
+                        <td data-label="Holat"><StatusBadge status={c.is_active === false ? "closed" : "active"}>{c.is_active === false ? "nofaol" : "faol"}</StatusBadge></td>
+                        <td className="sticky-actions" data-label="Amallar">
                           <button type="button" className="btn-ghost btn-sm" onClick={function () { startEdit(c); }}>Tahrir</button>
                           {c.is_active !== false && (
                             <button type="button" className="btn-danger btn-sm" onClick={function () { softDelete(c.id); }}>O'chirish</button>
@@ -3352,7 +3402,7 @@
                             : undefined
                         }
                       >
-                        <td>
+                        <td data-label="">
                           {o.status === "pending" ? (
                             <input
                               type="checkbox"
@@ -3365,7 +3415,7 @@
                             />
                           ) : null}
                         </td>
-                        <td>
+                        <td data-label="Buyurtma">
                           <span className="badge" style={{ marginRight: 4 }}>{srcLabel}</span>
                           <span className="order-row-code" title={o.order_code}>
                             {o.order_code && o.order_code.length > 16
@@ -3376,7 +3426,7 @@
                             <div className="muted" style={{ fontSize: "0.7rem", marginTop: 2 }}>{itemsLine}</div>
                           ) : null}
                         </td>
-                        <td>
+                        <td data-label="Mijoz">
                           <div>{o.customer_name || "-"}</div>
                           {o.phone ? (
                             <div className="muted" style={{ fontWeight: 600, color: "var(--accent)", fontSize: "0.72rem" }}>
@@ -3387,22 +3437,22 @@
                             <div className="muted" style={{ fontSize: "0.68rem" }}>Oxirgi: {trail}</div>
                           ) : null}
                         </td>
-                        <td className="cell-note">
+                        <td className="cell-note" data-label="Izoh">
                           {o.note ? <div className="note-text muted" style={{ fontSize: "0.78rem" }}>{o.note}</div> : <span className="muted">—</span>}
                         </td>
-                        <td>
+                        <td data-label="Summa">
                           {money(o.total_amount)}
                           {Number(o.debt_amount) > 0 ? (
                             <div className="muted" style={{ fontSize: "0.68rem" }}>qarz {money(o.debt_amount)}</div>
                           ) : null}
                         </td>
-                        <td>
+                        <td data-label="Holat">
                           <StatusBadge status={o.status} />
                           {Number(o.paid_amount) > 0 && String(o.status) === "pending" ? (
                             <div className="muted" style={{ fontSize: "0.68rem" }}>niyat {money(o.paid_amount)}</div>
                           ) : null}
                         </td>
-                        <td className="sticky-actions">
+                        <td className="sticky-actions" data-label="Amallar">
                           <button className="btn-ghost btn-sm" type="button" onClick={function () { copyOrder(o); }}>Nusxa</button>
                           {" "}
                           {o.status === "pending" ? (
@@ -3614,8 +3664,8 @@
                   return (
                     <tr key={p.id}>
                       <td>{p.paid_at ? new Date(p.paid_at).toLocaleString("uz-UZ") : "-"}</td>
-                      <td>{p.customer_name || "-"}</td>
-                      <td>{p.order_code || "-"}</td>
+                      <td data-label="Mijoz">{p.customer_name || "-"}</td>
+                      <td data-label="Buyurtma">{p.order_code || "-"}</td>
                       <td><strong>{money(p.amount)}</strong></td>
                       <td>{p.method}</td>
                     </tr>
@@ -4050,20 +4100,41 @@
           if (!headers.length) return;
           table.querySelectorAll("tbody tr").forEach(function (tr) {
             var cells = tr.querySelectorAll("td");
+            var hi = 0;
             for (var i = 0; i < cells.length; i++) {
-              if (headers[i]) cells[i].setAttribute("data-label", headers[i]);
+              var cell = cells[i];
+              if (cell.getAttribute("data-label")) { hi++; continue; }
+              var span = Number(cell.getAttribute("colSpan") || cell.getAttribute("colspan") || 1);
+              if (headers[hi]) cell.setAttribute("data-label", headers[hi]);
+              hi += span;
             }
           });
         });
       } catch (e) {}
     }
-    if (typeof MutationObserver !== "undefined") {
-      var _tblObs = new MutationObserver(function () { labelTables(); });
-      document.addEventListener("DOMContentLoaded", function () {
+    var _labelTimer = null;
+    function scheduleLabelTables() {
+      if (_labelTimer) clearTimeout(_labelTimer);
+      _labelTimer = setTimeout(function () { labelTables(); }, 30);
+    }
+    function armLabelTables() {
+      try {
         var root = document.getElementById("root");
-        if (root) _tblObs.observe(root, { childList: true, subtree: true });
-        labelTables();
-      });
+        if (root && typeof MutationObserver !== "undefined") {
+          if (!window.__bdTblObs) {
+            window.__bdTblObs = new MutationObserver(function () { scheduleLabelTables(); });
+            window.__bdTblObs.observe(root, { childList: true, subtree: true });
+          }
+        }
+        scheduleLabelTables();
+        setTimeout(labelTables, 120);
+        setTimeout(labelTables, 600);
+      } catch (e2) {}
+    }
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", armLabelTables);
+    } else {
+      armLabelTables();
     }
     (function bootAdmin() {
       if (!window.React || !window.ReactDOM) {
@@ -4081,6 +4152,7 @@
       } catch (e1) {}
       const root = ReactDOM.createRoot(el);
       root.render(<App />);
+      armLabelTables();
     })();
   </script>
 </body>
