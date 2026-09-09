@@ -57,6 +57,7 @@ window.Partners = function Partners(props) {
   const [editId, setEditId] = useState(null);
   const [msg, setMsg] = useState({});
   const [ferr, setFerr] = useState({});
+  const [busy, setBusy] = useState(false);
   const [confirmState, setConfirmState] = useState({ open: false, id: null });
 
   const load = useCallback(function () {
@@ -86,6 +87,8 @@ window.Partners = function Partners(props) {
     if (!String(form.name || "").trim()) next.name = "Ism majburiy";
     setFerr(next);
     if (next.name) return;
+    if (busy) return;
+    setBusy(true);
     try {
       const body = {
         name: form.name,
@@ -112,6 +115,7 @@ window.Partners = function Partners(props) {
     } catch (err) {
       setMsg({ text: err.message, type: "err" });
     }
+    setBusy(false);
   }
 
   function startEdit(p) {
@@ -163,6 +167,7 @@ window.Partners = function Partners(props) {
       <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
       <div className="card">
         <h2>{editId ? "Hamkorni tahrirlash #" + editId : "Yangi hamkor"}</h2>
+        <div className="hint-box">Bu ro'yxat — Yuk (diler/agent) bo'limida ishlatiladi. Oddiy mijoz uchun Mijozlar sahifasini oching.</div>
         <form onSubmit={submit}>
           <div className="form-row">
             <div>
@@ -229,7 +234,7 @@ window.Partners = function Partners(props) {
               <input value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
             </div>
           </div>
-          <button className="btn" type="submit">{editId ? "Saqlash" : "Qoshish"}</button>
+          <button className="btn" type="submit" disabled={busy}>{busy ? "Saqlanmoqda..." : (editId ? "Saqlash" : "Qoshish")}</button>
           {editId ? (
             <button className="btn-ghost" type="button" style={{ marginLeft: 8 }} onClick={resetForm}>Bekor</button>
           ) : null}
@@ -327,6 +332,8 @@ window.Shipments = function Shipments(props) {
     if (!(Number(form.qty) > 0)) next.qty = "Miqdor musbat bo'lsin";
     setFerr(next);
     if (Object.keys(next).length) return;
+    if (busy) return;
+    setBusy(true);
     try {
       await api("/api/shipments", {
         method: "POST",
@@ -351,6 +358,7 @@ window.Shipments = function Shipments(props) {
     } catch (err) {
       setMsg({ text: err.message, type: "err" });
     }
+    setBusy(false);
   }
 
   const shown = list.filter(function (s) {
@@ -418,7 +426,7 @@ window.Shipments = function Shipments(props) {
               <input value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
             </div>
           </div>
-          <button className="btn" type="submit">Yuk berish</button>
+          <button className="btn" type="submit" disabled={busy}>{busy ? "Saqlanmoqda..." : "Yuk berish"}</button>
         </form>
       </div>
       <div className="card">

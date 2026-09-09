@@ -120,8 +120,7 @@ app.post('/api/batches', async (req, res) => {
     } catch (err) {
       try { await client.query('ROLLBACK'); } catch (e) {}
       sendError(res, err);
-    } finally { client.release();
-    }
+    } finally { client.release(); }
   } catch (err) { sendError(res, err); }
 });
 
@@ -147,6 +146,7 @@ app.delete('/api/batches/:id', async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(400).json({ ok: false, error: 'Qadoqlangan partiya ochirilmaydi' });
     }
+    // Material qaytarish
     await client.query(
       `INSERT INTO material_movements (material_id, movement_type, qty, unit_price, total_amount, note)
        SELECT material_id, 'in', qty, unit_price, total_amount, 'Partiya o\'chirildi: qaytarildi'
@@ -159,8 +159,7 @@ app.delete('/api/batches/:id', async (req, res) => {
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (e) {}
     sendError(res, err);
-  } finally { client.release();
-  }
+  } finally { client.release(); }
 });
 
 app.get('/api/packaging', async (req, res) => {
@@ -220,8 +219,7 @@ app.post('/api/packaging', async (req, res) => {
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (e) {}
     sendError(res, err);
-  } finally { client.release();
-  }
+  } finally { client.release(); }
 });
 
 app.get('/api/material-movements', async (req, res) => {

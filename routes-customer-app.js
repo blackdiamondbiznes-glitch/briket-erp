@@ -219,7 +219,7 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
           if (row.key === 'bulk_discount') bulkDisc = num(row.value, 3000);
           if (row.key === 'bulk_min_qty') bulkMin = num(row.value, 500);
         });
-      } catch (e) {}
+      } catch (e) { /* settings ixtiyoriy */ }
 
       const totalQty = items.reduce((s, it) => s + Math.max(0, num(it.qty)), 0);
       const useBulk = totalQty >= bulkMin;
@@ -238,6 +238,7 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
           if (pr.rows.length) product = pr.rows[0];
         }
         if (!product) continue;
+        // products.price = optom; 500+ gacha asosiy = optom + bulk_discount
         const yirik = num(product.price);
         const asosiy = yirik + bulkDisc;
         const unitPrice = useBulk ? yirik : asosiy;

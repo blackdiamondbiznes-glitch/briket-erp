@@ -6,6 +6,7 @@ module.exports = function registerV2Routes(app, pool, helpers) {
   const num = helpers.num;
   const sendError = helpers.sendError;
 
+// ========== SETTINGS ==========
 app.get('/api/settings', async (req, res) => {
   try {
     const r = await pool.query('SELECT key, value, description, updated_at FROM settings ORDER BY key');
@@ -59,6 +60,7 @@ async function getSettingsMap() {
 }
 
 function calcUnitPrice(partner, product, qty, settings) {
+  // products.price = optom (yirik). Mijoz 500 gacha: optom + bulk_discount
   const optom = num(product && product.price);
   const q = num(qty);
   const type = partner && partner.type ? String(partner.type) : 'customer';
@@ -203,6 +205,7 @@ app.get('/api/partners/:id/debt', async (req, res) => {
     const id = req.params.id;
     const partner = await pool.query('SELECT * FROM partners WHERE id = $1', [id]);
     if (!partner.rows.length) return res.status(404).json({ ok: false, error: 'Hamkor topilmadi' });
+    // Faqat tasdiqlangan buyurtmalar qarzi (pending hisobga olinmaydi)
     const orderDebt = await pool.query(
       `SELECT COALESCE(SUM(debt_amount),0) AS total FROM orders
        WHERE partner_id = $1 AND debt_amount > 0
@@ -303,7 +306,7 @@ app.post('/api/shipments', async (req, res) => {
     res.status(201).json({ ok: true, data: r.rows[0] });
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ ok: false, error: 'Kod takrorlandi' });
-    sendError(res, err, err.status);
+    sendError(res, err);
   }
 });
 

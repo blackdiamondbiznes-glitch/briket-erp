@@ -118,6 +118,7 @@ module.exports = function(app, pool, helpers) {
         }
       }
 
+      // Admin kassa: to'lov bo'lsa darhol sotilgan. Aks holda pending (zaxira tegilmaydi).
       let status = 'pending';
       if (debt === 0 && paid > 0) status = 'paid';
       else if (paid > 0) status = 'partial';
@@ -156,8 +157,7 @@ module.exports = function(app, pool, helpers) {
     } catch (err) {
       try { await client.query('ROLLBACK'); } catch (e) {}
       sendError(res, err, err.status);
-    } finally { client.release();
-    }
+    } finally { client.release(); }
   });
 
   app.patch('/api/orders/:id/status', async (req, res) => {
@@ -205,8 +205,7 @@ module.exports = function(app, pool, helpers) {
     } catch (err) {
       try { await client.query('ROLLBACK'); } catch (e) {}
       sendError(res, err, err.status);
-    } finally { client.release();
-    }
+    } finally { client.release(); }
   });
 
 app.get('/api/payments', async (req, res) => {
@@ -237,6 +236,7 @@ app.post('/api/payments', async (req, res) => {
         const pay = Math.min(som(o.rows[0].debt_amount), remaining);
         const newDebt = som(o.rows[0].debt_amount) - pay;
         const newPaid = som(o.rows[0].paid_amount) + pay;
+        // Pending qolgan buyurtma to'lov bilan avtomatik SOLD bo'lmasin
         let st = prev;
         if (SOLD_STATUSES.includes(prev)) {
           st = newDebt === 0 ? 'paid' : 'partial';
@@ -273,8 +273,7 @@ app.post('/api/payments', async (req, res) => {
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (e) {}
     sendError(res, err);
-  } finally { client.release();
-  }
+  } finally { client.release(); }
 });
 
 app.get('/api/expenses', async (req, res) => {
@@ -290,6 +289,28 @@ app.post('/api/expenses', async (req, res) => {
     const { category, amount, payment_method, batch_id, note, expense_date } = req.body;
     if (!category || som(amount) <= 0) return res.status(400).json({ ok: false, error: 'category va amount majburiy' });
     const r = await pool.query(`INSERT INTO expenses (category, amount, payment_method, batch_id, note, expense_date) VALUES ($1,$2,$3,$4,$5, COALESCE($6::timestamptz, NOW())) RETURNING *`, [String(category).trim(), som(amount), payment_method || 'cash', batch_id || null, note || null, expense_date || null]);
+    res.json({ ok: true, data: r.rows[0] });
+  } catch (err) { sendError(res, err); }
+});
+app.put('/api/expenses/:id', async (req, res) => {
+  try {
+    const { category, amount, payment_method, note } = req.body;
+    const r = await pool.query(
+      `UPDATE expenses SET
+         category = COALESCE($1, category),
+         amount = COALESCE($2, amount),
+         payment_method = COALESCE($3, payment_method),
+         note = COALESCE($4, note)
+       WHERE id = $5 RETURNING *`,
+      [
+        category != null ? String(category).trim() : null,
+        amount != null ? som(amount) : null,
+        payment_method != null ? String(payment_method) : null,
+        note !== undefined ? note : null,
+        req.params.id
+      ]
+    );
+    if (!r.rows.length) return res.status(404).json({ ok: false, error: 'Xarajat topilmadi' });
     res.json({ ok: true, data: r.rows[0] });
   } catch (err) { sendError(res, err); }
 });

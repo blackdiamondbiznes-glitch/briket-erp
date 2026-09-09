@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS products (
   sku           TEXT NOT NULL UNIQUE,
   weight_kg     NUMERIC(10,3) NOT NULL DEFAULT 0,
   price         NUMERIC(14,2) NOT NULL DEFAULT 0,
+  cost_price    NUMERIC(14,2) NOT NULL DEFAULT 0,
   description   TEXT,
   image_urls    TEXT[] DEFAULT '{}',
   is_active     BOOLEAN NOT NULL DEFAULT true,
@@ -55,6 +56,7 @@ CREATE TABLE IF NOT EXISTS recipes (
   product_id    INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   material_id   INTEGER NOT NULL REFERENCES materials(id) ON DELETE RESTRICT,
   qty           NUMERIC(14,4) NOT NULL,
+  line_amount   NUMERIC(14,2),
   UNIQUE (product_id, material_id)
 );
 
