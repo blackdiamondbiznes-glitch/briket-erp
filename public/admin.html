@@ -253,8 +253,8 @@
       .dash-kpis.cols-5 { grid-template-columns: repeat(5, 1fr); }
     }
     @media (max-width: 380px) {
-      .dash-kpis, .dash-kpis.cols-5 { grid-template-columns: 1fr; }
-      .dash-kpi .value { font-size: 1.05rem; }
+      .dash-kpis, .dash-kpis.cols-5 { grid-template-columns: 1fr 1fr; }
+      .dash-kpi .value { font-size: 0.98rem; }
     }
     .dash-kpi-danger {
       border-color: rgba(229, 72, 77, 0.45);
@@ -565,7 +565,8 @@
       .card { padding: 12px; }
     }
     @media (max-width: 400px) {
-      .dash-kpis, .dash-kpis.cols-5 { grid-template-columns: 1fr !important; }
+      .dash-kpis, .dash-kpis.cols-5 { grid-template-columns: 1fr 1fr !important; }
+      .dash-kpi .value { font-size: 0.98rem; }
     }
   
     th.sticky-actions, td.sticky-actions {
@@ -584,8 +585,8 @@
       .table-wrap thead { display: none !important; }
       .table-wrap tbody tr {
         display: block !important;
-        margin-bottom: 10px;
-        padding: 12px;
+        margin-bottom: 6px;
+        padding: 8px 10px;
         border: 1px solid var(--border-subtle);
         border-radius: var(--radius);
         background: var(--bg-elevated);
@@ -593,30 +594,31 @@
       .table-wrap tbody td {
         display: flex !important;
         justify-content: space-between;
-        align-items: flex-start;
-        gap: 12px;
-        padding: 7px 0 !important;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 0 !important;
         height: auto !important;
         white-space: normal !important;
         border-bottom: 1px solid var(--border-subtle);
-        font-size: 0.84rem;
+        font-size: 0.8rem;
         text-align: right;
+        font-variant-numeric: tabular-nums;
       }
       .table-wrap tbody td:last-child { border-bottom: none; }
       .table-wrap tbody td::before {
         content: attr(data-label);
         color: var(--muted);
-        font-size: 0.68rem;
+        font-size: 0.65rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.03em;
         text-align: left;
-        flex: 0 0 96px;
-        max-width: 38%;
+        flex: 0 0 78px;
+        max-width: 36%;
       }
       .table-wrap tbody td > * {
         min-width: 0;
-        max-width: calc(100% - 108px);
+        max-width: calc(100% - 90px);
         overflow-wrap: anywhere;
         word-break: break-word;
       }
@@ -646,6 +648,95 @@
         overflow-wrap: anywhere;
         word-break: break-word;
       }
+
+      /* Dashboard dense cards: title+money on row1, metrics chips on row2 */
+      .table-wrap.dash-dense tbody tr {
+        display: flex !important;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 2px 8px;
+        padding: 8px 10px;
+        margin-bottom: 6px;
+      }
+      .table-wrap.dash-dense tbody td {
+        display: inline-flex !important;
+        width: auto !important;
+        max-width: none !important;
+        padding: 0 !important;
+        border-bottom: none !important;
+        gap: 4px;
+        font-size: 0.72rem;
+        color: var(--muted);
+        text-align: left;
+        align-items: baseline;
+      }
+      .table-wrap.dash-dense tbody td::before {
+        content: attr(data-label) ":";
+        flex: 0 0 auto;
+        max-width: none;
+        text-transform: none;
+        letter-spacing: 0;
+        font-size: 0.65rem;
+        font-weight: 600;
+      }
+      .table-wrap.dash-dense tbody td > * {
+        max-width: none;
+      }
+      .table-wrap.dash-dense tbody td:first-child {
+        order: 1;
+        flex: 1 1 calc(100% - 110px);
+        font-size: 0.84rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .table-wrap.dash-dense tbody td:first-child::before { display: none !important; content: none !important; }
+      .table-wrap.dash-dense tbody td:last-child {
+        order: 2;
+        flex: 0 0 auto;
+        margin-left: auto;
+        font-size: 0.84rem;
+        font-weight: 700;
+        color: var(--text);
+        justify-content: flex-end;
+      }
+      .table-wrap.dash-dense tbody td:last-child::before { display: none !important; content: none !important; }
+      .table-wrap.dash-dense tbody td:not(:first-child):not(:last-child) {
+        order: 3;
+      }
+      .dash-more {
+        width: 100%;
+        margin-top: 6px;
+        min-height: 44px;
+      }
+    }
+
+    @media (max-width: 860px) {
+      .page-head { margin-bottom: 10px; gap: 8px; align-items: flex-start; }
+      .page-head h1 { font-size: 1.05rem; }
+      .page-head .sub {
+        font-size: 0.7rem;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .page-actions { gap: 6px; width: 100%; }
+      .period-toggle button { min-height: 44px; padding: 8px 12px; }
+      .dash-kpi .trend { display: none; }
+      .dash-kpi { padding: 8px 10px; }
+      .bar-track { margin-top: 6px; height: 4px; }
+      .dash-meta { margin-bottom: 8px; padding: 8px 10px; }
+      .dash-alerts-sticky {
+        position: sticky;
+        top: 0;
+        z-index: 45;
+        background: var(--bg);
+        padding: 4px 0 6px;
+        margin-bottom: 8px;
+        box-shadow: 0 6px 10px -8px rgba(0,0,0,0.25);
+      }
+      .dash-alerts-sticky .dash-alert { margin-bottom: 4px; padding: 7px 10px; font-size: 0.74rem; }
+      .dash-alerts-sticky .dash-alert:last-child { margin-bottom: 0; }
     }
 
     /* === OPS 2.1.3 enterprise layer === */
@@ -1185,6 +1276,32 @@
       const [err, setErr] = useState("");
       const [lastUpdated, setLastUpdated] = useState(null);
       const [period, setPeriod] = useState("today");
+      const [dashMore, setDashMore] = useState({ sku: false, mat: false, batch: false, order: false });
+      const DASH_LIMIT = 5;
+      function dashSlice(arr, key) {
+        if (!arr || !arr.length) return [];
+        return dashMore[key] ? arr : arr.slice(0, DASH_LIMIT);
+      }
+      function DashMoreBtn(props) {
+        const arr = props.arr || [];
+        const k = props.k;
+        if (arr.length <= DASH_LIMIT) return null;
+        return (
+          <button
+            type="button"
+            className="btn-ghost btn-sm dash-more"
+            onClick={function () {
+              setDashMore(function (prev) {
+                var next = Object.assign({}, prev);
+                next[k] = !prev[k];
+                return next;
+              });
+            }}
+          >
+            {dashMore[k] ? "Kamroq" : ("Ko‘proq · " + (arr.length - DASH_LIMIT))}
+          </button>
+        );
+      }
 
       function load() {
         api("/api/dashboard")
@@ -1250,7 +1367,7 @@
               <button type="button" className={!isMonth ? "on" : ""} onClick={function () { setPeriod("today"); }}>Bugun</button>
               <button type="button" className={isMonth ? "on" : ""} onClick={function () { setPeriod("month"); }}>Shu oy</button>
             </div>
-            <button className="btn-ghost" type="button" onClick={load}>Yangilash</button>
+            <button className="btn-ghost btn-sm" type="button" onClick={load} title="Yangilash">↻</button>
           </PageHead>
 
           <div className="dash-kpis cols-5">
@@ -1290,8 +1407,9 @@
             {lastUpdated ? <span>Yangilangan: <strong>{tashkentTime(lastUpdated)}</strong></span> : null}
           </div>
 
+          <div className="dash-alerts-sticky">
           {alerts.length > 0 ? (
-            <div style={{ marginBottom: 10 }}>
+            <div>
               {alerts.map(function (a, i) {
                 return (
                   <div key={i} className={"dash-alert " + (a.type === "danger" ? "danger" : "warn")}>
@@ -1301,10 +1419,11 @@
               })}
             </div>
           ) : (
-            <div className="dash-alert" style={{ background: "var(--success-bg)", color: "var(--success)", marginBottom: 10 }}>
+            <div className="dash-alert" style={{ background: "var(--success-bg)", color: "var(--success)" }}>
               Ogohlantirish yo'q — zaxira va qarz normal.
             </div>
           )}
+          </div>
 
           <div className="dash-grid">
             <div className="card tight">
@@ -1316,7 +1435,7 @@
                   Avval qadoqlash qiling
                 </div>
               ) : (
-                <div className="table-wrap">
+                <div className="table-wrap dash-dense">
                 <table>
                   <thead>
                     <tr>
@@ -1329,7 +1448,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    {skuStock.map(function (s) {
+                    {dashSlice(skuStock, "sku").map(function (s) {
                       const bal = Number(s.balance_qty);
                       return (
                         <tr key={s.id}>
@@ -1344,6 +1463,7 @@
                     })}
                   </tbody>
                 </table>
+                <DashMoreBtn arr={skuStock} k="sku" />
                 </div>
               )}
             </div>
@@ -1357,13 +1477,13 @@
                   Katalog → Material
                 </div>
               ) : (
-                <div className="table-wrap">
+                <div className="table-wrap dash-dense">
                 <table>
                   <thead>
                     <tr><th>Nomi</th><th>Birlik</th><th>Qoldiq</th><th>Qiymat</th></tr>
                   </thead>
                   <tbody>
-                    {mats.map(function (m) {
+                    {dashSlice(mats, "mat").map(function (m) {
                       const bal = Number(m.balance);
                       return (
                         <tr key={m.id}>
@@ -1376,6 +1496,7 @@
                     })}
                   </tbody>
                 </table>
+                <DashMoreBtn arr={mats} k="mat" />
                 </div>
               )}
             </div>
@@ -1391,13 +1512,13 @@
                   Ishlab chiqarish → Partiya
                 </div>
               ) : (
-                <div className="table-wrap">
+                <div className="table-wrap dash-dense">
                 <table>
                   <thead>
                     <tr><th>Kod</th><th>Quruq</th><th>Qadoq</th><th>Qoldiq</th></tr>
                   </thead>
                   <tbody>
-                    {batches.map(function (b) {
+                    {dashSlice(batches, "batch").map(function (b) {
                       const rem = Number(b.remaining_kg);
                       const dry = Number(b.dry_kg) || 1;
                       return (
@@ -1414,6 +1535,7 @@
                     })}
                   </tbody>
                 </table>
+                <DashMoreBtn arr={batches} k="batch" />
                 </div>
               )}
             </div>
@@ -1427,13 +1549,13 @@
                   Savdo yoki mijoz ilovasidan keladi
                 </div>
               ) : (
-                <div className="table-wrap">
+                <div className="table-wrap dash-dense">
                 <table>
                   <thead>
                     <tr><th>Kod</th><th>Mijoz</th><th>Summa</th><th>Holat</th></tr>
                   </thead>
                   <tbody>
-                    {orders.map(function (o) {
+                    {dashSlice(orders, "order").map(function (o) {
                       return (
                         <tr key={o.id}>
                           <td title={o.order_code}>{shortCode(o.order_code)}</td>
@@ -1445,6 +1567,7 @@
                     })}
                   </tbody>
                 </table>
+                <DashMoreBtn arr={orders} k="order" />
                 </div>
               )}
             </div>
