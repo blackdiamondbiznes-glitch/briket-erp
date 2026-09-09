@@ -578,119 +578,74 @@
     }
 
   
-    /* MOBILE CARD TABLES */
+    /* MOBILE CARD TABLES — dense by default (S25 / narrow) */
     @media (max-width: 700px) {
       .table-wrap { overflow-x: visible !important; }
       .table-wrap table { min-width: 0 !important; width: 100% !important; }
       .table-wrap thead { display: none !important; }
+
       .table-wrap tbody tr {
-        display: block !important;
+        display: flex !important;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 2px 8px;
         margin-bottom: 6px;
         padding: 8px 10px;
         border: 1px solid var(--border-subtle);
         border-radius: var(--radius);
         background: var(--bg-elevated);
       }
+
       .table-wrap tbody td {
-        display: flex !important;
-        justify-content: space-between;
-        align-items: center;
-        gap: 10px;
-        padding: 4px 0 !important;
+        display: inline-flex !important;
+        width: auto !important;
+        max-width: none !important;
+        align-items: baseline;
+        gap: 4px;
+        padding: 0 !important;
         height: auto !important;
         white-space: normal !important;
-        border-bottom: 1px solid var(--border-subtle);
-        font-size: 0.8rem;
-        text-align: right;
+        border-bottom: none !important;
+        font-size: 0.72rem;
+        color: var(--muted);
+        text-align: left;
         font-variant-numeric: tabular-nums;
       }
-      .table-wrap tbody td:last-child { border-bottom: none; }
+
       .table-wrap tbody td::before {
-        content: attr(data-label);
+        content: attr(data-label) ":";
         color: var(--muted);
         font-size: 0.65rem;
         font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
+        text-transform: none;
+        letter-spacing: 0;
         text-align: left;
-        flex: 0 0 78px;
-        max-width: 36%;
+        flex: 0 0 auto;
+        max-width: none;
       }
+
       .table-wrap tbody td > * {
         min-width: 0;
-        max-width: calc(100% - 90px);
-        overflow-wrap: anywhere;
-        word-break: break-word;
-      }
-      .table-wrap tbody td.cell-note,
-      .table-wrap tbody td.cell-stack {
-        flex-wrap: wrap;
-        text-align: left;
-      }
-      .table-wrap tbody td.cell-note::before,
-      .table-wrap tbody td.cell-stack::before {
-        flex: 0 0 100%;
         max-width: none;
-        margin-bottom: 4px;
-      }
-      .table-wrap tbody td.cell-note > *,
-      .table-wrap tbody td.cell-stack > * {
-        max-width: 100%;
-        text-align: left;
-      }
-      .table-wrap tbody td.sticky-actions {
-        white-space: normal !important;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-      }
-      .note-text {
-        white-space: pre-wrap;
         overflow-wrap: anywhere;
         word-break: break-word;
       }
 
-      /* Dashboard dense cards: title+money on row1, metrics chips on row2 */
-      .table-wrap.dash-dense tbody tr {
-        display: flex !important;
-        flex-wrap: wrap;
-        align-items: baseline;
-        gap: 2px 8px;
-        padding: 8px 10px;
-        margin-bottom: 6px;
-      }
-      .table-wrap.dash-dense tbody td {
-        display: inline-flex !important;
-        width: auto !important;
-        max-width: none !important;
-        padding: 0 !important;
-        border-bottom: none !important;
-        gap: 4px;
-        font-size: 0.72rem;
-        color: var(--muted);
-        text-align: left;
-        align-items: baseline;
-      }
-      .table-wrap.dash-dense tbody td::before {
-        content: attr(data-label) ":";
-        flex: 0 0 auto;
-        max-width: none;
-        text-transform: none;
-        letter-spacing: 0;
-        font-size: 0.65rem;
-        font-weight: 600;
-      }
-      .table-wrap.dash-dense tbody td > * {
-        max-width: none;
-      }
-      .table-wrap.dash-dense tbody td:first-child {
+      /* Title row */
+      .table-wrap tbody td:first-child {
         order: 1;
-        flex: 1 1 calc(100% - 110px);
+        flex: 1 1 calc(100% - 120px);
         font-size: 0.84rem;
         font-weight: 700;
         color: var(--text);
       }
-      .table-wrap.dash-dense tbody td:first-child::before { display: none !important; content: none !important; }
-      .table-wrap.dash-dense tbody td:last-child {
+      .table-wrap tbody td:first-child::before {
+        display: none !important;
+        content: none !important;
+      }
+
+      /* Money / last metric when no action column */
+      .table-wrap tbody tr:not(:has(td.sticky-actions)) td:last-child {
         order: 2;
         flex: 0 0 auto;
         margin-left: auto;
@@ -699,44 +654,84 @@
         color: var(--text);
         justify-content: flex-end;
       }
-      .table-wrap.dash-dense tbody td:last-child::before { display: none !important; content: none !important; }
-      .table-wrap.dash-dense tbody td:not(:first-child):not(:last-child) {
+      .table-wrap tbody tr:not(:has(td.sticky-actions)) td:last-child::before {
+        display: none !important;
+        content: none !important;
+      }
+
+      /* With actions: emphasize remaining / key col before actions */
+      .table-wrap tbody tr:has(td.sticky-actions) td:nth-last-child(2) {
+        order: 2;
+        flex: 0 0 auto;
+        margin-left: auto;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      .table-wrap tbody td:not(:first-child):not(:last-child):not(.sticky-actions),
+      .table-wrap tbody tr:has(td.sticky-actions) td:not(:first-child):not(.sticky-actions):not(:nth-last-child(2)) {
         order: 3;
       }
+
+      .table-wrap tbody td.sticky-actions {
+        order: 99 !important;
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        margin-top: 6px;
+        padding-top: 8px !important;
+        border-top: 1px solid var(--border-subtle) !important;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 8px;
+        color: var(--text);
+      }
+      .table-wrap tbody td.sticky-actions::before {
+        display: none !important;
+        content: none !important;
+      }
+      .table-wrap tbody td.sticky-actions > * {
+        max-width: none;
+      }
+
+      .table-wrap tbody td.cell-note,
+      .table-wrap tbody td.cell-stack {
+        order: 3;
+        flex: 1 1 100%;
+        flex-wrap: wrap;
+        text-align: left;
+      }
+      .table-wrap tbody td.cell-note::before,
+      .table-wrap tbody td.cell-stack::before {
+        flex: 0 0 100%;
+        margin-bottom: 2px;
+      }
+
+      .note-text {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+
       .dash-more {
         width: 100%;
         margin-top: 6px;
         min-height: 44px;
       }
+
+      /* keep dash-dense as alias (same rules) */
     }
 
     @media (max-width: 860px) {
-      .page-head { margin-bottom: 10px; gap: 8px; align-items: flex-start; }
-      .page-head h1 { font-size: 1.05rem; }
-      .page-head .sub {
-        font-size: 0.7rem;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
+      input, select, textarea {
+        background: #ffffff !important;
+        border-color: rgba(40, 32, 12, 0.28) !important;
+        color: var(--text);
       }
-      .page-actions { gap: 6px; width: 100%; }
-      .period-toggle button { min-height: 44px; padding: 8px 12px; }
-      .dash-kpi .trend { display: none; }
-      .dash-kpi { padding: 8px 10px; }
-      .bar-track { margin-top: 6px; height: 4px; }
-      .dash-meta { margin-bottom: 8px; padding: 8px 10px; }
-      .dash-alerts-sticky {
-        position: sticky;
-        top: 0;
-        z-index: 45;
-        background: var(--bg);
-        padding: 4px 0 6px;
-        margin-bottom: 8px;
-        box-shadow: 0 6px 10px -8px rgba(0,0,0,0.25);
-      }
-      .dash-alerts-sticky .dash-alert { margin-bottom: 4px; padding: 7px 10px; font-size: 0.74rem; }
-      .dash-alerts-sticky .dash-alert:last-child { margin-bottom: 0; }
+      input::placeholder, textarea::placeholder { color: #8a8378; }
+      .card h2 { margin-bottom: 10px; }
+      .form-row, .form-row-3 { gap: 10px; }
+      label { margin-bottom: 4px; }
     }
 
     /* === OPS 2.1.3 enterprise layer === */
@@ -1608,7 +1603,7 @@
                 Katalog → Material dan qo'shing
               </div>
             ) : (
-              <div className="table-wrap"><table>
+              <div className="table-wrap list-dense"><table>
                 <thead>
                   <tr><th>Nomi</th><th>Birlik</th><th>Kirim</th><th>Chiqim</th><th>Qoldiq</th></tr>
                 </thead>
@@ -1633,7 +1628,7 @@
             {products.length === 0 ? (
               <EmptyState icon="box" title="Mahsulot qoldiq yo'q" sub="Avval qadoqlash qiling" />
             ) : (
-              <div className="table-wrap"><table>
+              <div className="table-wrap list-dense"><table>
                 <thead>
                   <tr><th>SKU</th><th>Qoldiq</th><th>Tannarx</th><th>Sotish</th><th>Foyda/dona</th><th>Ombor tannarx</th><th>Ombor savdo</th><th>Kutilgan foyda</th></tr>
                 </thead>
@@ -1993,7 +1988,7 @@
                 </div>
                 <h3 style={{ fontSize: "0.85rem", margin: "12px 0 8px" }}>Tan narx — xomashyo (1 dona)</h3>
                 <p className="muted" style={{ fontSize: "0.72rem", marginTop: 0 }}>Miqdor va summani qo'lda yozing. Summa bo'sh qolsa: miqdor × material narxi. Tan narx = qatorlar yig'indisi.</p>
-                <div className="table-wrap">
+                <div className="table-wrap list-dense">
                   <table>
                     <thead>
                       <tr><th>Xomashyo</th><th>Miqdor</th><th>Summa (so'm)</th><th></th></tr>
@@ -2058,7 +2053,7 @@
               <h2 style={{ margin: 0 }}>Mahsulotlar ({list.filter(function (p) { return matchQ(q, [p.sku, p.description]); }).length})</h2>
               <input type="search" placeholder="Qidiruv: SKU..." value={q} onChange={function (e) { setQ(e.target.value); }} />
             </div>
-            <div className="table-wrap"><table>
+            <div className="table-wrap list-dense"><table>
               <thead>
                 <tr><th>SKU</th><th>kg</th><th>Tannarx</th><th>Optom</th><th>Foyda</th><th>Mijoz</th><th>Rasm</th><th>Holat</th><th></th></tr>
               </thead>
@@ -2349,7 +2344,7 @@
               <h2 style={{ margin: 0 }}>Materiallar ({list.filter(function (m) { return matchQ(q, [m.name, m.unit]); }).length})</h2>
               <input type="search" placeholder="Qidiruv: nomi..." value={q} onChange={function (e) { setQ(e.target.value); }} />
             </div>
-            <div className="table-wrap">
+            <div className="table-wrap list-dense">
               <table>
                 <thead>
                   <tr>
@@ -2544,7 +2539,7 @@
           </div>
           <div className="card">
             <h2>Partiyalar ({list.length})</h2>
-            <div className="table-wrap"><table>
+            <div className="table-wrap list-dense"><table>
               <thead>
                 <tr>
                   <th>Kod</th><th>Holat</th><th>Qop</th><th>Quruq</th><th>Qadoq</th><th>Qolgan</th><th>Yoqotish %</th>
@@ -2730,7 +2725,7 @@
             {loading ? (
               <div className="muted">Yuklanmoqda...</div>
             ) : (
-              <div className="table-wrap"><table>
+              <div className="table-wrap list-dense"><table>
                 <thead>
                   <tr><th>SKU</th><th>Dona</th><th>kg</th><th>Partiya</th><th>Ish haqi</th></tr>
                 </thead>
@@ -2939,7 +2934,7 @@
               <h2 style={{ margin: 0 }}>Mijozlar ro'yxati</h2>
               <input type="search" placeholder="Qidiruv: ism, telefon..." value={q} onChange={function (e) { setQ(e.target.value); }} />
             </div>
-            <div className="table-wrap">
+            <div className="table-wrap list-dense">
               <table>
                 <thead>
                   <tr>
@@ -3314,7 +3309,7 @@
                 <button type="button" className="btn-ghost btn-sm" onClick={function () { setSelected({}); }}>Bekor</button>
               </div>
             ) : null}
-            <div className="table-wrap">
+            <div className="table-wrap list-dense">
               <table>
                 <thead>
                   <tr>
@@ -3610,7 +3605,7 @@
                 CSV
               </button>
             </div>
-            <div className="table-wrap"><table>
+            <div className="table-wrap list-dense"><table>
               <thead>
                 <tr><th>Sana</th><th>Mijoz</th><th>Buyurtma</th><th>Summa</th><th>Usul</th></tr>
               </thead>
@@ -3808,7 +3803,7 @@
                 CSV
               </button>
             </div>
-            <div className="table-wrap"><table>
+            <div className="table-wrap list-dense"><table>
               <thead>
                 <tr><th>Sana</th><th>Kategoriya</th><th>Summa</th><th>Usul</th><th>Izoh</th><th></th></tr>
               </thead>
