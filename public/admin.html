@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="robots" content="noindex, nofollow" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#f4efe4" />
+  <meta name="theme-color" content="#f7f4ec" />
   <meta name="color-scheme" content="light" />
   <title>Black Diamond — Operatsion tizim</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -34,28 +34,28 @@
   <style>
     /* ========== Design tokens - Black Diamond ERP ========== */
     :root {
-      /* Black Diamond OPS — ochiq fon, oltin aksent (ko'chada o'qiladi) */
-      --bg: #f4efe4;
-      --bg-mid: #efe8d8;
-      --bg-elevated: #fffdf8;
+      /* OPS light — high contrast for sunlight (inventory dashboard pattern) */
+      --bg: #f7f4ec;
+      --bg-mid: #eee6d6;
+      --bg-elevated: #ffffff;
       --card: #ffffff;
-      --card-hover: #f7f1e4;
-      --border: #d9d0b8;
-      --border-subtle: #e6decc;
-      --text: #1c1914;
-      --muted: #6b6456;
-      --accent: #9a7b14;
-      --accent-hover: #7e640e;
-      --accent-muted: rgba(154, 123, 20, 0.14);
+      --card-hover: #f3ecdc;
+      --border: #c4b89a;
+      --border-subtle: #ddd3bc;
+      --text: #111111;
+      --muted: #4a453a;
+      --accent: #8a6a00;
+      --accent-hover: #6e5500;
+      --accent-muted: rgba(138, 106, 0, 0.16);
       --accent-text: #fffdf6;
-      --danger: #ef4444;
-      --danger-bg: rgba(239, 68, 68, 0.12);
-      --warning: #92400e;
-      --warning-bg: #fef3c7;
-      --success: #22c55e;
-      --success-bg: rgba(34, 197, 94, 0.12);
-      --info: #38bdf8;
-      --info-bg: rgba(56, 189, 248, 0.12);
+      --danger: #b30000;
+      --danger-bg: #ffe5e5;
+      --warning: #7a4a00;
+      --warning-bg: #fff1cc;
+      --success: #146c2e;
+      --success-bg: #e3f6e8;
+      --info: #004a99;
+      --info-bg: #e5f0ff;
       --radius-sm: 6px;
       --radius: 8px;
       --radius-lg: 10px;
@@ -63,17 +63,18 @@
       --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
       --fs-label: 0.75rem;
-      --fs-body: 0.8125rem;
-      --fs-body-lg: 0.875rem;
-      --fs-title: 1rem;
-      --fs-kpi: 1.35rem;
+      --fs-body: 0.875rem;
+      --fs-body-lg: 0.9375rem;
+      --fs-title: 1.05rem;
+      --fs-kpi: 1.5rem;
+      --tap-min: 44px;
       --space-1: 4px;
       --space-2: 8px;
       --space-3: 12px;
       --space-4: 16px;
       --space-5: 20px;
       --space-6: 24px;
-      --row-h: 34px;
+      --row-h: 40px;
       --nav-h: 72px;
       --sidebar-w: 220px;
       --focus-ring: 0 0 0 3px var(--accent-muted);
@@ -210,6 +211,17 @@
     .card.tight h2 { font-size: 0.75rem; margin-bottom: 8px; }
     .card.tight table { font-size: 0.75rem; }
     .card.tight th, .card.tight td { padding: 6px 8px; height: auto; }
+
+
+    .dash-alerts-sticky { margin-bottom: 12px; }
+    .dash-alert { font-weight: 600; border-width: 1.5px; }
+    tr.row-zero td, tr.row-zero { background: var(--warning-bg); }
+    tr.row-zero td[data-label="Qoldiq"] strong { color: var(--warning); }
+    .dash-kpi { min-height: var(--tap-min); }
+    .dash-section-title {
+      font-size: var(--fs-label); font-weight: 700; letter-spacing: 0.04em;
+      text-transform: uppercase; color: var(--muted); margin: 14px 0 8px;
+    }
 
     /* KPI */
     .kpi-grid {
@@ -1634,6 +1646,26 @@
             <button className="btn-ghost btn-sm" type="button" onClick={load} title="Yangilash">↻</button>
           </PageHead>
 
+          <div className="dash-section-title">Diqqat / ogohlantirish</div>
+          <div className="dash-alerts-sticky">
+          {alerts.length > 0 ? (
+            <div>
+              {alerts.map(function (a, i) {
+                return (
+                  <div key={i} className={"dash-alert " + (a.type === "danger" ? "danger" : "warn")}>
+                    {a.text}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="dash-alert" style={{ background: "var(--success-bg)", color: "var(--success)" }}>
+              Ogohlantirish yo'q — zaxira va qarz normal.
+            </div>
+          )}
+          </div>
+
+          <div className="dash-section-title">Asosiy ko'rsatkichlar</div>
           <div className="dash-kpis cols-5">
             <div className="dash-kpi kpi-hero">
               <div className="label">{isMonth ? "Oylik foyda" : "Bugungi foyda"}</div>
@@ -1671,24 +1703,6 @@
             {lastUpdated ? <span>Yangilangan: <strong>{tashkentTime(lastUpdated)}</strong></span> : null}
           </div>
 
-          <div className="dash-alerts-sticky">
-          {alerts.length > 0 ? (
-            <div>
-              {alerts.map(function (a, i) {
-                return (
-                  <div key={i} className={"dash-alert " + (a.type === "danger" ? "danger" : "warn")}>
-                    {a.text}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="dash-alert" style={{ background: "var(--success-bg)", color: "var(--success)" }}>
-              Ogohlantirish yo'q — zaxira va qarz normal.
-            </div>
-          )}
-          </div>
-
           <div className="dash-grid">
             <div className="card tight">
               <h2>Tayyor mahsulot (zavod)</h2>
@@ -1715,12 +1729,12 @@
                     {dashSlice(skuStock, "sku").map(function (s) {
                       const bal = Number(s.balance_qty);
                       return (
-                        <tr key={s.id}>
+                        <tr key={s.id} className={bal <= 0 ? "row-zero" : ""}>
                           <td data-label="SKU">{s.sku}</td>
                           <td data-label="Qadoq">{Number(s.packed_qty)}</td>
                           <td data-label="Sotuv">{Number(s.sold_qty)}</td>
                           <td data-label="Yuk">{Number(s.shipped_qty || 0)}</td>
-                          <td data-label="Qoldiq" className={bal < 0 ? "neg" : ""}><strong>{bal}</strong></td>
+                          <td data-label="Qoldiq" className={bal <= 0 ? "neg" : ""}><strong>{bal}</strong></td>
                           <td data-label="Qiymat">{money(s.value)}</td>
                         </tr>
                       );
@@ -1750,7 +1764,7 @@
                     {dashSlice(mats, "mat").map(function (m) {
                       const bal = Number(m.balance);
                       return (
-                        <tr key={m.id}>
+                        <tr key={m.id} className={bal <= 0 ? "row-zero" : ""}>
                           <td data-label="Nomi">{m.name}</td>
                           <td data-label="Birlik">{m.unit}</td>
                           <td data-label="Qoldiq" className={bal < 0 ? "neg" : ""}><strong>{bal}</strong></td>
