@@ -40,7 +40,7 @@
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: var(--bg); color: var(--text);
       min-height: 100vh; min-height: 100dvh;
-      padding-bottom: calc(72px + max(12px, env(safe-area-inset-bottom, 0px), var(--tg-safe-bottom, 0px)));
+      padding-bottom: calc(112px + max(12px, env(safe-area-inset-bottom, 0px), var(--tg-safe-bottom, 0px)));
       font-size: 15px; line-height: 1.45;
       -webkit-font-smoothing: antialiased;
     }
@@ -94,7 +94,7 @@
     .btn-ghost {
       background: var(--surface-2);
       color: var(--text);
-      border: 1px solid var(--border);
+      border: 1px solid rgba(201, 162, 39, 0.45);
       box-shadow: none;
       font-weight: 700;
       margin-top: 8px;
@@ -175,6 +175,11 @@
       min-height: 240px;
       overflow: hidden;
       cursor: pointer;
+    }
+    .product-img.product-img-empty,
+    .product-img-empty {
+      background: var(--surface-2) !important;
+      cursor: default;
     }
     .product-img img {
       position: absolute;
@@ -646,9 +651,12 @@ function Loading({ text }) {
 
 function Gallery({ images, alt }) {
   const [i, setI] = useState(0);
-  if (!images || !images.length) {
+  const [failed, setFailed] = useState({});
+  const list = (images || []).filter(Boolean);
+  const ok = list.filter(function (url, idx) { return !failed[idx]; });
+  if (!list.length || !ok.length) {
     return (
-      <div className="product-img" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 240, background: 'var(--card, #141210)' }}>
+      <div className="product-img product-img-empty" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 240, background: 'var(--surface-2, #141210)' }}>
         <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" style={{ opacity: 0.45 }}>
           <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
           <path d="M3.3 7L12 12l8.7-5"/><path d="M12 22V12"/>
@@ -656,15 +664,35 @@ function Gallery({ images, alt }) {
       </div>
     );
   }
-  const n = images.length;
+  const n = list.length;
+  const cur = Math.min(i, n - 1);
   return (
     <div className="product-img" style={{ position: 'relative' }}>
-      <img src={images[i]} alt={alt || ''} loading="lazy" onLoad={(e) => e.target.classList.add('loaded')} onError={(e) => { e.target.style.opacity = 0.3; e.target.classList.add('loaded'); }} />
+      <img
+        key={list[cur] + '-' + cur}
+        src={list[cur]}
+        alt={alt || ''}
+        loading="lazy"
+        onLoad={(e) => e.target.classList.add('loaded')}
+        onError={() => {
+          setFailed(function (prev) {
+            var next = Object.assign({}, prev);
+            next[cur] = true;
+            return next;
+          });
+          var nextIdx = -1;
+          for (var j = 1; j < n; j++) {
+            var cand = (cur + j) % n;
+            if (!failed[cand]) { nextIdx = cand; break; }
+          }
+          if (nextIdx >= 0) setI(nextIdx);
+        }}
+      />
       {n > 1 && (
         <>
-          <button type="button" className="gallery-ctrl prev" onClick={(e) => { e.stopPropagation(); setI((i - 1 + n) % n); }}>‹</button>
-          <button type="button" className="gallery-ctrl next" onClick={(e) => { e.stopPropagation(); setI((i + 1) % n); }}>›</button>
-          <div className="gallery-dots">{images.map((_, d) => <span key={d} className={d === i ? 'on' : ''} />)}</div>
+          <button type="button" className="gallery-ctrl prev" onClick={(e) => { e.stopPropagation(); setI((cur - 1 + n) % n); }}>‹</button>
+          <button type="button" className="gallery-ctrl next" onClick={(e) => { e.stopPropagation(); setI((cur + 1) % n); }}>›</button>
+          <div className="gallery-dots">{list.map((_, d) => <span key={d} className={d === cur ? 'on' : ''} />)}</div>
         </>
       )}
     </div>
