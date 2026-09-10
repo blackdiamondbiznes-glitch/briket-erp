@@ -762,9 +762,75 @@
 
 
       /* Metric chips wrap in pairs on wide lists (Ombor mahsulot) */
-      .table-wrap tbody td[data-label]:not([data-label=""]):not([data-label="SKU"]):not([data-label="Nomi"]):not([data-label="Kod"]):not([data-label="Buyurtma"]):not([data-label="Ism"]) {
+      .table-wrap tbody td[data-label]:not([data-label=""]):not([data-label="SKU"]):not([data-label="Nomi"]):not([data-label="Kod"]):not([data-label="Buyurtma"]):not([data-label="Ism"]):not([data-label="Mijoz"]):not([data-label="Izoh"]):not([data-label="Summa"]):not([data-label="Holat"]):not([data-label="Telefon"]):not([data-label="Amallar"]) {
         flex: 1 1 calc(50% - 8px);
         min-width: 120px;
+      }
+
+      /* Buyurtmalar: mijoz/tel/summa stacked full-width — no mid-number wrap */
+      .table-wrap tbody td[data-label="Mijoz"],
+      .table-wrap tbody td[data-label="Izoh"],
+      .table-wrap tbody td[data-label="Summa"],
+      .table-wrap tbody td[data-label="Holat"],
+      .table-wrap tbody td[data-label="Telefon"] {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        margin-left: 0 !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        justify-content: flex-start !important;
+        gap: 4px;
+      }
+      .table-wrap tbody td[data-label="Mijoz"]::before,
+      .table-wrap tbody td[data-label="Izoh"]::before,
+      .table-wrap tbody td[data-label="Summa"]::before,
+      .table-wrap tbody td[data-label="Holat"]::before,
+      .table-wrap tbody td[data-label="Telefon"]::before {
+        display: block !important;
+        flex: 0 0 auto !important;
+        margin-bottom: 0;
+      }
+      .table-wrap tbody td[data-label="Mijoz"] > *,
+      .table-wrap tbody td[data-label="Summa"] > *,
+      .table-wrap tbody td[data-label="Telefon"] > * {
+        overflow-wrap: normal !important;
+        word-break: normal !important;
+        max-width: 100%;
+      }
+      .table-wrap tbody td .order-customer-name {
+        font-weight: 600;
+        color: var(--text);
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+        word-break: normal;
+      }
+      .table-wrap tbody td .order-phone {
+        font-weight: 700 !important;
+        color: var(--accent) !important;
+        font-size: 0.8rem !important;
+        white-space: nowrap !important;
+        overflow-wrap: normal !important;
+        word-break: keep-all !important;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.01em;
+      }
+      .table-wrap tbody td .order-trail { font-size: 0.68rem; }
+      .table-wrap tbody td .order-summa {
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .table-wrap tbody td .order-debt {
+        font-size: 0.72rem;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+      .table-wrap tbody tr:has(td.sticky-actions) td[data-label="Holat"] {
+        order: 3 !important;
+        flex: 1 1 100% !important;
+        margin-left: 0 !important;
+        font-size: 0.8rem !important;
       }
       .table-wrap tbody tr:not(:has(td.sticky-actions)) td:last-child {
         flex: 1 1 calc(50% - 8px);
@@ -3579,24 +3645,24 @@
                             <div className="muted" style={{ fontSize: "0.7rem", marginTop: 2 }}>{itemsLine}</div>
                           ) : null}
                         </td>
-                        <td data-label="Mijoz">
-                          <div>{o.customer_name || "-"}</div>
+                        <td data-label="Mijoz" className="cell-stack order-customer-cell">
+                          <div className="order-customer-name">{o.customer_name || "-"}</div>
                           {o.phone ? (
-                            <div className="muted" style={{ fontWeight: 600, color: "var(--accent)", fontSize: "0.72rem" }}>
+                            <div className="order-phone muted">
                               {o.phone}
                             </div>
                           ) : null}
                           {trail ? (
-                            <div className="muted" style={{ fontSize: "0.68rem" }}>Oxirgi: {trail}</div>
+                            <div className="muted order-trail">Oxirgi: {trail}</div>
                           ) : null}
                         </td>
                         <td className="cell-note" data-label="Izoh">
                           {o.note ? <div className="note-text muted" style={{ fontSize: "0.78rem" }}>{o.note}</div> : <span className="muted">—</span>}
                         </td>
-                        <td data-label="Summa">
-                          {money(o.total_amount)}
+                        <td data-label="Summa" className="order-summa-cell">
+                          <span className="order-summa">{money(o.total_amount)}</span>
                           {Number(o.debt_amount) > 0 ? (
-                            <div className="muted" style={{ fontSize: "0.68rem" }}>qarz {money(o.debt_amount)}</div>
+                            <div className="muted order-debt">qarz {money(o.debt_amount)}</div>
                           ) : null}
                         </td>
                         <td data-label="Holat">
