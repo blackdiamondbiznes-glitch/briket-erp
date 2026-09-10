@@ -74,7 +74,7 @@
       --space-5: 20px;
       --space-6: 24px;
       --row-h: 34px;
-      --nav-h: 64px;
+      --nav-h: 72px;
       --sidebar-w: 220px;
       --focus-ring: 0 0 0 3px var(--accent-muted);
     }
@@ -94,7 +94,7 @@
       min-height: 100vh;
       line-height: 1.45;
       -webkit-font-smoothing: antialiased;
-      padding: 0 0 calc(var(--nav-h) + 28px + env(safe-area-inset-bottom, 0px));
+      padding: 0 0 calc(var(--nav-h) + 48px + env(safe-area-inset-bottom, 0px));
     }
     button, input, select, textarea { font-family: inherit; }
     button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {
@@ -138,7 +138,7 @@
     .header-right {
       margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
     }
-    .header .logout-btn { width: auto; margin: 0; padding: 6px 10px; }
+    .header .logout-btn { width: auto; margin: 0; padding: 10px 12px; min-height: 44px; }
 
     .main {
       padding: 14px 16px 28px;
@@ -156,7 +156,8 @@
     .segment::-webkit-scrollbar { display: none; }
     .segment button {
       flex: 1; min-width: 72px; border: none; background: transparent;
-      color: var(--muted); padding: 8px 8px; border-radius: 6px;
+      color: var(--muted); padding: 10px 12px; border-radius: 6px;
+      min-height: 44px;
       cursor: pointer; font-size: 13px; font-weight: 600;
       white-space: nowrap;
     }
@@ -170,15 +171,18 @@
     .bottom-nav {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
       display: flex;
-      height: var(--nav-h);
+      min-height: var(--nav-h);
+      height: auto;
       background: rgba(255,253,248,0.96);
       backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       border-top: 1px solid var(--border);
-      padding-bottom: env(safe-area-inset-bottom, 0);
+      padding-top: 4px;
+      padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
       box-shadow: 0 -4px 20px rgba(40, 32, 12, 0.1);
     }
     .bottom-nav button {
       flex: 1; text-align: center; font-size: 11px; padding: 8px 4px;
+      min-height: 48px;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
       background: transparent; border: none; color: var(--muted);
       cursor: pointer; font-weight: 500; font-family: inherit;
@@ -548,7 +552,7 @@
 
     @media (max-width: 860px) {
       .main {
-        padding: 14px 16px 28px !important;
+        padding: 14px 16px calc(var(--nav-h) + 56px + env(safe-area-inset-bottom, 0px)) !important;
         overflow-x: hidden;
       }
       .dash-grid { grid-template-columns: 1fr !important; }
