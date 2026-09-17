@@ -19,7 +19,7 @@ const path = require('path');
 const PORT = Number(process.env.PORT) || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const IS_PROD = NODE_ENV === 'production';
-const APP_VERSION = '2.1.3';
+const APP_VERSION = '2.1.4';
 const TZ = 'Asia/Tashkent';
 
 function requireEnv(name) {

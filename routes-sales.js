@@ -9,14 +9,66 @@ module.exports = function(app, pool, helpers) {
 
   const SOLD_STATUSES = helpers.SOLD_STATUSES;
   const ALLOWED_STATUSES = ['pending', 'confirmed', 'paid', 'partial', 'closed', 'cancelled', 'rejected'];
+  const BOT_SOURCES = ['telegram', 'pwa', 'bot'];
+
+  function pieceQty(v) {
+    const q = num(v);
+    if (q <= 0) return 0;
+    const r = Math.round(q);
+    if (Math.abs(q - r) < 0.0001) return r;
+    return Math.round(q * 100) / 100;
+  }
+
+  function isBotSource(src) {
+    return BOT_SOURCES.indexOf(String(src || '').toLowerCase()) !== -1;
+  }
+
+  function mapItem(it) {
+    const qty = pieceQty(it.qty);
+    const unitPrice = som(it.unit_price);
+    const lineTotal = som(it.line_total != null ? it.line_total : unitPrice * qty);
+    return Object.assign({}, it, {
+      qty: qty,
+      unit_price: unitPrice,
+      line_total: lineTotal,
+      list_price: it.list_price != null ? som(it.list_price) : it.list_price,
+      discount: som(it.discount)
+    });
+  }
+
+  function mapOrder(o, items) {
+    const mappedItems = (items || []).map(mapItem);
+    const itemsSum = mappedItems.reduce(function (s, it) { return s + som(it.line_total); }, 0);
+    const total = mappedItems.length ? itemsSum : som(o.total_amount);
+    const paid = som(o.paid_amount);
+    return Object.assign({}, o, {
+      total_amount: total,
+      paid_amount: paid,
+      debt_amount: Math.max(0, total - paid),
+      items: mappedItems
+    });
+  }
 
   app.get('/api/orders', async (req, res) => {
     try {
       const limit = Math.min(num(req.query.limit, 30), 100);
       const status = req.query.status;
+      const sourceGroup = String(req.query.source || '').toLowerCase();
       let sql = 'SELECT * FROM orders';
       const params = [];
-      if (status) { sql += ' WHERE status = $1'; params.push(status); }
+      const where = [];
+      if (status) {
+        params.push(status);
+        where.push('status = $' + params.length);
+      }
+      if (sourceGroup === 'bot' || sourceGroup === 'telegram' || sourceGroup === 'pwa') {
+        params.push(BOT_SOURCES);
+        where.push('LOWER(COALESCE(source, \'\')) = ANY($' + params.length + '::text[])');
+      } else if (sourceGroup === 'admin' || sourceGroup === 'kassa') {
+        params.push(BOT_SOURCES);
+        where.push('LOWER(COALESCE(source, \'admin\')) <> ALL($' + params.length + '::text[])');
+      }
+      if (where.length) sql += ' WHERE ' + where.join(' AND ');
       sql += ' ORDER BY id DESC LIMIT $' + (params.length + 1);
       params.push(limit);
       const orders = await pool.query(sql, params);
@@ -32,7 +84,7 @@ module.exports = function(app, pool, helpers) {
           itemsByOrder[it.order_id].push(it);
         });
       }
-      const data = orders.rows.map((o) => ({ ...o, items: itemsByOrder[o.id] || [] }));
+      const data = orders.rows.map((o) => mapOrder(o, itemsByOrder[o.id] || []));
       res.json({ ok: true, count: data.length, data });
     } catch (err) { sendError(res, err); }
   });
@@ -42,7 +94,7 @@ module.exports = function(app, pool, helpers) {
       const r = await pool.query('SELECT * FROM orders WHERE id = $1', [req.params.id]);
       if (!r.rows.length) return res.status(404).json({ ok: false, error: 'Buyurtma topilmadi' });
       const items = await pool.query('SELECT * FROM order_items WHERE order_id = $1 ORDER BY id', [req.params.id]);
-      res.json({ ok: true, data: { ...r.rows[0], items: items.rows } });
+      res.json({ ok: true, data: mapOrder(r.rows[0], items.rows) });
     } catch (err) { sendError(res, err); }
   });
 
@@ -79,11 +131,13 @@ module.exports = function(app, pool, helpers) {
         });
       } catch (e) {}
 
+      const src = String(source || 'admin').toLowerCase() || 'admin';
+
       let total = 0;
       const lines = [];
       for (const it of items) {
         let sku = it.sku, productId = it.product_id || null, unitPrice = som(it.unit_price);
-        const q = num(it.qty);
+        const q = pieceQty(it.qty);
         if (q <= 0) continue;
         if (productId) {
           const p = await client.query('SELECT * FROM products WHERE id = $1', [productId]);
@@ -106,6 +160,7 @@ module.exports = function(app, pool, helpers) {
         await client.query('ROLLBACK');
         return res.status(400).json({ ok: false, error: 'Yaroqli item yoq' });
       }
+      total = som(total);
 
       const paid = Math.max(0, som(paid_amount));
       const debt = Math.max(0, total - paid);
@@ -118,10 +173,12 @@ module.exports = function(app, pool, helpers) {
         }
       }
 
-      // Admin kassa: to'lov bo'lsa darhol sotilgan. Aks holda pending (zaxira tegilmaydi).
+      // Bot: pending (tasdiq kerak, zaxira tegilmaydi).
+      // Admin/kassa: tasdiq shart emas — to'lovga qarab paid/partial, aks holda confirmed.
       let status = 'pending';
       if (debt === 0 && paid > 0) status = 'paid';
       else if (paid > 0) status = 'partial';
+      else if (!isBotSource(src)) status = 'confirmed';
 
       if (SOLD_STATUSES.includes(status)) {
         await assertStockForLines(client, lines);
@@ -131,7 +188,7 @@ module.exports = function(app, pool, helpers) {
       const ord = await client.query(
         `INSERT INTO orders (order_code, customer_id, customer_name, phone, status, total_amount, paid_amount, debt_amount, debt_due, source, note)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-        [tmpCode, custId, name, phone || null, status, total, paid, debt, debt_due || null, source || 'admin', note || null]
+        [tmpCode, custId, name, phone || null, status, total, paid, debt, debt_due || null, src, note || null]
       );
       const day = tashkentDateStr().replace(/-/g, '');
       const code = 'ORD-' + day + '-' + String(ord.rows[0].id).padStart(6, '0');
@@ -152,12 +209,13 @@ module.exports = function(app, pool, helpers) {
         );
       }
       await client.query('COMMIT');
-      const itemsOut = await pool.query('SELECT * FROM order_items WHERE order_id = $1', [ord.rows[0].id]);
-      res.status(201).json({ ok: true, data: { ...ord.rows[0], items: itemsOut.rows } });
+      const itemsOut = await pool.query('SELECT * FROM order_items WHERE order_id = $1 ORDER BY id', [ord.rows[0].id]);
+      res.status(201).json({ ok: true, data: mapOrder(Object.assign({}, ord.rows[0], { total_amount: total, paid_amount: paid, debt_amount: debt }), itemsOut.rows) });
     } catch (err) {
       try { await client.query('ROLLBACK'); } catch (e) {}
       sendError(res, err, err.status);
-    } finally { client.release(); }
+    } finally { client.release();
+    }
   });
 
   app.patch('/api/orders/:id/status', async (req, res) => {
@@ -201,18 +259,23 @@ module.exports = function(app, pool, helpers) {
         [next, admin_note !== undefined ? admin_note : null, req.params.id]
       );
       await client.query('COMMIT');
-      res.json({ ok: true, data: r.rows[0] });
+      const items = await pool.query('SELECT * FROM order_items WHERE order_id = $1 ORDER BY id', [req.params.id]);
+      res.json({ ok: true, data: mapOrder(r.rows[0], items.rows) });
     } catch (err) {
       try { await client.query('ROLLBACK'); } catch (e) {}
       sendError(res, err, err.status);
-    } finally { client.release(); }
+    } finally { client.release();
+    }
   });
 
 app.get('/api/payments', async (req, res) => {
   try {
     const limit = Math.min(num(req.query.limit, 50), 200);
     const r = await pool.query(`SELECT p.*, c.name AS customer_name, o.order_code FROM payments p LEFT JOIN customers c ON c.id = p.customer_id LEFT JOIN orders o ON o.id = p.order_id ORDER BY p.id DESC LIMIT $1`, [limit]);
-    res.json({ ok: true, count: r.rows.length, data: r.rows });
+    const data = r.rows.map(function (p) {
+      return Object.assign({}, p, { amount: som(p.amount) });
+    });
+    res.json({ ok: true, count: data.length, data: data });
   } catch (err) { sendError(res, err); }
 });
 
@@ -269,18 +332,22 @@ app.post('/api/payments', async (req, res) => {
     }
     const payIns = await client.query(`INSERT INTO payments (order_id, customer_id, amount, method, note) VALUES ($1,$2,$3,$4,$5) RETURNING *`, [order_id || null, custId, sum, method || 'cash', note || null]);
     await client.query('COMMIT');
-    res.status(201).json({ ok: true, data: payIns.rows[0], applied: sum - remaining, leftover: remaining });
+    res.status(201).json({ ok: true, data: Object.assign({}, payIns.rows[0], { amount: sum }), applied: som(sum - remaining), leftover: som(remaining) });
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (e) {}
     sendError(res, err);
-  } finally { client.release(); }
+  } finally { client.release();
+  }
 });
 
 app.get('/api/expenses', async (req, res) => {
   try {
     const limit = Math.min(num(req.query.limit, 50), 200);
     const r = await pool.query(`SELECT e.*, b.batch_code FROM expenses e LEFT JOIN batches b ON b.id = e.batch_id ORDER BY e.id DESC LIMIT $1`, [limit]);
-    res.json({ ok: true, count: r.rows.length, data: r.rows });
+    const data = r.rows.map(function (e) {
+      return Object.assign({}, e, { amount: som(e.amount) });
+    });
+    res.json({ ok: true, count: data.length, data: data });
   } catch (err) { sendError(res, err); }
 });
 
@@ -289,7 +356,7 @@ app.post('/api/expenses', async (req, res) => {
     const { category, amount, payment_method, batch_id, note, expense_date } = req.body;
     if (!category || som(amount) <= 0) return res.status(400).json({ ok: false, error: 'category va amount majburiy' });
     const r = await pool.query(`INSERT INTO expenses (category, amount, payment_method, batch_id, note, expense_date) VALUES ($1,$2,$3,$4,$5, COALESCE($6::timestamptz, NOW())) RETURNING *`, [String(category).trim(), som(amount), payment_method || 'cash', batch_id || null, note || null, expense_date || null]);
-    res.json({ ok: true, data: r.rows[0] });
+    res.json({ ok: true, data: Object.assign({}, r.rows[0], { amount: som(r.rows[0].amount) }) });
   } catch (err) { sendError(res, err); }
 });
 app.put('/api/expenses/:id', async (req, res) => {
@@ -311,7 +378,7 @@ app.put('/api/expenses/:id', async (req, res) => {
       ]
     );
     if (!r.rows.length) return res.status(404).json({ ok: false, error: 'Xarajat topilmadi' });
-    res.json({ ok: true, data: r.rows[0] });
+    res.json({ ok: true, data: Object.assign({}, r.rows[0], { amount: som(r.rows[0].amount) }) });
   } catch (err) { sendError(res, err); }
 });
 };
