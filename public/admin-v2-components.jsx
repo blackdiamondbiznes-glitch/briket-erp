@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   /* Admin v2: Hamkorlar, Yuk, Biznes sozlama */
-  const { useState, useEffect, useCallback } = React;
+  const { useState, useEffect, useCallback, useRef } = React;
   function money(n) {
     return Number(n || 0).toLocaleString("uz-UZ");
   }
@@ -78,15 +78,24 @@
     const [ferr, setFerr] = useState({});
     const [busy, setBusy] = useState(false);
     const [confirmState, setConfirmState] = useState({ open: false, id: null });
+    const [extraOpen, setExtraOpen] = useState(false);
 
     const load = useCallback(function () {
-      const t = filter ? "?type=" + encodeURIComponent(filter) : "";
-      api("/api/partners" + t)
+      const qs = [];
+      if (filter) qs.push("type=" + encodeURIComponent(filter));
+      if (props.includeInactive) qs.push("active=0");
+      api("/api/partners" + (qs.length ? "?" + qs.join("&") : ""))
         .then(function (r) { setList(r.data || []); })
         .catch(function (e) { setMsg({ text: e.message, type: "err" }); });
-    }, [api, filter]);
+    }, [api, filter, props.includeInactive]);
 
     useEffect(function () { load(); }, [load]);
+
+    useEffect(function () {
+      if (props.initialEditId) return;
+      if (!props.presetType) return;
+      setForm(function (f) { return Object.assign({}, f, { type: props.presetType }); });
+    }, [props.presetType, props.initialEditId]);
 
     const dealers = list.filter(function (p) { return p.type === "dealer"; });
 
@@ -98,6 +107,7 @@
       });
       setEditId(null);
       setFerr({});
+      setExtraOpen(false);
     }
 
     async function submit(e) {
@@ -124,10 +134,12 @@
         };
         if (editId) {
           await api("/api/partners/" + editId, { method: "PUT", body: JSON.stringify(body) });
-          setMsg({ text: "Hamkor yangilandi", type: "ok" });
+          if (typeof props.onSaved === "function") props.onSaved("Hamkor yangilandi");
+          else setMsg({ text: "Hamkor yangilandi", type: "ok" });
         } else {
           await api("/api/partners", { method: "POST", body: JSON.stringify(body) });
-          setMsg({ text: "Hamkor qoshildi", type: "ok" });
+          if (typeof props.onSaved === "function") props.onSaved("Hamkor qo'shildi");
+          else setMsg({ text: "Hamkor qo'shildi", type: "ok" });
         }
         resetForm();
         load();
@@ -149,6 +161,8 @@
         credit_limit: p.credit_limit != null ? String(p.credit_limit) : "",
         note: p.note || ""
       });
+      const hasExtra = !!(p.phone || p.address || p.region || p.district || p.note || p.parent_id || Number(p.discount_value) || Number(p.credit_limit) || (p.discount_type && p.discount_type !== "none"));
+      setExtraOpen(hasExtra);
       setTimeout(function () {
         var el = document.getElementById("v2-partner-form");
         if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -172,7 +186,17 @@
       }
     }
 
-    const typeLabel = { customer: "Mijoz", dealer: "Diler", agent: "Agent" };
+    const editBoot = useRef(null);
+    useEffect(function () {
+      if (!props.initialEditId || !list.length) return;
+      if (editBoot.current === String(props.initialEditId)) return;
+      var p = list.find(function (x) { return String(x.id) === String(props.initialEditId); });
+      if (!p) return;
+      editBoot.current = String(props.initialEditId);
+      startEdit(p);
+    }, [list, props.initialEditId]);
+
+    const typeLabel = { customer: "Hamkor", dealer: "Diler", agent: "Hamkor" };
     const discLabel = { none: "Yoq", bulk: "Bulk (500+)", fixed_amount: "Doimiy som", fixed_percent: "Doimiy %" };
 
     const shown = list.filter(function (p) {
@@ -189,8 +213,8 @@
         />
         <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
         <div className="card">
-          <h2>{editId ? "Hamkorni tahrirlash #" + editId : "Yangi hamkor"}</h2>
-          <div className="hint-box">Bu ro'yxat — Yuk (diler/agent) bo'limida ishlatiladi. Oddiy mijoz uchun Mijozlar sahifasini oching.</div>
+          <h2>{editId ? "Tahrirlash" : (form.type === "dealer" ? "Yangi diler" : "Yangi hamkor")}</h2>
+          <div className="hint-box">Diler va hamkor alohida jadvalda. Chakana mijoz — Mijozlar ro'yxatidagi boshqa tugma.</div>
           <form id="v2-partner-form" onSubmit={submit}>
             <div className="form-row">
               <div>
@@ -199,70 +223,78 @@
                 {ferr.name ? <div className="field-error">{ferr.name}</div> : null}
               </div>
               <div>
-                <label>Rol *</label>
+                <label>Tur *</label>
                 <select value={form.type} onChange={function (e) { setForm(Object.assign({}, form, { type: e.target.value })); }}>
-                  <option value="customer">Mijoz</option>
                   <option value="dealer">Diler</option>
-                  <option value="agent">Agent</option>
-                </select>
-              </div>
-              <div>
-                <label>Telefon</label>
-                <input value={form.phone} onChange={function (e) { setForm(Object.assign({}, form, { phone: e.target.value })); }} />
-              </div>
-              <div>
-                <label>Manzil</label>
-                <input value={form.address} onChange={function (e) { setForm(Object.assign({}, form, { address: e.target.value })); }} />
-              </div>
-            </div>
-            <div className="form-row">
-              <div>
-                <label>Chegirma turi</label>
-                <select value={form.discount_type} onChange={function (e) { setForm(Object.assign({}, form, { discount_type: e.target.value })); }}>
-                  <option value="none">Yoq</option>
-                  <option value="bulk">Bulk (faqat mijoz)</option>
-                  <option value="fixed_amount">Doimiy (som/dona)</option>
-                  <option value="fixed_percent">Doimiy (%)</option>
-                </select>
-              </div>
-              <div>
-                <label>Chegirma qiymati</label>
-                <input type="number" value={form.discount_value} onChange={function (e) { setForm(Object.assign({}, form, { discount_value: e.target.value })); }} placeholder="3000 yoki 10" />
-              </div>
-              <div>
-                <label>Kredit limiti</label>
-                <input type="number" value={form.credit_limit} onChange={function (e) { setForm(Object.assign({}, form, { credit_limit: e.target.value })); }} />
-              </div>
-              <div>
-                <label>Diler (agent uchun)</label>
-                <select value={form.parent_id} onChange={function (e) { setForm(Object.assign({}, form, { parent_id: e.target.value })); }}>
-                  <option value="">—</option>
-                  {dealers.map(function (d) {
-                    return <option key={d.id} value={d.id}>{d.name}</option>;
-                  })}
+                  <option value="agent">Hamkor</option>
+                  <option value="customer">Hamkor (oddiy)</option>
                 </select>
               </div>
             </div>
-            <div className="form-row">
+            <button type="button" className="btn-ghost btn-sm extra-toggle" onClick={function () { setExtraOpen(!extraOpen); }}>
+              {extraOpen ? "Qo'shimchani yashirish" : "Qo'shimcha"}
+            </button>
+            {extraOpen ? (
               <div>
-                <label>Region</label>
-                <input value={form.region} onChange={function (e) { setForm(Object.assign({}, form, { region: e.target.value })); }} />
+                <div className="form-row">
+                  <div>
+                    <label>Telefon</label>
+                    <input value={form.phone} onChange={function (e) { setForm(Object.assign({}, form, { phone: e.target.value })); }} />
+                  </div>
+                  <div>
+                    <label>Manzil</label>
+                    <input value={form.address} onChange={function (e) { setForm(Object.assign({}, form, { address: e.target.value })); }} />
+                  </div>
+                  <div>
+                    <label>Chegirma turi</label>
+                    <select value={form.discount_type} onChange={function (e) { setForm(Object.assign({}, form, { discount_type: e.target.value })); }}>
+                      <option value="none">Yo'q</option>
+                      <option value="bulk">Yirik xarid</option>
+                      <option value="fixed_amount">Doimiy (so'm/dona)</option>
+                      <option value="fixed_percent">Doimiy (%)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>Chegirma qiymati</label>
+                    <input type="number" value={form.discount_value} onChange={function (e) { setForm(Object.assign({}, form, { discount_value: e.target.value })); }} placeholder="3000 yoki 10" />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div>
+                    <label>Kredit limiti</label>
+                    <input type="number" value={form.credit_limit} onChange={function (e) { setForm(Object.assign({}, form, { credit_limit: e.target.value })); }} />
+                  </div>
+                  <div>
+                    <label>Bog'langan diler</label>
+                    <select value={form.parent_id} onChange={function (e) { setForm(Object.assign({}, form, { parent_id: e.target.value })); }}>
+                      <option value="">—</option>
+                      {dealers.map(function (d) {
+                        return <option key={d.id} value={d.id}>{d.name}</option>;
+                      })}
+                    </select>
+                  </div>
+                  <div>
+                    <label>Viloyat</label>
+                    <input value={form.region} onChange={function (e) { setForm(Object.assign({}, form, { region: e.target.value })); }} />
+                  </div>
+                  <div>
+                    <label>Tuman</label>
+                    <input value={form.district} onChange={function (e) { setForm(Object.assign({}, form, { district: e.target.value })); }} />
+                  </div>
+                  <div>
+                    <label>Izoh</label>
+                    <input value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label>Tuman</label>
-                <input value={form.district} onChange={function (e) { setForm(Object.assign({}, form, { district: e.target.value })); }} />
-              </div>
-              <div>
-                <label>Izoh</label>
-                <input value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
-              </div>
-            </div>
-            <button className="btn" type="submit" disabled={busy}>{busy ? "Saqlanmoqda..." : (editId ? "Saqlash" : "Qoshish")}</button>
+            ) : null}
+            <button className="btn" type="submit" disabled={busy}>{busy ? "Saqlanmoqda..." : (editId ? "Saqlash" : "Qo'shish")}</button>
             {editId ? (
               <button className="btn-ghost" type="button" style={{ marginLeft: 8 }} onClick={resetForm}>Bekor</button>
             ) : null}
           </form>
         </div>
+        {props.hideList ? null : (
         <div className="card">
           <div className="toolbar">
             <h2 style={{ margin: 0 }}>Hamkorlar ({shown.length})</h2>
@@ -274,9 +306,9 @@
             />
             <select value={filter} onChange={function (e) { setFilter(e.target.value); }} style={{ maxWidth: 160, margin: 0 }}>
               <option value="">Hammasi</option>
-              <option value="customer">Mijoz</option>
+              <option value="customer">Hamkor (oddiy)</option>
               <option value="dealer">Diler</option>
-              <option value="agent">Agent</option>
+              <option value="agent">Hamkor</option>
             </select>
           </div>
           <div className="table-wrap">
@@ -317,6 +349,7 @@
             </table>
           </div>
         </div>
+        )}
       </div>
     );
   };
@@ -380,7 +413,7 @@
             note: form.note || null
           })
         });
-        setMsg({ text: "Yuk berildi", type: "ok" });
+        setMsg({ text: "Tovar berildi", type: "ok" });
         setForm({
           from_type: "factory", from_partner_id: "", to_partner_id: "",
           product_id: "", qty: "", unit_price: "", note: ""
@@ -401,7 +434,7 @@
       <div>
         <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
         <div className="card">
-          <h2>Yuk berish</h2>
+          <h2>Dilerlarga tovar berish</h2>
           <form onSubmit={submit}>
             <div className="form-row">
               <div>
@@ -458,15 +491,15 @@
                 <input value={form.note} onChange={function (e) { setForm(Object.assign({}, form, { note: e.target.value })); }} />
               </div>
             </div>
-            <button className="btn" type="submit" disabled={busy}>{busy ? "Saqlanmoqda..." : "Yuk berish"}</button>
+            <button className="btn" type="submit" disabled={busy}>{busy ? "Saqlanmoqda..." : "Tovar berish"}</button>
           </form>
         </div>
         <div className="card">
           <div className="toolbar">
-            <h2 style={{ margin: 0 }}>Oxirgi yuklar ({shown.length})</h2>
+            <h2 style={{ margin: 0 }}>Dilerlarga berilgan tovar ({shown.length})</h2>
             <input
               type="search"
-              placeholder="Qidiruv: kod, SKU, hamkor..."
+              placeholder="Qidiruv: kod, mahsulot, hamkor..."
               value={q}
               onChange={function (e) { setQ(e.target.value); }}
             />
@@ -475,14 +508,14 @@
             <table>
               <thead>
                 <tr>
-                  <th>Kod</th><th>Kimdan</th><th>Kimga</th><th>SKU</th><th>Dona</th><th>Summa</th><th>Sana</th>
+                  <th>Kod</th><th>Kimdan</th><th>Kimga</th><th>Mahsulot</th><th>Dona</th><th>Summa</th><th>Sana</th>
                 </tr>
               </thead>
               <tbody>
                 {shown.length === 0 ? (
                   <tr>
                     <td colSpan="7">
-                      <V2Empty title="Yuk yo'q" sub="Yuqorida yuk berish formasidan boshlang" />
+                      <V2Empty title="Berilgan tovar yo'q" sub="Yuqoridagi formadan boshlang" />
                     </td>
                   </tr>
                 ) : shown.map(function (s) {
@@ -554,29 +587,34 @@
       <div>
         <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
         <div className="card">
-          <h2>Biznes sozlamalari</h2>
+          <h2>Sozlama</h2>
           <p className="muted" style={{ marginBottom: 12 }}>
-            Oddiy mijoz uchun yirik xarid chegirmasi. Diler chegirmasi har bir hamkorda alohida.
+            Chakana mijoz uchun yirik xarid chegirmasi va standart qarz limiti. Diler chegirmasi har bir hamkorda alohida.
           </p>
           <form onSubmit={submit}>
             <div className="form-row">
               <div>
-                <label>Yirik xarid min. dona</label>
-                <input type="number" value={form.bulk_min_qty} onChange={function (e) { setForm(Object.assign({}, form, { bulk_min_qty: e.target.value })); }} />
-              </div>
-              <div>
-                <label>Yirik xarid min. kg</label>
-                <input type="number" value={form.bulk_min_kg} onChange={function (e) { setForm(Object.assign({}, form, { bulk_min_kg: e.target.value })); }} />
-              </div>
-              <div>
-                <label>Yirik chegirma (som/dona)</label>
+                <label>Yirik chegirma (so'm/dona) *</label>
                 <input type="number" value={form.bulk_discount} onChange={function (e) { setForm(Object.assign({}, form, { bulk_discount: e.target.value })); }} />
               </div>
               <div>
-                <label>Default kredit limiti</label>
+                <label>Standart qarz limiti *</label>
                 <input type="number" value={form.default_credit_limit} onChange={function (e) { setForm(Object.assign({}, form, { default_credit_limit: e.target.value })); }} />
               </div>
             </div>
+            <details className="dash-details">
+              <summary>Qo'shimcha</summary>
+              <div className="form-row">
+                <div>
+                  <label>Yirik xarid — kamida dona</label>
+                  <input type="number" value={form.bulk_min_qty} onChange={function (e) { setForm(Object.assign({}, form, { bulk_min_qty: e.target.value })); }} />
+                </div>
+                <div>
+                  <label>Yirik xarid — kamida kg</label>
+                  <input type="number" value={form.bulk_min_kg} onChange={function (e) { setForm(Object.assign({}, form, { bulk_min_kg: e.target.value })); }} />
+                </div>
+              </div>
+            </details>
             <button className="btn" type="submit" disabled={busy}>{busy ? "Saqlanmoqda..." : "Saqlash"}</button>
           </form>
         </div>
