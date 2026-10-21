@@ -5,7 +5,8 @@
  * Env (production majburiy):
  *   DATABASE_URL, ADMIN_KEY, CORS_ORIGIN, NODE_ENV=production
  * Ixtiyoriy:
- *   PORT, TELEGRAM_BOT_TOKEN, ALLOW_DEMO_CUSTOMER
+ *   PORT, TELEGRAM_BOT_TOKEN, ALLOW_DEMO_CUSTOMER, AGENT_CORS_ORIGINS
+ * Agent API (/api/agent) TELEGRAM_BOT_TOKEN siz ishlamaydi.
  */
 require('dotenv').config();
 const crypto = require('crypto');
@@ -19,7 +20,7 @@ const path = require('path');
 const PORT = Number(process.env.PORT) || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const IS_PROD = NODE_ENV === 'production';
-const APP_VERSION = '2.1.4';
+const APP_VERSION = '2.2.0';
 const TZ = 'Asia/Tashkent';
 
 function requireEnv(name) {
@@ -63,6 +64,13 @@ const allowedOrigins = corsOriginRaw
 if (IS_PROD && allowedOrigins.length === 0) {
   console.error('CRITICAL: productionda CORS_ORIGIN bo\'sh — server to\'xtadi');
   process.exit(1);
+}
+
+const agentCorsRaw = (process.env.AGENT_CORS_ORIGINS || '').trim();
+if (agentCorsRaw) {
+  agentCorsRaw.split(',').map((s) => s.trim()).filter(Boolean).forEach(function (origin) {
+    if (allowedOrigins.indexOf(origin) === -1) allowedOrigins.push(origin);
+  });
 }
 
 const corsOptions = {
@@ -154,6 +162,7 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') return next();
   if (req.path === '/' || req.path === '/health') return next();
   if (req.path.indexOf('/api/customer/') === 0) return next();
+  if (req.path.indexOf('/api/agent/') === 0 && req.path.indexOf('/api/agent/admin') !== 0) return next();
   if (req.path.indexOf('/api/') === 0) return requireAdmin(req, res, next);
   return next();
 });
@@ -369,6 +378,7 @@ const routeFiles = [
   './routes-stock',
   './v2-routes',
   './routes-customer-app',
+  './routes-agent',
 ];
 
 for (const f of routeFiles) {

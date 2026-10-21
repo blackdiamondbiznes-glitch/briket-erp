@@ -4851,7 +4851,8 @@
           tabs: [
             { id: "people", label: "Ro'yxat" },
             { id: "people-debt", label: "Qarzdorlar" },
-            { id: "payments", label: "To'lovlar" }
+            { id: "payments", label: "To'lovlar" },
+            { id: "agents", label: "Agentlar" }
           ]
         },
         {
@@ -4923,7 +4924,7 @@
         "stock-ready": "box", "stock-raw": "catalog",
         orders: "cart", payments: "coin", shipments: "truck",
         materials: "catalog", expenses: "coin", products: "box",
-        people: "users", "people-debt": "users", reports: "coin",
+        people: "users", "people-debt": "users", agents: "users", reports: "coin",
         limits: "catalog", settings: "catalog"
       };
 
@@ -4955,6 +4956,9 @@
         </div>
       );
       else if (tab === "limits") content = <DiscountLimits api={api} onNavigate={goTo} />;
+      else if (tab === "agents") content = window.AgentsPanel
+        ? React.createElement(window.AgentsPanel, { api: api })
+        : <div className="card">Agentlar moduli yuklanmadi — sahifani yangilang.</div>;
       else if (tab === "people" || tab === "people-debt" || tab === "customers" || tab === "partners") content = (
         <PeopleHub api={api} mode={tab === "people-debt" ? "debtors" : "list"} pageFilter={pageFilter} onNavigate={goTo} />
       );

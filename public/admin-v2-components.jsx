@@ -621,4 +621,228 @@
       </div>
     );
   };
+
+  function agentAccessLabel(s) {
+    if (s === "approved") return "Tasdiqlangan";
+    if (s === "rejected") return "Rad etilgan";
+    if (s === "blocked") return "Bloklangan";
+    if (s === "pending") return "Kutilmoqda";
+    return s || "—";
+  }
+
+  window.AgentsPanel = function AgentsPanel(props) {
+    const api = props.api;
+    const [view, setView] = useState("requests");
+    const [agents, setAgents] = useState([]);
+    const [requests, setRequests] = useState([]);
+    const [showAllRequests, setShowAllRequests] = useState(false);
+    const [selectedId, setSelectedId] = useState(null);
+    const [detail, setDetail] = useState(null);
+    const [msg, setMsg] = useState({});
+    const [err, setErr] = useState("");
+    const [busyId, setBusyId] = useState(null);
+    const [confirmState, setConfirmState] = useState({ open: false, text: "", onConfirm: null });
+    const [enabledOn, setEnabledOn] = useState("");
+
+    const load = useCallback(function () {
+      const reqPath = showAllRequests
+        ? "/api/agent/admin/access-requests"
+        : "/api/agent/admin/access-requests?status=pending";
+      Promise.all([api("/api/agent/admin/agents"), api(reqPath)])
+        .then(function (arr) {
+          setAgents(arr[0].data || []);
+          setRequests(arr[1].data || []);
+          setErr("");
+        })
+        .catch(function (e) { setErr(e.message); });
+    }, [api, showAllRequests]);
+
+    useEffect(function () { load(); }, [load]);
+
+    function openAgent(agent) {
+      setSelectedId(agent.id);
+      setView("agents");
+      Promise.all([
+        api("/api/agent/admin/waybills?agent_id=" + agent.id),
+        api("/api/agent/admin/debts?agent_id=" + agent.id),
+        api("/api/agent/admin/commissions?agent_id=" + agent.id)
+      ]).then(function (arr) {
+        setDetail({
+          agent: agent,
+          waybills: arr[0].data || [],
+          debts: arr[1].data || [],
+          commission: arr[2].data || {}
+        });
+      }).catch(function (e) { setMsg({ text: e.message, type: "err" }); });
+    }
+
+    function decide(row, action) {
+      const verb = action === "approve" ? "tasdiqlash" : "rad etish";
+      setConfirmState({
+        open: true,
+        text: (row.full_name || row.telegram_id) + " so'rovini " + verb + "?",
+        onConfirm: async function () {
+          setConfirmState({ open: false, text: "", onConfirm: null });
+          setBusyId(row.id);
+          try {
+            await api("/api/agent/admin/access-requests/" + row.id + "/" + action, {
+              method: "POST",
+              body: JSON.stringify(action === "approve" && enabledOn ? { commission_enabled_on: enabledOn } : {})
+            });
+            setMsg({ text: action === "approve" ? "Tasdiqlandi" : "Rad etildi", type: "ok" });
+            load();
+          } catch (e) {
+            setMsg({ text: e.message, type: "err" });
+          }
+          setBusyId(null);
+        }
+      });
+    }
+
+    const selected = agents.filter(function (a) { return String(a.id) === String(selectedId); })[0] || null;
+
+    return (
+      <div>
+        <V2ConfirmModal
+          open={confirmState.open}
+          text={confirmState.text}
+          onCancel={function () { setConfirmState({ open: false, text: "", onConfirm: null }); }}
+          onConfirm={function () { if (confirmState.onConfirm) confirmState.onConfirm(); }}
+        />
+        <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
+        <div className="card">
+          <h2>Agentlar</h2>
+          <p className="muted">Telegram yuk-xati agentlari, kirish so'rovlari, qarz va komissiya. Hamkorlar ro'yxatidagi turdan alohida.</p>
+          <div className="chip-row" role="tablist">
+            <button type="button" className={view === "requests" ? "on" : ""} onClick={function () { setView("requests"); }}>Kirish so'rovlari ({requests.length})</button>
+            <button type="button" className={view === "agents" ? "on" : ""} onClick={function () { setView("agents"); }}>Agentlar ({agents.length})</button>
+          </div>
+          {err ? <div className="msg err">{err}</div> : null}
+        </div>
+
+        {view === "requests" ? (
+          <div className="card">
+            <div className="toolbar">
+              <h2 style={{ margin: 0 }}>{showAllRequests ? "Barcha so'rovlar" : "Kutilayotgan so'rovlar"}</h2>
+              <button type="button" className="btn-ghost btn-sm" onClick={function () { setShowAllRequests(function (v) { return !v; }); }}>
+                {showAllRequests ? "Faqat kutilayotgan" : "Barchasini ko'rsat"}
+              </button>
+            </div>
+            <div className="form-row">
+              <div>
+                <label>Komissiya shu sanadan (ixtiyoriy)</label>
+                <input type="date" value={enabledOn} onChange={function (e) { setEnabledOn(e.target.value); }} />
+              </div>
+            </div>
+            {requests.length === 0 ? <V2Empty title="So'rov yo'q" sub="Mini ilovadan yangi agent yozilsa shu yerda chiqadi." /> : (
+              <div className="table-wrap list-dense"><table>
+                <thead>
+                  <tr><th>Ism</th><th>Telegram</th><th>Holat</th><th>Sana</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {requests.map(function (r) {
+                    return (
+                      <tr key={r.id}>
+                        <td data-label="Ism">{r.full_name || "—"}</td>
+                        <td data-label="Telegram">{r.telegram_username ? "@" + r.telegram_username : r.telegram_id}</td>
+                        <td data-label="Holat">{agentAccessLabel(r.status)}</td>
+                        <td data-label="Sana">{r.created_at ? String(r.created_at).slice(0, 10) : "—"}</td>
+                        <td className="sticky-actions" data-label="Amallar">
+                          {r.status === "pending" ? (
+                            <span>
+                              <button type="button" className="btn btn-sm" disabled={busyId === r.id} onClick={function () { decide(r, "approve"); }}>Tasdiqlash</button>
+                              <button type="button" className="btn-ghost btn-sm" disabled={busyId === r.id} onClick={function () { decide(r, "reject"); }}>Rad etish</button>
+                            </span>
+                          ) : <span className="muted">{r.decided_by || ""}</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table></div>
+            )}
+          </div>
+        ) : (
+          <div className="card">
+            <h2>Agentlar ro'yxati</h2>
+            {agents.length === 0 ? <V2Empty title="Agent yo'q" sub="So'rov tasdiqlangach agent shu ro'yxatga tushadi." /> : (
+              <div className="table-wrap list-dense"><table>
+                <thead>
+                  <tr><th>Ism</th><th>Telegram</th><th>Holat</th><th>Qarz</th><th>Komissiya</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {agents.map(function (a) {
+                    return (
+                      <tr key={a.id}>
+                        <td data-label="Ism">{a.full_name || "—"}</td>
+                        <td data-label="Telegram">{a.telegram_id || "—"}</td>
+                        <td data-label="Holat">{agentAccessLabel(a.access_status)}{a.is_active === false ? " · nofaol" : ""}</td>
+                        <td data-label="Qarz">{money(a.debt_total)}</td>
+                        <td data-label="Komissiya">{money(a.commission_balance)}</td>
+                        <td className="sticky-actions" data-label="Amallar">
+                          <button type="button" className="btn-ghost btn-sm" onClick={function () { openAgent(a); }}>Karta</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table></div>
+            )}
+          </div>
+        )}
+
+        {selected && detail ? (
+          <div className="card">
+            <h2>{selected.full_name || "Agent"} · karta</h2>
+            <p className="muted">
+              {agentAccessLabel(selected.access_status)}
+              {selected.commission_enabled_on ? " · komissiya " + String(selected.commission_enabled_on).slice(0, 10) + " dan" : " · komissiya yoqilgan"}
+            </p>
+            <div className="dash-kpis">
+              <div className="dash-kpi"><div className="label">Hisoblangan</div><div className="value">{money(detail.commission.earned)}</div></div>
+              <div className="dash-kpi"><div className="label">Yechilgan</div><div className="value">{money(detail.commission.withdrawn)}</div></div>
+              <div className="dash-kpi"><div className="label">Balans</div><div className="value">{money(detail.commission.balance)}</div></div>
+            </div>
+            <h3 style={{ fontSize: "0.9rem" }}>Yuk xatlari</h3>
+            {(detail.waybills || []).length === 0 ? <div className="muted">Yuk xati yo'q</div> : (
+              <div className="table-wrap list-dense"><table>
+                <thead><tr><th>Kod</th><th>Mijoz</th><th>Jami</th><th>To'langan</th><th>Qarz</th><th>Sana</th></tr></thead>
+                <tbody>
+                  {detail.waybills.map(function (w) {
+                    return (
+                      <tr key={w.id}>
+                        <td data-label="Kod">{w.waybill_code}</td>
+                        <td data-label="Mijoz">{w.customer_name || "—"}</td>
+                        <td data-label="Jami">{money(w.total_amount)}</td>
+                        <td data-label="To'langan">{money(w.paid_amount)}</td>
+                        <td data-label="Qarz">{money(w.debt_amount)}</td>
+                        <td data-label="Sana">{w.created_at ? String(w.created_at).slice(0, 10) : "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table></div>
+            )}
+            <h3 style={{ fontSize: "0.9rem", marginTop: 12 }}>Qarzlar</h3>
+            {(detail.debts || []).length === 0 ? <div className="muted">Do'kon yo'q</div> : (
+              <div className="table-wrap list-dense"><table>
+                <thead><tr><th>Mijoz</th><th>Telefon</th><th>Qarz</th></tr></thead>
+                <tbody>
+                  {detail.debts.map(function (d) {
+                    return (
+                      <tr key={d.id}>
+                        <td data-label="Mijoz">{d.name}</td>
+                        <td data-label="Telefon">{d.phone || "—"}</td>
+                        <td data-label="Qarz">{money(d.outstanding_debt)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table></div>
+            )}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
 })();
