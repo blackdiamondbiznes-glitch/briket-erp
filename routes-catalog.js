@@ -1,3 +1,5 @@
+const stockCost = require('./lib/stock-cost');
+
 module.exports = function(app, pool, helpers) {
   const num = helpers.num;
   const sendError = helpers.sendError;
@@ -6,7 +8,14 @@ app.get('/api/products', async (req, res) => {
     const onlyActive = req.query.active !== '0' && req.query.active !== 'false';
     const sql = onlyActive ? 'SELECT * FROM products WHERE is_active = true ORDER BY id' : 'SELECT * FROM products ORDER BY id';
     const r = await pool.query(sql);
-    res.json({ ok: true, count: r.rows.length, data: r.rows });
+    let data = r.rows;
+    try {
+      const ctx = await stockCost.loadCostContext(pool);
+      data = r.rows.map(function (row) { return stockCost.attachProductCost(row, ctx); });
+    } catch (costErr) {
+      console.warn('products unit_cost:', costErr.message);
+    }
+    res.json({ ok: true, count: data.length, data: data });
   } catch (err) { sendError(res, err); }
 });
 app.get('/api/products/:id', async (req, res) => {
