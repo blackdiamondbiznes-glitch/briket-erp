@@ -17,11 +17,22 @@ function registerYukRoutes(app, service, helpers, options) {
     sendError(res, err);
   }
 
+  function readInitData(req) {
+    const header = req.headers['x-telegram-init-data'];
+    const headerValue = Array.isArray(header) ? header[0] : header;
+    const authz = String(req.headers.authorization || '');
+    const tma = /^tma\s+/i.test(authz) ? authz.replace(/^tma\s+/i, '').trim() : '';
+    const body = req.body && typeof req.body.initData === 'string' ? req.body.initData : '';
+    const query = req.query && typeof req.query.init_data === 'string' ? req.query.init_data : '';
+    return body || tma || (headerValue ? String(headerValue) : '') || query;
+  }
+
   function owner(req, res) {
-    const initData = req.headers['x-telegram-init-data'] || '';
-    const auth = authenticateOwner(initData);
+    const auth = authenticateOwner(readInitData(req));
     if (!auth.ok) {
-      res.status(auth.status).json({ ok: false, error: auth.error });
+      const payload = { ok: false, error: auth.error };
+      if (auth.reason) payload.reason = auth.reason;
+      res.status(auth.status).json(payload);
       return null;
     }
     return auth;

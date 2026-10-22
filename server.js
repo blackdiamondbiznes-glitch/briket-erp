@@ -136,6 +136,11 @@ app.get('/mijoz', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'mijoz.html'));
 });
 app.get('/yuk', (req, res) => {
+  res.removeHeader('X-Frame-Options');
+  res.set(
+    'Content-Security-Policy',
+    "frame-ancestors https://web.telegram.org https://webk.telegram.org https://webz.telegram.org"
+  );
   res.set('Cache-Control', 'no-store');
   res.sendFile(path.join(__dirname, 'public', 'yuk.html'));
 });
