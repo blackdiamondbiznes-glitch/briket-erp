@@ -6,7 +6,10 @@
  *   DATABASE_URL, ADMIN_KEY, CORS_ORIGIN, NODE_ENV=production
  * Ixtiyoriy:
  *   PORT, TELEGRAM_BOT_TOKEN, ALLOW_DEMO_CUSTOMER, AGENT_CORS_ORIGINS,
- *   ADMIN_TELEGRAM_IDS (vergul bilan; faqat /api/agent/admin)
+ *   ADMIN_TELEGRAM_IDS (vergul bilan; bo'sh bo'lsa hech kim kirmaydi).
+ *   /yuk va /api/agent/yuk shu ro'yxat + initData (eng ko'pi 1 soat).
+ *   TELEGRAM_INITDATA_MAX_AGE_SEC agent API uchun, sukut 86400.
+ *     Egasi yo'li bu qiymatni 3600 dan oshirmaydi.
  * Agent API (/api/agent) TELEGRAM_BOT_TOKEN siz ishlamaydi.
  * Yuk tarqatish — yuk xati buyurtma emas. Reyssiz stock_posted qator ombordan bir marta ayiriladi.
  * Reys yuki ombordan yo'lga chiqadi; shu reysdagi yuk xati ombordan ikkinchi marta ayirilmaydi.
@@ -131,6 +134,10 @@ app.get('/admin.html', (req, res) => {
 });
 app.get('/mijoz', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'mijoz.html'));
+});
+app.get('/yuk', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.sendFile(path.join(__dirname, 'public', 'yuk.html'));
 });
 app.use(express.static(path.join(__dirname, 'public')));
 

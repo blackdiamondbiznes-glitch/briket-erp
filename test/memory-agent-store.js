@@ -48,6 +48,8 @@ function same(a, b) {
   return String(a) === String(b);
 }
 
+const { attachYukMemory } = require('../lib/yuk-memory');
+
 function createMemoryStore(initial) {
   const state = initial || blank();
   let depth = 0;
@@ -551,7 +553,8 @@ function createMemoryStore(initial) {
       return full;
     },
 
-    async assertStock(lines) {
+    async assertStock(lines, extraByProduct) {
+      extraByProduct = extraByProduct || {};
       state.stockChecks.push((lines || []).map((l) => ({ product_id: l.product_id, qty: l.qty })));
       if (!state.stock) return;
       const need = {};
@@ -560,7 +563,7 @@ function createMemoryStore(initial) {
         need[k] = (need[k] || 0) + Number(line.qty);
       });
       Object.keys(need).forEach((k) => {
-        const have = Number(state.stock[k] || 0);
+        const have = Number(state.stock[k] || 0) + Number(extraByProduct[k] || 0);
         if (need[k] > have + 0.0001) {
           const err = new Error('Zaxira yetarli emas: #' + k + ' (bor: ' + have + ' dona, kerak: ' + need[k] + ' dona)');
           err.status = 400;
@@ -629,6 +632,7 @@ function createMemoryStore(initial) {
     return { id: p.id, sku: p.sku, weight_kg: p.weight_kg, price: p.price, description: p.description || null };
   }
 
+  attachYukMemory(api, state, next);
   return api;
 }
 

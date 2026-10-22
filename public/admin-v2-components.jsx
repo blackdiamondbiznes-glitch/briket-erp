@@ -547,7 +547,11 @@
       bulk_min_kg: "1000",
       bulk_discount: "3000",
       default_credit_limit: "5000000",
-      agents_ui_enabled: "0"
+      agents_ui_enabled: "0",
+      company_name: "",
+      company_phone: "",
+      company_card: "",
+      company_card_holder: ""
     });
     const [msg, setMsg] = useState({});
 
@@ -560,7 +564,11 @@
             bulk_min_kg: d.bulk_min_kg != null ? String(d.bulk_min_kg) : "1000",
             bulk_discount: d.bulk_discount != null ? String(d.bulk_discount) : "3000",
             default_credit_limit: d.default_credit_limit != null ? String(d.default_credit_limit) : "5000000",
-            agents_ui_enabled: (String(d.agents_ui_enabled || "0") === "1" || String(d.agents_ui_enabled || "").toLowerCase() === "true") ? "1" : "0"
+            agents_ui_enabled: (String(d.agents_ui_enabled || "0") === "1" || String(d.agents_ui_enabled || "").toLowerCase() === "true") ? "1" : "0",
+            company_name: d.company_name != null ? String(d.company_name) : "",
+            company_phone: d.company_phone != null ? String(d.company_phone) : "",
+            company_card: d.company_card != null ? String(d.company_card) : "",
+            company_card_holder: d.company_card_holder != null ? String(d.company_card_holder) : ""
           });
         })
         .catch(function (e) { setMsg({ text: e.message, type: "err" }); });
@@ -625,6 +633,27 @@
               />
               <span>Agentlar oynasini ko'rsatish (hozir diler yo'q — yopiq qolsin)</span>
             </label>
+            <div className="form-row">
+              <div>
+                <label>Kompaniya nomi</label>
+                <input value={form.company_name} onChange={function (e) { setForm(Object.assign({}, form, { company_name: e.target.value })); }} />
+              </div>
+              <div>
+                <label>Yuk xati telefoni</label>
+                <input value={form.company_phone} onChange={function (e) { setForm(Object.assign({}, form, { company_phone: e.target.value })); }} />
+              </div>
+            </div>
+            <div className="form-row">
+              <div>
+                <label>Karta raqami</label>
+                <input value={form.company_card} onChange={function (e) { setForm(Object.assign({}, form, { company_card: e.target.value })); }} />
+              </div>
+              <div>
+                <label>Karta egasi</label>
+                <input value={form.company_card_holder} onChange={function (e) { setForm(Object.assign({}, form, { company_card_holder: e.target.value })); }} />
+              </div>
+            </div>
+            <p className="muted">Bu maydonlar telefon ilovasi `/yuk` da chiqadi. Bo'sh karta ko'rsatilmaydi.</p>
             <button className="btn" type="submit" disabled={busy}>{busy ? "Saqlanmoqda..." : "Saqlash"}</button>
           </form>
         </div>
