@@ -5,8 +5,10 @@
  * Env (production majburiy):
  *   DATABASE_URL, ADMIN_KEY, CORS_ORIGIN, NODE_ENV=production
  * Ixtiyoriy:
- *   PORT, TELEGRAM_BOT_TOKEN, ALLOW_DEMO_CUSTOMER, AGENT_CORS_ORIGINS
+ *   PORT, TELEGRAM_BOT_TOKEN, ALLOW_DEMO_CUSTOMER, AGENT_CORS_ORIGINS,
+ *   ADMIN_TELEGRAM_IDS (vergul bilan; faqat /api/agent/admin)
  * Agent API (/api/agent) TELEGRAM_BOT_TOKEN siz ishlamaydi.
+ * Admin yuk xati tasdiqlanganda bitta ERP buyurtmasi yoziladi va ombor shu buyurtma orqali kamayadi.
  */
 require('dotenv').config();
 const crypto = require('crypto');
@@ -16,6 +18,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { Pool } = require('pg');
 const path = require('path');
+const { telegramAdminUser } = require('./lib/admin-auth');
 
 const PORT = Number(process.env.PORT) || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
@@ -142,17 +145,16 @@ function safeEqualString(a, b) {
 
 function requireAdmin(req, res, next) {
   const key = (process.env.ADMIN_KEY || '').trim();
-  if (!key) {
-    if (IS_PROD) {
-      return res.status(503).json({
-        ok: false,
-        error: 'Server sozlamasi: ADMIN_KEY kerak. Render Environment ga qo\'ying.',
-      });
-    }
-    return next();
-  }
   const given = req.headers['x-admin-key'];
-  if (given && safeEqualString(given, key)) return next();
+  if (key && given && safeEqualString(given, key)) return next();
+  if (!key && !IS_PROD) return next();
+  if (req.path.indexOf('/api/agent/admin') === 0 && telegramAdminUser(req)) return next();
+  if (!key && IS_PROD) {
+    return res.status(503).json({
+      ok: false,
+      error: 'Server sozlamasi: ADMIN_KEY kerak. Render Environment ga qo\'ying.',
+    });
+  }
   return authLimiter(req, res, () => {
     res.status(401).json({ ok: false, error: 'Unauthorized — admin kaliti kerak' });
   });

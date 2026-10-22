@@ -19,6 +19,11 @@ function blank() {
     allocations: [],
     events: [],
     withdrawals: [],
+    orders: [],
+    orderItems: [],
+    erpPayments: [],
+    stock: null,
+    stockChecks: [],
     seq: {
       agent: 1,
       request: 1,
@@ -29,6 +34,8 @@ function blank() {
       allocation: 1,
       event: 1,
       withdrawal: 1,
+      order: 1,
+      erpPayment: 1,
     },
   };
 }
@@ -160,6 +167,9 @@ function createMemoryStore(initial) {
         due_date: d.due_date,
         status: d.status,
         note: d.note,
+        idempotency_key: input.idempotencyKey || null,
+        order_id: null,
+        order_code: null,
         created_at: new Date().toISOString(),
         customer_name: (state.customers.find((c) => same(c.id, input.customerId)) || {}).name || null,
         agent_name: (state.agents.find((a) => same(a.id, input.agentId)) || {}).full_name || null,
@@ -364,11 +374,182 @@ function createMemoryStore(initial) {
       return row;
     },
 
-    async adminListWaybills(agentId) {
+    async adminListWaybills(agentId, scope) {
       return state.waybills
-        .filter((w) => !agentId || same(w.agent_id, agentId))
+        .filter((w) => {
+          if (scope === 'admin') return w.agent_id == null;
+          return !agentId || same(w.agent_id, agentId);
+        })
         .sort((a, b) => b.id - a.id)
         .map(withItems);
+    },
+
+    async insertPlainCustomer(row) {
+      const created = {
+        id: next('customer'),
+        name: row.name,
+        phone: row.phone || null,
+        address: row.address || null,
+        telegram_id: row.telegram_id || null,
+        credit_limit: row.credit_limit || 0,
+        agent_id: null,
+        is_active: row.is_active !== false,
+      };
+      state.customers.push(created);
+      return created;
+    },
+
+    async setStock(map) {
+      state.stock = Object.assign({}, map);
+    },
+
+    stockSnapshot() {
+      return Object.assign({}, state.stock || {});
+    },
+
+    async listOrders() {
+      return state.orders.map((o) => Object.assign({}, o, {
+        items: state.orderItems.filter((it) => same(it.order_id, o.id)),
+      }));
+    },
+
+    async listErpPayments() {
+      return state.erpPayments.slice();
+    },
+
+    stockCheckCount() {
+      return state.stockChecks.length;
+    },
+
+    async getCustomerById(customerId) {
+      return state.customers.find((c) => same(c.id, customerId)) || null;
+    },
+
+    async findWaybillByIdempotency(key) {
+      if (!key) return null;
+      const row = state.waybills.find((w) => w.idempotency_key && same(w.idempotency_key, key));
+      return row ? withItems(row) : null;
+    },
+
+    async lockWaybill(waybillId) {
+      return state.waybills.find((w) => same(w.id, waybillId)) || null;
+    },
+
+    async getAdminWaybill(waybillId) {
+      const row = state.waybills.find((w) => same(w.id, waybillId));
+      if (!row) return null;
+      const full = withItems(row);
+      const customer = state.customers.find((c) => same(c.id, row.customer_id));
+      full.customer_telegram_id = customer ? customer.telegram_id : null;
+      const order = state.orders.find((o) => same(o.id, row.order_id));
+      full.order_code = order ? order.order_code : row.order_code;
+      return full;
+    },
+
+    async assertStock(lines) {
+      state.stockChecks.push((lines || []).map((l) => ({ product_id: l.product_id, qty: l.qty })));
+      if (!state.stock) return;
+      const need = {};
+      (lines || []).forEach((line) => {
+        const k = String(line.product_id);
+        need[k] = (need[k] || 0) + Number(line.qty);
+      });
+      Object.keys(need).forEach((k) => {
+        const have = Number(state.stock[k] || 0);
+        if (need[k] > have + 0.0001) {
+          const err = new Error('Zaxira yetarli emas: #' + k + ' (bor: ' + have + ' dona, kerak: ' + need[k] + ' dona)');
+          err.status = 400;
+          throw err;
+        }
+      });
+    },
+
+    async insertSoldOrder(input) {
+      const id = next('order');
+      const code = 'ORD-' + input.day + '-' + String(id).padStart(6, '0');
+      const order = {
+        id: id,
+        order_code: code,
+        customer_id: input.customerId,
+        customer_name: input.customerName,
+        phone: input.phone || null,
+        status: input.status,
+        total_amount: input.total,
+        paid_amount: input.paid,
+        debt_amount: input.debt,
+        debt_due: input.due || null,
+        source: 'yuk_xati',
+        note: input.note || null,
+      };
+      state.orders.push(order);
+      input.lines.forEach((line) => {
+        state.orderItems.push({
+          id: state.orderItems.length + 1,
+          order_id: id,
+          product_id: line.product_id,
+          sku: line.sku,
+          qty: line.qty,
+          unit_price: line.unit_price,
+          line_total: line.line_total,
+        });
+        if (state.stock) {
+          const k = String(line.product_id);
+          state.stock[k] = Number(state.stock[k] || 0) - Number(line.qty);
+        }
+      });
+      if (Number(input.paid) > 0) {
+        state.erpPayments.push({
+          id: next('erpPayment'),
+          order_id: id,
+          customer_id: input.customerId,
+          amount: input.paid,
+          method: 'cash',
+          note: 'Yuk xati boshlang\'ich to\'lov',
+        });
+      }
+      return order;
+    },
+
+    async attachOrder(waybillId, orderId, orderCode) {
+      const waybill = state.waybills.find((w) => same(w.id, waybillId));
+      if (!waybill || waybill.order_id != null) {
+        const err = new Error('Yuk xati buyurtmasi allaqachon bog\'langan');
+        err.status = 409;
+        err.code = '23505';
+        throw err;
+      }
+      waybill.order_id = orderId;
+      waybill.order_code = orderCode;
+      return waybill;
+    },
+
+    async applyAdminPayment(input) {
+      const waybill = state.waybills.find((w) => same(w.id, input.waybillId));
+      if (!waybill || Number(waybill.debt_amount) < Number(input.amount)) return null;
+      waybill.paid_amount = Number(waybill.paid_amount) + Number(input.amount);
+      waybill.debt_amount = Number(waybill.debt_amount) - Number(input.amount);
+      waybill.status = waybill.debt_amount <= 0 ? 'paid' : 'partial';
+      let order = null;
+      if (input.orderId) {
+        order = state.orders.find((o) => same(o.id, input.orderId)) || null;
+        if (order && Number(order.debt_amount) >= Number(input.amount)) {
+          order.paid_amount = Number(order.paid_amount) + Number(input.amount);
+          order.debt_amount = Number(order.debt_amount) - Number(input.amount);
+          order.status = order.debt_amount <= 0 ? 'paid' : 'partial';
+          state.erpPayments.push({
+            id: next('erpPayment'),
+            order_id: order.id,
+            customer_id: input.customerId,
+            amount: input.amount,
+            method: input.method || 'cash',
+            note: input.note || 'Yuk xati qarz to\'lovi',
+          });
+        }
+      }
+      const full = withItems(waybill);
+      full.order = order;
+      full.order_code = order ? order.order_code : waybill.order_code;
+      return full;
     },
 
     async adminDebts(agentId) {

@@ -4813,6 +4813,24 @@
       const [moduleId, setModuleId] = useState("bugun");
       const [tab, setTab] = useState("dashboard");
       const [moreOpen, setMoreOpen] = useState(false);
+      const [agentsUi, setAgentsUi] = useState(false);
+
+      useEffect(function () {
+        if (!adminKey) return;
+        api("/api/settings")
+          .then(function (r) {
+            const v = String((r.data && r.data.agents_ui_enabled) || "").toLowerCase();
+            setAgentsUi(v === "1" || v === "true" || v === "yes");
+          })
+          .catch(function () { setAgentsUi(false); });
+      }, [adminKey, api, tab]);
+
+      useEffect(function () {
+        if (!agentsUi && tab === "agents") {
+          setModuleId("mijozlar");
+          setTab("yukxati");
+        }
+      }, [agentsUi, tab]);
 
       if (!adminKey) {
         return (
@@ -4882,6 +4900,7 @@
             { id: "people", label: "Ro'yxat" },
             { id: "people-debt", label: "Qarzdorlar" },
             { id: "payments", label: "To'lovlar" },
+            { id: "yukxati", label: "Yuk xati" },
             { id: "agents", label: "Agentlar" }
           ]
         },
@@ -4911,7 +4930,12 @@
         }
       ];
 
-      const visModules = modules;
+      const visModules = modules.map(function (m) {
+        if (m.id !== "mijozlar" || agentsUi) return m;
+        return Object.assign({}, m, {
+          tabs: m.tabs.filter(function (t) { return t.id !== "agents"; })
+        });
+      });
 
       const currentModule = visModules.find(function (m) { return m.id === moduleId; }) || visModules[0] || modules[0];
       const currentTab = (currentModule && currentModule.tabs || []).find(function (x) { return x.id === tab; }) || (currentModule && currentModule.tabs[0]) || { id: tab, label: tab };
@@ -4954,7 +4978,7 @@
         "stock-ready": "box", "stock-raw": "catalog",
         orders: "cart", payments: "coin", shipments: "truck",
         materials: "catalog", expenses: "coin", products: "box",
-        people: "users", "people-debt": "users", agents: "users", reports: "coin",
+        people: "users", "people-debt": "users", agents: "users", yukxati: "box", reports: "coin",
         limits: "catalog", settings: "catalog"
       };
 
@@ -4986,6 +5010,9 @@
         </div>
       );
       else if (tab === "limits") content = <DiscountLimits api={api} onNavigate={goTo} />;
+      else if (tab === "yukxati") content = window.YukXatiPanel
+        ? React.createElement(window.YukXatiPanel, { api: api, apiBase: apiBase, adminKey: adminKey })
+        : <div className="card">Yuk xati moduli yuklanmadi — sahifani yangilang.</div>;
       else if (tab === "agents") content = window.AgentsPanel
         ? React.createElement(window.AgentsPanel, { api: api })
         : <div className="card">Agentlar moduli yuklanmadi — sahifani yangilang.</div>;

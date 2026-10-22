@@ -98,8 +98,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_customers_legacy
 CREATE TABLE IF NOT EXISTS waybills (
   id                  BIGSERIAL PRIMARY KEY,
   waybill_code        TEXT NOT NULL UNIQUE,
-  agent_id            INTEGER NOT NULL REFERENCES agents(id) ON DELETE RESTRICT,
+  agent_id            INTEGER REFERENCES agents(id) ON DELETE RESTRICT,
   customer_id         INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+  order_id            INTEGER REFERENCES orders(id) ON DELETE SET NULL,
   total_amount        NUMERIC(14,2) NOT NULL DEFAULT 0,
   paid_amount         NUMERIC(14,2) NOT NULL DEFAULT 0,
   debt_amount         NUMERIC(14,2) NOT NULL DEFAULT 0,
@@ -107,6 +108,7 @@ CREATE TABLE IF NOT EXISTS waybills (
   due_date            DATE,
   status              TEXT NOT NULL DEFAULT 'open',
   note                TEXT,
+  idempotency_key     TEXT,
   legacy_source       TEXT,
   legacy_id           TEXT,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -120,6 +122,14 @@ CREATE INDEX IF NOT EXISTS idx_waybills_created ON waybills (created_at);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_waybills_legacy
   ON waybills (legacy_source, legacy_id)
   WHERE legacy_source IS NOT NULL AND legacy_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_waybills_order
+  ON waybills (order_id)
+  WHERE order_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_waybills_idempotency
+  ON waybills (idempotency_key)
+  WHERE idempotency_key IS NOT NULL;
 
 DO $$
 BEGIN
@@ -152,7 +162,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_waybill_items_legacy
 
 CREATE TABLE IF NOT EXISTS agent_debt_payments (
   id                    SERIAL PRIMARY KEY,
-  agent_id              INTEGER NOT NULL REFERENCES agents(id) ON DELETE RESTRICT,
+  agent_id              INTEGER REFERENCES agents(id) ON DELETE RESTRICT,
   customer_id           INTEGER REFERENCES customers(id) ON DELETE SET NULL,
   amount                NUMERIC(14,2) NOT NULL,
   notes                 TEXT,

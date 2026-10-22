@@ -8,6 +8,8 @@ const { validateTelegramInitData } = require('./lib/telegram-webapp');
 const { createAgentService } = require('./lib/agent-service');
 const { createSqlStore } = require('./lib/agent-repo');
 const { renderNakladnoyHtml, renderNakladnoyPdf } = require('./lib/nakladnoy');
+const { telegramAdminUser } = require('./lib/admin-auth');
+const { sendNakladnoyPdf } = require('./lib/send-nakladnoy');
 
 module.exports = function registerAgentRoutes(app, pool, helpers, options) {
   const sendError = helpers.sendError;
@@ -26,15 +28,14 @@ module.exports = function registerAgentRoutes(app, pool, helpers, options) {
 
   function adminAllowed(req, res) {
     const key = (process.env.ADMIN_KEY || '').trim();
-    if (!key) {
-      if ((process.env.NODE_ENV || '') === 'production') {
-        res.status(503).json({ ok: false, error: 'ADMIN_KEY kerak' });
-        return false;
-      }
-      return true;
-    }
     const given = req.headers['x-admin-key'];
-    if (given && safeEqualString(given, key)) return true;
+    if (key && given && safeEqualString(given, key)) return true;
+    if (!key && (process.env.NODE_ENV || '') !== 'production') return true;
+    if (telegramAdminUser(req)) return true;
+    if (!key) {
+      res.status(503).json({ ok: false, error: 'ADMIN_KEY kerak' });
+      return false;
+    }
     res.status(401).json({ ok: false, error: 'Unauthorized — admin kaliti kerak' });
     return false;
   }
@@ -42,7 +43,7 @@ module.exports = function registerAgentRoutes(app, pool, helpers, options) {
   function sendAgentError(res, err) {
     if (err && (err.code === '42P01' || err.code === '42703')) {
       err.status = 503;
-      err.message = 'Agent jadvallari yo\'q. migrations/004_agent_field_sales.sql ni qo\'llang.';
+      err.message = 'Agent jadvallari yo\'q. migrations/004 va 005 ni qo\'llang.';
     }
     sendError(res, err);
   }
@@ -348,7 +349,8 @@ module.exports = function registerAgentRoutes(app, pool, helpers, options) {
       if (agentId && !/^\d+$/.test(agentId)) {
         return res.status(400).json({ ok: false, error: 'agent_id noto\'g\'ri' });
       }
-      const data = await service.adminWaybills(agentId);
+      const scope = req.query.scope === 'admin' ? 'admin' : '';
+      const data = await service.adminWaybills(agentId, scope);
       res.json({ ok: true, count: data.length, data: data });
     } catch (err) {
       sendAgentError(res, err);
@@ -364,6 +366,95 @@ module.exports = function registerAgentRoutes(app, pool, helpers, options) {
       }
       const data = await service.adminDebts(agentId);
       res.json({ ok: true, count: data.length, data: data });
+    } catch (err) {
+      sendAgentError(res, err);
+    }
+  });
+
+  function safeCode(code) {
+    return String(code || 'xat').replace(/[^A-Za-z0-9._-]+/g, '_');
+  }
+
+  app.post('/api/agent/admin/waybills', async (req, res) => {
+    if (!adminAllowed(req, res)) return;
+    try {
+      const data = await service.createAdminWaybill(req.body || {});
+      res.status(data && data.replay ? 200 : 201).json({ ok: true, data: data });
+    } catch (err) {
+      sendAgentError(res, err);
+    }
+  });
+
+  app.get('/api/agent/admin/waybills/:id/nakladnoy.pdf', async (req, res) => {
+    if (!adminAllowed(req, res)) return;
+    const id = idParam(req, res);
+    if (!id) return;
+    try {
+      const data = await service.getAdminWaybill(id);
+      const pdf = renderNakladnoyPdf(data);
+      res.set('Content-Type', 'application/pdf');
+      res.set('Content-Disposition', 'inline; filename="yuk-xati-' + safeCode(data.waybill_code) + '.pdf"');
+      res.set('Cache-Control', 'no-store');
+      res.send(pdf);
+    } catch (err) {
+      sendAgentError(res, err);
+    }
+  });
+
+  app.get('/api/agent/admin/waybills/:id/nakladnoy', async (req, res) => {
+    if (!adminAllowed(req, res)) return;
+    const id = idParam(req, res);
+    if (!id) return;
+    try {
+      const data = await service.getAdminWaybill(id);
+      res.set('Content-Type', 'text/html; charset=utf-8');
+      res.set('Cache-Control', 'no-store');
+      res.send(renderNakladnoyHtml(data));
+    } catch (err) {
+      sendAgentError(res, err);
+    }
+  });
+
+  app.post('/api/agent/admin/waybills/:id/payments', async (req, res) => {
+    if (!adminAllowed(req, res)) return;
+    const id = idParam(req, res);
+    if (!id) return;
+    try {
+      const data = await service.recordAdminPayment(id, req.body || {});
+      res.status(201).json({ ok: true, data: data });
+    } catch (err) {
+      sendAgentError(res, err);
+    }
+  });
+
+  app.post('/api/agent/admin/waybills/:id/send', async (req, res) => {
+    if (!adminAllowed(req, res)) return;
+    const id = idParam(req, res);
+    if (!id) return;
+    try {
+      const data = await service.getAdminWaybill(id);
+      const pdf = renderNakladnoyPdf(data);
+      const sent = await sendNakladnoyPdf({
+        token: process.env.TELEGRAM_BOT_TOKEN,
+        chatId: data.customer_telegram_id,
+        pdf: pdf,
+        filename: 'yuk-xati-' + safeCode(data.waybill_code) + '.pdf',
+        caption: 'Yuk xati ' + (data.waybill_code || '') + '. Qarz: ' + (data.debt_amount || 0),
+        fetchImpl: options && options.fetchImpl,
+      });
+      res.json({ ok: true, data: sent });
+    } catch (err) {
+      sendAgentError(res, err);
+    }
+  });
+
+  app.get('/api/agent/admin/waybills/:id', async (req, res) => {
+    if (!adminAllowed(req, res)) return;
+    const id = idParam(req, res);
+    if (!id) return;
+    try {
+      const data = await service.getAdminWaybill(id);
+      res.json({ ok: true, data: data });
     } catch (err) {
       sendAgentError(res, err);
     }

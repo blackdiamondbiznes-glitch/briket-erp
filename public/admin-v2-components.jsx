@@ -546,7 +546,8 @@
       bulk_min_qty: "500",
       bulk_min_kg: "1000",
       bulk_discount: "3000",
-      default_credit_limit: "5000000"
+      default_credit_limit: "5000000",
+      agents_ui_enabled: "0"
     });
     const [msg, setMsg] = useState({});
 
@@ -558,7 +559,8 @@
             bulk_min_qty: d.bulk_min_qty != null ? String(d.bulk_min_qty) : "500",
             bulk_min_kg: d.bulk_min_kg != null ? String(d.bulk_min_kg) : "1000",
             bulk_discount: d.bulk_discount != null ? String(d.bulk_discount) : "3000",
-            default_credit_limit: d.default_credit_limit != null ? String(d.default_credit_limit) : "5000000"
+            default_credit_limit: d.default_credit_limit != null ? String(d.default_credit_limit) : "5000000",
+            agents_ui_enabled: (String(d.agents_ui_enabled || "0") === "1" || String(d.agents_ui_enabled || "").toLowerCase() === "true") ? "1" : "0"
           });
         })
         .catch(function (e) { setMsg({ text: e.message, type: "err" }); });
@@ -615,6 +617,14 @@
                 </div>
               </div>
             </details>
+            <label className="checkline" style={{ display: "flex", gap: 8, alignItems: "center", margin: "12px 0" }}>
+              <input
+                type="checkbox"
+                checked={form.agents_ui_enabled === "1"}
+                onChange={function (e) { setForm(Object.assign({}, form, { agents_ui_enabled: e.target.checked ? "1" : "0" })); }}
+              />
+              <span>Agentlar oynasini ko'rsatish (hozir diler yo'q — yopiq qolsin)</span>
+            </label>
             <button className="btn" type="submit" disabled={busy}>{busy ? "Saqlanmoqda..." : "Saqlash"}</button>
           </form>
         </div>
@@ -700,6 +710,7 @@
     }
 
     const selected = agents.filter(function (a) { return String(a.id) === String(selectedId); })[0] || null;
+    const showCommission = agents.length > 0;
 
     return (
       <div>
@@ -728,12 +739,14 @@
                 {showAllRequests ? "Faqat kutilayotgan" : "Barchasini ko'rsat"}
               </button>
             </div>
-            <div className="form-row">
-              <div>
-                <label>Komissiya shu sanadan (ixtiyoriy)</label>
-                <input type="date" value={enabledOn} onChange={function (e) { setEnabledOn(e.target.value); }} />
+            {showCommission ? (
+              <div className="form-row">
+                <div>
+                  <label>Komissiya shu sanadan (ixtiyoriy)</label>
+                  <input type="date" value={enabledOn} onChange={function (e) { setEnabledOn(e.target.value); }} />
+                </div>
               </div>
-            </div>
+            ) : null}
             {requests.length === 0 ? <V2Empty title="So'rov yo'q" sub="Mini ilovadan yangi agent yozilsa shu yerda chiqadi." /> : (
               <div className="table-wrap list-dense"><table>
                 <thead>
@@ -768,7 +781,7 @@
             {agents.length === 0 ? <V2Empty title="Agent yo'q" sub="So'rov tasdiqlangach agent shu ro'yxatga tushadi." /> : (
               <div className="table-wrap list-dense"><table>
                 <thead>
-                  <tr><th>Ism</th><th>Telegram</th><th>Holat</th><th>Qarz</th><th>Komissiya</th><th></th></tr>
+                  <tr><th>Ism</th><th>Telegram</th><th>Holat</th><th>Qarz</th>{showCommission ? <th>Komissiya</th> : null}<th></th></tr>
                 </thead>
                 <tbody>
                   {agents.map(function (a) {
@@ -778,7 +791,7 @@
                         <td data-label="Telegram">{a.telegram_id || "—"}</td>
                         <td data-label="Holat">{agentAccessLabel(a.access_status)}{a.is_active === false ? " · nofaol" : ""}</td>
                         <td data-label="Qarz">{money(a.debt_total)}</td>
-                        <td data-label="Komissiya">{money(a.commission_balance)}</td>
+                        {showCommission ? <td data-label="Komissiya">{money(a.commission_balance)}</td> : null}
                         <td className="sticky-actions" data-label="Amallar">
                           <button type="button" className="btn-ghost btn-sm" onClick={function () { openAgent(a); }}>Karta</button>
                         </td>
@@ -798,11 +811,13 @@
               {agentAccessLabel(selected.access_status)}
               {selected.commission_enabled_on ? " · komissiya " + String(selected.commission_enabled_on).slice(0, 10) + " dan" : " · komissiya yoqilgan"}
             </p>
-            <div className="dash-kpis">
-              <div className="dash-kpi"><div className="label">Hisoblangan</div><div className="value">{money(detail.commission.earned)}</div></div>
-              <div className="dash-kpi"><div className="label">Yechilgan</div><div className="value">{money(detail.commission.withdrawn)}</div></div>
-              <div className="dash-kpi"><div className="label">Balans</div><div className="value">{money(detail.commission.balance)}</div></div>
-            </div>
+            {showCommission ? (
+              <div className="dash-kpis">
+                <div className="dash-kpi"><div className="label">Hisoblangan</div><div className="value">{money(detail.commission.earned)}</div></div>
+                <div className="dash-kpi"><div className="label">Yechilgan</div><div className="value">{money(detail.commission.withdrawn)}</div></div>
+                <div className="dash-kpi"><div className="label">Balans</div><div className="value">{money(detail.commission.balance)}</div></div>
+              </div>
+            ) : null}
             <h3 style={{ fontSize: "0.9rem" }}>Yuk xatlari</h3>
             {(detail.waybills || []).length === 0 ? <div className="muted">Yuk xati yo'q</div> : (
               <div className="table-wrap list-dense"><table>
@@ -842,6 +857,293 @@
             )}
           </div>
         ) : null}
+      </div>
+    );
+  };
+
+  window.YukXatiPanel = function YukXatiPanel(props) {
+    const api = props.api;
+    const apiBase = props.apiBase || "";
+    const adminKey = props.adminKey || "";
+    const [customers, setCustomers] = useState([]);
+    const [products, setProducts] = useState([]);
+    const [rows, setRows] = useState([]);
+    const [customerId, setCustomerId] = useState("");
+    const [paid, setPaid] = useState("0");
+    const [due, setDue] = useState("");
+    const [note, setNote] = useState("");
+    const [lines, setLines] = useState([{ product_id: "", quantity: "1", price: "" }]);
+    const [msg, setMsg] = useState({});
+    const [err, setErr] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [payFor, setPayFor] = useState(null);
+    const [payAmount, setPayAmount] = useState("");
+    const idemRef = useRef("");
+
+    const load = useCallback(function () {
+      Promise.all([
+        api("/api/customers"),
+        api("/api/products"),
+        api("/api/agent/admin/waybills?scope=admin")
+      ]).then(function (arr) {
+        const cust = (arr[0].data || []).filter(function (c) { return c.is_active !== false; });
+        setCustomers(cust);
+        setProducts((arr[1].data || []).filter(function (p) { return p.is_active !== false; }));
+        setRows(arr[2].data || []);
+        setErr("");
+      }).catch(function (e) { setErr(e.message); });
+    }, [api]);
+
+    useEffect(function () { load(); }, [load]);
+
+    function unitPrice(line) {
+      if (line.price !== "" && line.price != null) {
+        const n = Math.round(Number(line.price));
+        return isFinite(n) ? n : 0;
+      }
+      const p = products.filter(function (x) { return String(x.id) === String(line.product_id); })[0];
+      return p ? Math.round(Number(p.price) || 0) : 0;
+    }
+
+    const total = lines.reduce(function (sum, line) {
+      const qty = Number(line.quantity);
+      if (!(qty > 0) || !line.product_id) return sum;
+      return sum + Math.round(unitPrice(line) * qty);
+    }, 0);
+    const paidN = Math.max(0, Math.round(Number(paid) || 0));
+    const debt = Math.max(0, total - paidN);
+
+    function setLine(index, patch) {
+      setLines(function (prev) {
+        return prev.map(function (line, i) {
+          if (i !== index) return line;
+          const next = Object.assign({}, line, patch);
+          if (patch.product_id != null && patch.price == null) {
+            const p = products.filter(function (x) { return String(x.id) === String(patch.product_id); })[0];
+            if (p && (line.price === "" || line.price == null)) next.price = String(Math.round(Number(p.price) || 0));
+          }
+          return next;
+        });
+      });
+    }
+
+    async function openDoc(id, kind) {
+      const path = "/api/agent/admin/waybills/" + id + (kind === "pdf" ? "/nakladnoy.pdf" : "/nakladnoy");
+      const res = await fetch(String(apiBase).replace(/\/$/, "") + path, {
+        headers: adminKey ? { "x-admin-key": adminKey } : {}
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(function () { return {}; });
+        throw new Error(data.error || "Nakladnoy ochilmadi");
+      }
+      if (kind === "pdf") {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+        return;
+      }
+      const html = await res.text();
+      const w = window.open("", "_blank");
+      if (!w) throw new Error("Brauzer yangi oyna ochmadi");
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+      setTimeout(function () { try { w.print(); } catch (e) {} }, 200);
+    }
+
+    async function submit(e) {
+      e.preventDefault();
+      if (busy) return;
+      if (!idemRef.current) {
+        idemRef.current = "ui-" + Date.now().toString(36) + "-" + Math.random().toString(16).slice(2, 10);
+      }
+      setBusy(true);
+      try {
+        const items = lines.filter(function (line) { return line.product_id && Number(line.quantity) > 0; }).map(function (line) {
+          return {
+            product_id: Number(line.product_id),
+            quantity: Number(line.quantity),
+            price: unitPrice(line)
+          };
+        });
+        await api("/api/agent/admin/waybills", {
+          method: "POST",
+          body: JSON.stringify({
+            customer_id: Number(customerId),
+            paid_amount: paidN,
+            due_date: due || null,
+            note: note || null,
+            items: items,
+            idempotency_key: idemRef.current
+          })
+        });
+        idemRef.current = "";
+        setMsg({ text: "Yuk xati yozildi. Ombor buyurtma orqali kamaydi.", type: "ok" });
+        setLines([{ product_id: "", quantity: "1", price: "" }]);
+        setPaid("0");
+        setDue("");
+        setNote("");
+        load();
+      } catch (error) {
+        setMsg({ text: error.message, type: "err" });
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function recordPay(e) {
+      e.preventDefault();
+      if (busy || !payFor) return;
+      setBusy(true);
+      try {
+        await api("/api/agent/admin/waybills/" + payFor.id + "/payments", {
+          method: "POST",
+          body: JSON.stringify({ amount: Math.round(Number(payAmount) || 0), method: "cash" })
+        });
+        setMsg({ text: "Qarz to'lovi yozildi", type: "ok" });
+        setPayFor(null);
+        setPayAmount("");
+        load();
+      } catch (error) {
+        setMsg({ text: error.message, type: "err" });
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function sendBill(row) {
+      setBusy(true);
+      try {
+        await api("/api/agent/admin/waybills/" + row.id + "/send", { method: "POST", body: "{}" });
+        setMsg({ text: "Nakladnoy Telegramga yuborildi", type: "ok" });
+      } catch (error) {
+        setMsg({ text: error.message, type: "err" });
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    return (
+      <div>
+        <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
+        <div className="card">
+          <h2>Yuk xati</h2>
+          <p className="muted">Mavjud mijozga yuk xati. Tasdiqlangach buyurtma yoziladi va tayyor mahsulot ombori shu buyurtma bilan kamayadi. Komissiya yo'q — agentlar hali yo'q.</p>
+          {err ? <div className="msg err">{err}</div> : null}
+          <form onSubmit={submit}>
+            <div className="form-row">
+              <div>
+                <label>Mijoz *</label>
+                <select value={customerId} onChange={function (e) { setCustomerId(e.target.value); }} required>
+                  <option value="">Tanlang</option>
+                  {customers.map(function (c) {
+                    return <option key={c.id} value={c.id}>{c.name}{c.phone ? " · " + c.phone : ""}</option>;
+                  })}
+                </select>
+              </div>
+              <div>
+                <label>Boshlang'ich to'lov</label>
+                <input type="number" min="0" value={paid} onChange={function (e) { setPaid(e.target.value); }} />
+              </div>
+              <div>
+                <label>Qarz muddati</label>
+                <input type="date" value={due} onChange={function (e) { setDue(e.target.value); }} />
+              </div>
+            </div>
+            {lines.map(function (line, index) {
+              return (
+                <div className="form-row" key={index}>
+                  <div>
+                    <label>Mahsulot *</label>
+                    <select value={line.product_id} onChange={function (e) { setLine(index, { product_id: e.target.value }); }} required={index === 0}>
+                      <option value="">Tanlang</option>
+                      {products.map(function (p) {
+                        return <option key={p.id} value={p.id}>{p.sku}</option>;
+                      })}
+                    </select>
+                  </div>
+                  <div>
+                    <label>Dona</label>
+                    <input type="number" min="1" step="1" value={line.quantity} onChange={function (e) { setLine(index, { quantity: e.target.value }); }} />
+                  </div>
+                  <div>
+                    <label>Narx</label>
+                    <input type="number" min="0" value={line.price} onChange={function (e) { setLine(index, { price: e.target.value }); }} />
+                  </div>
+                  <div style={{ alignSelf: "end" }}>
+                    {lines.length > 1 ? (
+                      <button type="button" className="btn-ghost btn-sm" onClick={function () {
+                        setLines(function (prev) { return prev.filter(function (_l, i) { return i !== index; }); });
+                      }}>Olib tashlash</button>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+            <button type="button" className="btn-ghost btn-sm" onClick={function () {
+              setLines(function (prev) { return prev.concat([{ product_id: "", quantity: "1", price: "" }]); });
+            }}>Mahsulot qo'shish</button>
+            <div className="form-row">
+              <div>
+                <label>Izoh</label>
+                <input value={note} onChange={function (e) { setNote(e.target.value); }} />
+              </div>
+            </div>
+            <p className="muted">Jami {money(total)} · To'langan {money(paidN)} · Qarz {money(debt)}</p>
+            <button className="btn" type="submit" disabled={busy}>{busy ? "Yozilmoqda..." : "Yuk xatini yozish"}</button>
+          </form>
+        </div>
+
+        <div className="card">
+          <h2>Yozilgan yuk xatlar</h2>
+          {rows.length === 0 ? <V2Empty title="Yuk xati yo'q" sub="Yuqoridagi formadan boshlang." /> : (
+            <div className="table-wrap list-dense"><table>
+              <thead>
+                <tr><th>Kod</th><th>Mijoz</th><th>Jami</th><th>To'langan</th><th>Qarz</th><th>Buyurtma</th><th></th></tr>
+              </thead>
+              <tbody>
+                {rows.map(function (w) {
+                  return (
+                    <tr key={w.id}>
+                      <td data-label="Kod">{w.waybill_code}</td>
+                      <td data-label="Mijoz">{w.customer_name || "—"}</td>
+                      <td data-label="Jami">{money(w.total_amount)}</td>
+                      <td data-label="To'langan">{money(w.paid_amount)}</td>
+                      <td data-label="Qarz">{money(w.debt_amount)}</td>
+                      <td data-label="Buyurtma">{w.order_code || "—"}</td>
+                      <td className="sticky-actions" data-label="Amallar">
+                        <button type="button" className="btn-ghost btn-sm" onClick={function () {
+                          openDoc(w.id, "html").catch(function (e) { setMsg({ text: e.message, type: "err" }); });
+                        }}>Chop etish</button>
+                        <button type="button" className="btn-ghost btn-sm" onClick={function () {
+                          openDoc(w.id, "pdf").catch(function (e) { setMsg({ text: e.message, type: "err" }); });
+                        }}>PDF</button>
+                        <button type="button" className="btn-ghost btn-sm" disabled={busy} onClick={function () { sendBill(w); }}>Yuborish</button>
+                        {Number(w.debt_amount) > 0 ? (
+                          <button type="button" className="btn btn-sm" onClick={function () { setPayFor(w); setPayAmount(String(Math.round(Number(w.debt_amount) || 0))); }}>Qarz</button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table></div>
+          )}
+          {payFor ? (
+            <form onSubmit={recordPay} style={{ marginTop: 12 }}>
+              <h3 style={{ fontSize: "0.9rem" }}>{payFor.waybill_code} · qarz to'lovi</h3>
+              <div className="form-row">
+                <div>
+                  <label>Summa</label>
+                  <input type="number" min="1" value={payAmount} onChange={function (e) { setPayAmount(e.target.value); }} />
+                </div>
+              </div>
+              <button className="btn btn-sm" type="submit" disabled={busy}>Yozish</button>
+              <button type="button" className="btn-ghost btn-sm" onClick={function () { setPayFor(null); }}>Bekor</button>
+            </form>
+          ) : null}
+        </div>
       </div>
     );
   };

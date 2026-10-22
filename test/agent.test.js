@@ -12,6 +12,7 @@ const { createAgentService } = require('../lib/agent-service');
 const { createMemoryStore } = require('./memory-agent-store');
 const registerAgentRoutes = require('../routes-agent');
 const { runImport } = require('../scripts/import-mini-app');
+const { sendNakladnoyPdf } = require('../lib/send-nakladnoy');
 
 const TOKEN = 'test-bot-token';
 const root = path.join(__dirname, '..');
@@ -188,6 +189,15 @@ test('nakladnoy escapes HTML and emits a PDF', () => {
   assert.equal(html.includes('<script>'), false);
   assert.equal(html.includes('&lt;script&gt;'), true);
   assert.match(html, /Yuk xati/);
+  assert.match(html, /Komissiya/);
+  const adminDoc = Object.assign({}, doc, {
+    agent_name: '',
+    commission_amount: 0,
+    items: [{ product_name: '1kg', quantity: 1, price: 1000, subtotal: 1000, commission: 0 }],
+  });
+  const adminHtml = nakladnoy.renderNakladnoyHtml(adminDoc);
+  assert.equal(adminHtml.includes('Komissiya'), false);
+  assert.match(adminHtml, /Yozgan: admin/);
   const pdf = nakladnoy.renderNakladnoyPdf(doc);
   assert.equal(pdf.slice(0, 5).toString(), '%PDF-');
   assert.equal(pdf.includes('YX-1\\)'), true);
@@ -237,9 +247,11 @@ test('import plan flags duplicate phones and debt mismatches', () => {
 test('apply import writes only inside a transaction and has no deletes', async () => {
   const calls = [];
   let id = 1;
+  const paramsLog = [];
   const erpClient = {
-    async query(sql) {
+    async query(sql, params) {
       calls.push(sql);
+      paramsLog.push(params || []);
       if (/RETURNING/i.test(sql)) return { rows: [{ id: id++ }] };
       return { rows: [] };
     },
@@ -266,6 +278,7 @@ test('apply import writes only inside a transaction and has no deletes', async (
   assert.equal(dry.wrote, false);
   assert.equal(calls.length, 0);
   assert.match(logs[0], /DRY-RUN/);
+  assert.match(logs.join('\n'), /ombor/);
 
   calls.length = 0;
   const applied = await runImport({
@@ -286,11 +299,18 @@ test('apply import writes only inside a transaction and has no deletes', async (
   assert.match(blob, /INSERT INTO agents/);
   assert.match(blob, /INSERT INTO waybills/);
   assert.match(blob, /INSERT INTO customer_map/);
+  assert.doesNotMatch(blob, /INSERT INTO orders/i);
+  const waybillAt = calls.findIndex(function (sql) { return /INSERT INTO waybills/i.test(sql); });
+  assert.equal(paramsLog[waybillAt][1], null);
+  const customerAt = calls.findIndex(function (sql) { return /INSERT INTO customers/i.test(sql); });
+  assert.match(calls[customerAt], /NULL/);
 });
 
 test('migration is additive', () => {
   const sqlRaw = fs.readFileSync(path.join(root, 'migrations/004_agent_field_sales.sql'), 'utf8');
   const sql = sqlRaw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--.*$/gm, '');
+  const sql5raw = fs.readFileSync(path.join(root, 'migrations/005_admin_waybills.sql'), 'utf8');
+  const sql5 = sql5raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--.*$/gm, '');
   const schema = fs.readFileSync(path.join(root, 'schema.sql'), 'utf8');
   assert.match(sql, /CREATE TABLE IF NOT EXISTS agents/);
   assert.match(sql, /CREATE TABLE IF NOT EXISTS waybills/);
@@ -305,12 +325,21 @@ test('migration is additive', () => {
   assert.match(sql, /ADD COLUMN IF NOT EXISTS latitude/);
   assert.match(sql, /ADD COLUMN IF NOT EXISTS longitude/);
   assert.match(sql, /legacy_source/);
-  assert.doesNotMatch(sql, /\bDROP\s+TABLE\b/i);
-  assert.doesNotMatch(sql, /\bDROP\s+COLUMN\b/i);
-  assert.doesNotMatch(sql, /\bTRUNCATE\b/i);
-  assert.doesNotMatch(sql, /\bDELETE\s+FROM\b/i);
-  assert.doesNotMatch(sql, /\bRENAME\b/i);
+  assert.match(sql, /idempotency_key/);
+  assert.match(sql, /order_id\s+INTEGER REFERENCES orders/);
+  assert.match(sql5, /ADD COLUMN IF NOT EXISTS order_id/);
+  assert.match(sql5, /ADD COLUMN IF NOT EXISTS idempotency_key/);
+  assert.match(sql5, /agents_ui_enabled/);
+  assert.match(sql5, /ALTER COLUMN agent_id DROP NOT NULL/);
+  [sql, sql5].forEach(function (text) {
+    assert.doesNotMatch(text, /\bDROP\s+TABLE\b/i);
+    assert.doesNotMatch(text, /\bDROP\s+COLUMN\b/i);
+    assert.doesNotMatch(text, /\bTRUNCATE\b/i);
+    assert.doesNotMatch(text, /\bDELETE\s+FROM\b/i);
+    assert.doesNotMatch(text, /\bRENAME\b/i);
+  });
   assert.match(schema, /CREATE TABLE IF NOT EXISTS agents/);
+  assert.match(schema, /agents_ui_enabled/);
   const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
   assert.match(server, /AGENT_CORS_ORIGINS/);
   assert.match(server, /\/api\/agent\/admin/);
@@ -516,4 +545,196 @@ test('HTTP auth, admin key, and server-side total', async () => {
     if (prevNode == null) delete process.env.NODE_ENV;
     else process.env.NODE_ENV = prevNode;
   }
+});
+
+test('admin yuk xati links one order, reduces stock once, and ignores commission', async () => {
+  const seeded = createMemoryStore();
+  const catalog = [{ id: 3, sku: '1kg', price: 1000, is_active: true }];
+  seeded.getActiveProductsByIds = async (ids) =>
+    catalog.filter((p) => (ids || []).map(String).includes(String(p.id)));
+  const customer = await seeded.insertPlainCustomer({ name: 'Chorsu', phone: '901112233', telegram_id: '555' });
+  await seeded.setStock({ 3: 10 });
+  const service = createAgentService(seeded, helpers());
+  const body = {
+    customer_id: customer.id,
+    paid_amount: 500,
+    idempotency_key: 'admin-key-1',
+    items: [{ product_id: 3, quantity: 2, price: 1000, commission: 900, subtotal: 1 }],
+  };
+  const first = await service.createAdminWaybill(body);
+  assert.equal(first.agent_id, null);
+  assert.equal(Number(first.total_amount), 2000);
+  assert.equal(Number(first.debt_amount), 1500);
+  assert.equal(Number(first.commission_amount), 0);
+  assert.equal(first.items[0].commission, 0);
+  assert.equal(first.order.source, 'yuk_xati');
+  assert.equal(first.order.status, 'partial');
+  assert.equal(Number(first.order.debt_amount), 1500);
+  assert.equal(seeded.stockCheckCount(), 1);
+  assert.equal((await seeded.listOrders()).length, 1);
+  assert.equal(seeded.stockSnapshot()['3'], 8);
+  assert.equal((await seeded.listErpPayments()).length, 1);
+
+  const again = await service.createAdminWaybill(body);
+  assert.equal(again.replay, true);
+  assert.equal(again.order_id, first.order_id);
+  assert.equal(seeded.stockCheckCount(), 1);
+  assert.equal((await seeded.listOrders()).length, 1);
+  assert.equal(seeded.stockSnapshot()['3'], 8);
+  assert.equal((await seeded.listErpPayments()).length, 1);
+
+  await seeded.setStock({ 3: 0 });
+  await assert.rejects(
+    () => service.createAdminWaybill({
+      customer_id: customer.id,
+      paid_amount: 0,
+      idempotency_key: 'admin-key-2',
+      items: [{ product_id: 3, quantity: 1, price: 1000 }],
+    }),
+    /Zaxira/
+  );
+  assert.equal((await seeded.listOrders()).length, 1);
+
+  seeded.checkCredit = async function () {
+    return { ok: false, error: 'Nasiya limiti yetarli emas' };
+  };
+  await seeded.setStock({ 3: 5 });
+  await assert.rejects(
+    () => service.createAdminWaybill({
+      customer_id: customer.id,
+      paid_amount: 0,
+      idempotency_key: 'admin-key-3',
+      items: [{ product_id: 3, quantity: 1, price: 1000 }],
+    }),
+    /Nasiya/
+  );
+  assert.equal((await seeded.listOrders()).length, 1);
+  delete seeded.checkCredit;
+
+  await assert.rejects(
+    () => service.recordAdminPayment(first.id, { amount: 2000 }),
+    /oshib/
+  );
+  const paid = await service.recordAdminPayment(first.id, { amount: 1500, note: 'naqd' });
+  assert.equal(Number(paid.debt_amount), 0);
+  assert.equal(paid.status, 'paid');
+  const orders = await seeded.listOrders();
+  assert.equal(orders[0].status, 'paid');
+  assert.equal(Number(orders[0].debt_amount), 0);
+  assert.equal(Number(orders[0].paid_amount), 2000);
+  const cash = await seeded.listErpPayments();
+  assert.equal(cash.length, 2);
+  assert.equal(cash.reduce((s, p) => s + Number(p.amount), 0), 2000);
+  const agentPays = await seeded.listDebtPayments(1);
+  assert.equal(agentPays.length, 0);
+});
+
+test('admin waybill HTTP accepts admin key or telegram admin', async () => {
+  const seeded = createMemoryStore();
+  const catalog = [{ id: 3, sku: '1kg', price: 1000, is_active: true }];
+  seeded.getActiveProductsByIds = async (ids) =>
+    catalog.filter((p) => (ids || []).map(String).includes(String(p.id)));
+  const customer = await seeded.insertPlainCustomer({ name: 'Chorsu', phone: '90111', telegram_id: '555' });
+  await seeded.setStock({ 3: 20 });
+  const app = express();
+  app.use(express.json());
+  const prevToken = process.env.TELEGRAM_BOT_TOKEN;
+  const prevKey = process.env.ADMIN_KEY;
+  const prevIds = process.env.ADMIN_TELEGRAM_IDS;
+  const prevNode = process.env.NODE_ENV;
+  process.env.TELEGRAM_BOT_TOKEN = TOKEN;
+  process.env.ADMIN_KEY = 'secret-admin';
+  process.env.ADMIN_TELEGRAM_IDS = '42';
+  process.env.NODE_ENV = 'test';
+  registerAgentRoutes(app, null, helpers(), { store: seeded });
+  const server = await new Promise((resolve) => {
+    const s = app.listen(0, '127.0.0.1', () => resolve(s));
+  });
+  const base = 'http://127.0.0.1:' + server.address().port;
+  async function call(urlPath, opts) {
+    const res = await fetch(base + urlPath, {
+      method: (opts && opts.method) || 'GET',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, (opts && opts.headers) || {}),
+      body: opts && opts.body ? JSON.stringify(opts.body) : undefined,
+    });
+    const text = await res.text();
+    let data = {};
+    try { data = text ? JSON.parse(text) : {}; } catch (e) { data = { raw: text }; }
+    return { status: res.status, data: data, text: text, headers: res.headers };
+  }
+  try {
+    const stranger = await call('/api/agent/admin/waybills', {
+      method: 'POST',
+      headers: { 'x-telegram-init-data': signed({ id: 99, first_name: 'Begona' }) },
+      body: { customer_id: customer.id, idempotency_key: 'http-admin-1', items: [{ product_id: 3, quantity: 1, price: 1000 }] },
+    });
+    assert.equal(stranger.status, 401);
+    const tg = await call('/api/agent/admin/waybills', {
+      method: 'POST',
+      headers: { 'x-telegram-init-data': signed({ id: 42, first_name: 'Dono' }) },
+      body: {
+        customer_id: customer.id,
+        paid_amount: 0,
+        idempotency_key: 'http-admin-1',
+        items: [{ product_id: 3, quantity: 1, price: 1000, commission: 50 }],
+      },
+    });
+    assert.equal(tg.status, 201);
+    assert.equal(tg.data.data.agent_id, null);
+    assert.equal(Number(tg.data.data.commission_amount), 0);
+    assert.match(tg.data.data.order_code, /^ORD-/);
+    const replay = await call('/api/agent/admin/waybills', {
+      method: 'POST',
+      headers: { 'x-admin-key': 'secret-admin' },
+      body: {
+        customer_id: customer.id,
+        idempotency_key: 'http-admin-1',
+        items: [{ product_id: 3, quantity: 1, price: 1000 }],
+      },
+    });
+    assert.equal(replay.status, 200);
+    assert.equal(replay.data.data.order_id, tg.data.data.order_id);
+    assert.equal((await seeded.listOrders()).length, 1);
+    const html = await call('/api/agent/admin/waybills/' + tg.data.data.id + '/nakladnoy', {
+      headers: { 'x-admin-key': 'secret-admin' },
+    });
+    assert.equal(html.status, 200);
+    assert.match(html.text, /Yuk xati/);
+    assert.equal(html.text.includes('Komissiya'), false);
+    const pdf = await fetch(base + '/api/agent/admin/waybills/' + tg.data.data.id + '/nakladnoy.pdf', {
+      headers: { 'x-admin-key': 'secret-admin' },
+    });
+    const buf = Buffer.from(await pdf.arrayBuffer());
+    assert.equal(pdf.status, 200);
+    assert.equal(buf.slice(0, 5).toString(), '%PDF-');
+  } finally {
+    server.close();
+    if (prevToken == null) delete process.env.TELEGRAM_BOT_TOKEN;
+    else process.env.TELEGRAM_BOT_TOKEN = prevToken;
+    if (prevKey == null) delete process.env.ADMIN_KEY;
+    else process.env.ADMIN_KEY = prevKey;
+    if (prevIds == null) delete process.env.ADMIN_TELEGRAM_IDS;
+    else process.env.ADMIN_TELEGRAM_IDS = prevIds;
+    if (prevNode == null) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = prevNode;
+  }
+});
+
+test('send nakladnoy posts the PDF and refuses a missing chat', async () => {
+  let seen = null;
+  const sent = await sendNakladnoyPdf({
+    token: 'tok',
+    chatId: '555',
+    pdf: Buffer.from('%PDF-1.4'),
+    filename: 'yuk-xati-YX-1.pdf',
+    caption: 'Yuk xati',
+    fetchImpl: async function (url, opts) {
+      seen = { url: url, body: opts.body };
+      return { ok: true, json: async function () { return { ok: true, result: { message_id: 9 } }; } };
+    },
+  });
+  assert.equal(sent.message_id, 9);
+  assert.equal(seen.url, 'https://api.telegram.org/bottok/sendDocument');
+  assert.equal(typeof seen.body.get, 'function');
+  await assert.rejects(() => sendNakladnoyPdf({ token: 'tok', chatId: '', pdf: Buffer.from('x') }), /Telegram ID/);
 });

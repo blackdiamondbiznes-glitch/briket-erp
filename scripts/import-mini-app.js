@@ -80,6 +80,7 @@ function printPlan(plan, log) {
     ', mos kelmagan mahsulot ' + plan.counts.unmatched_products
   );
   out('Tasdiqlangan bog\'lash: --links {"stores":{"<uuid>":<customer_id>},"products":{"<uuid>":<product_id>}}');
+  out('Egalik: mijoz va yuk xati adminniki (agent_id bo\'sh). Tarixiy qatorlar ERP buyurtmasi va ombor qoldig\'iga yozilmaydi.');
 }
 
 async function findLegacy(erp, table, legacyId) {
@@ -218,11 +219,6 @@ async function applyImport(erp, mini, plan) {
       skip();
       continue;
     }
-    const agentId = agentIds[String(store.owner_id)] || null;
-    if (!agentId) {
-      skip();
-      continue;
-    }
     let customerId = null;
     const link = (plan.actions || []).find((a) => a.type === 'link_customer' && a.store_id === legacyId);
     if (link) {
@@ -239,19 +235,14 @@ async function applyImport(erp, mini, plan) {
         skip();
         continue;
       }
-      if (row.agent_id && agentId && String(row.agent_id) !== String(agentId)) {
-        skip();
-        continue;
-      }
       await erp.query(
         `UPDATE customers SET
-           agent_id = COALESCE(agent_id, $2),
-           latitude = COALESCE(latitude, $3),
-           longitude = COALESCE(longitude, $4),
-           legacy_source = COALESCE(legacy_source, $5),
-           legacy_id = COALESCE(legacy_id, $6)
+           latitude = COALESCE(latitude, $2),
+           longitude = COALESCE(longitude, $3),
+           legacy_source = COALESCE(legacy_source, $4),
+           legacy_id = COALESCE(legacy_id, $5)
          WHERE id = $1`,
-        [row.id, agentId, store.latitude, store.longitude, LEGACY_SOURCE, legacyId]
+        [row.id, store.latitude, store.longitude, LEGACY_SOURCE, legacyId]
       );
       customerId = row.id;
     } else {
@@ -263,7 +254,7 @@ async function applyImport(erp, mini, plan) {
         const ins = await erp.query(
           `INSERT INTO customers
              (name, phone, address, latitude, longitude, agent_id, is_active, note, legacy_source, legacy_id)
-           VALUES ($1,$2,$3,$4,$5,$6,true,$7,$8,$9)
+           VALUES ($1,$2,$3,$4,$5,NULL,true,$6,$7,$8)
            RETURNING id`,
           [
             store.name || 'Do\'kon',
@@ -271,8 +262,7 @@ async function applyImport(erp, mini, plan) {
             store.address || null,
             store.latitude != null ? store.latitude : null,
             store.longitude != null ? store.longitude : null,
-            agentId,
-            'Agent do\'koni',
+            'Mini-app do\'koni',
             LEGACY_SOURCE,
             legacyId,
           ]
@@ -286,8 +276,8 @@ async function applyImport(erp, mini, plan) {
     if (!mapped && customerId) {
       await erp.query(
         `INSERT INTO customer_map (legacy_uuid, customer_id, agent_id, legacy_source)
-         VALUES ($1,$2,$3,$4)`,
-        [legacyId, customerId, agentId, LEGACY_SOURCE]
+         VALUES ($1,$2,NULL,$3)`,
+        [legacyId, customerId, LEGACY_SOURCE]
       );
       inserted();
     }
@@ -300,12 +290,10 @@ async function applyImport(erp, mini, plan) {
       skip();
       continue;
     }
-    const owner = (mini.products || []).find((p) => String(p.id) === String(action.legacy_id));
-    const agentId = owner ? agentIds[String(owner.owner_id)] || null : null;
     await erp.query(
       `INSERT INTO product_map (legacy_uuid, product_id, agent_id, legacy_source)
-       VALUES ($1,$2,$3,$4)`,
-      [String(action.legacy_id), action.product_id, agentId, LEGACY_SOURCE]
+       VALUES ($1,$2,NULL,$3)`,
+      [String(action.legacy_id), action.product_id, LEGACY_SOURCE]
     );
     productIds[String(action.legacy_id)] = action.product_id;
     inserted();
@@ -322,7 +310,7 @@ async function applyImport(erp, mini, plan) {
   for (const order of mini.orders || []) {
     const legacyId = String(order.id);
     const storeId = String(order.store_id);
-    if (skippedStores[storeId] || !customerIds[storeId] || !agentIds[String(order.owner_id)]) {
+    if (skippedStores[storeId] || !customerIds[storeId]) {
       skip();
       continue;
     }
@@ -340,7 +328,7 @@ async function applyImport(erp, mini, plan) {
          RETURNING id`,
         [
           'YX-LEG-' + legacyId,
-          agentIds[String(order.owner_id)] || null,
+          null,
           customerIds[storeId],
           order.total_amount || 0,
           order.paid_amount || 0,
@@ -396,7 +384,7 @@ async function applyImport(erp, mini, plan) {
   for (const pay of mini.debt_payments || []) {
     const legacyId = String(pay.id);
     const storeId = String(pay.store_id);
-    if (skippedStores[storeId] || !customerIds[storeId] || !agentIds[String(pay.owner_id)]) {
+    if (skippedStores[storeId] || !customerIds[storeId]) {
       skip();
       continue;
     }
@@ -414,7 +402,7 @@ async function applyImport(erp, mini, plan) {
        VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8, NOW()))
        RETURNING id`,
       [
-        agentIds[String(pay.owner_id)] || null,
+        null,
         customerIds[storeId],
         pay.amount || 0,
         pay.notes || null,
