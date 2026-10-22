@@ -5,7 +5,11 @@
  * Env (production majburiy):
  *   DATABASE_URL, ADMIN_KEY, CORS_ORIGIN, NODE_ENV=production
  * Ixtiyoriy:
- *   PORT, TELEGRAM_BOT_TOKEN, ALLOW_DEMO_CUSTOMER
+ *   PORT, TELEGRAM_BOT_TOKEN, ALLOW_DEMO_CUSTOMER, AGENT_CORS_ORIGINS,
+ *   ADMIN_TELEGRAM_IDS (vergul bilan; faqat /api/agent/admin)
+ * Agent API (/api/agent) TELEGRAM_BOT_TOKEN siz ishlamaydi.
+ * Yuk tarqatish — yuk xati buyurtma emas. Reyssiz stock_posted qator ombordan bir marta ayiriladi.
+ * Reys yuki ombordan yo'lga chiqadi; shu reysdagi yuk xati ombordan ikkinchi marta ayirilmaydi.
  */
 require('dotenv').config();
 const crypto = require('crypto');
@@ -15,11 +19,12 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { Pool } = require('pg');
 const path = require('path');
+const { telegramAdminUser } = require('./lib/admin-auth');
 
 const PORT = Number(process.env.PORT) || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const IS_PROD = NODE_ENV === 'production';
-const APP_VERSION = '2.1.4';
+const APP_VERSION = '2.2.0';
 const TZ = 'Asia/Tashkent';
 
 function requireEnv(name) {
@@ -63,6 +68,13 @@ const allowedOrigins = corsOriginRaw
 if (IS_PROD && allowedOrigins.length === 0) {
   console.error('CRITICAL: productionda CORS_ORIGIN bo\'sh — server to\'xtadi');
   process.exit(1);
+}
+
+const agentCorsRaw = (process.env.AGENT_CORS_ORIGINS || '').trim();
+if (agentCorsRaw) {
+  agentCorsRaw.split(',').map((s) => s.trim()).filter(Boolean).forEach(function (origin) {
+    if (allowedOrigins.indexOf(origin) === -1) allowedOrigins.push(origin);
+  });
 }
 
 const corsOptions = {
@@ -134,17 +146,16 @@ function safeEqualString(a, b) {
 
 function requireAdmin(req, res, next) {
   const key = (process.env.ADMIN_KEY || '').trim();
-  if (!key) {
-    if (IS_PROD) {
-      return res.status(503).json({
-        ok: false,
-        error: 'Server sozlamasi: ADMIN_KEY kerak. Render Environment ga qo\'ying.',
-      });
-    }
-    return next();
-  }
   const given = req.headers['x-admin-key'];
-  if (given && safeEqualString(given, key)) return next();
+  if (key && given && safeEqualString(given, key)) return next();
+  if (!key && !IS_PROD) return next();
+  if (req.path.indexOf('/api/agent/admin') === 0 && telegramAdminUser(req)) return next();
+  if (!key && IS_PROD) {
+    return res.status(503).json({
+      ok: false,
+      error: 'Server sozlamasi: ADMIN_KEY kerak. Render Environment ga qo\'ying.',
+    });
+  }
   return authLimiter(req, res, () => {
     res.status(401).json({ ok: false, error: 'Unauthorized — admin kaliti kerak' });
   });
@@ -154,6 +165,7 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') return next();
   if (req.path === '/' || req.path === '/health') return next();
   if (req.path.indexOf('/api/customer/') === 0) return next();
+  if (req.path.indexOf('/api/agent/') === 0 && req.path.indexOf('/api/agent/admin') !== 0) return next();
   if (req.path.indexOf('/api/') === 0) return requireAdmin(req, res, next);
   return next();
 });
@@ -237,7 +249,18 @@ async function checkCreditLimit(client, customerId, newDebt) {
      WHERE customer_id = $1 AND debt_amount > 0 AND status = ANY($2::text[])`,
     [customerId, CREDIT_DEBT_STATUSES]
   );
-  const existingDebt = som(debtR.rows[0].total);
+  let fieldDebt = 0;
+  try {
+    const fieldR = await client.query(
+      `SELECT COALESCE(SUM(debt_amount), 0) AS total FROM waybills
+       WHERE customer_id = $1 AND debt_amount > 0`,
+      [customerId]
+    );
+    fieldDebt = som(fieldR.rows[0].total);
+  } catch (err) {
+    if (err.code !== '42P01' && err.code !== '42703') throw err;
+  }
+  const existingDebt = som(debtR.rows[0].total) + fieldDebt;
   if (existingDebt + debtAdd > creditLimit) {
     return {
       ok: false,
@@ -256,33 +279,119 @@ async function checkCreditLimit(client, customerId, newDebt) {
   return { ok: true, existingDebt: existingDebt, creditLimit: creditLimit };
 }
 
+const STOCK_BALANCE_SQL_FULL = `
+  SELECT
+    p.id,
+    p.sku,
+    (COALESCE(pack.total_qty, 0)
+      - COALESCE(sold.sold_qty, 0)
+      - COALESCE(ship.shipped_qty, 0)
+      - COALESCE(field.field_qty, 0)
+      - COALESCE(road.held_qty, 0)) AS balance_qty
+  FROM products p
+  LEFT JOIN (
+    SELECT product_id, SUM(qty) AS total_qty FROM packaging GROUP BY product_id
+  ) pack ON pack.product_id = p.id
+  LEFT JOIN (
+    SELECT oi.product_id, SUM(oi.qty) AS sold_qty
+    FROM order_items oi
+    JOIN orders o ON o.id = oi.order_id
+    WHERE o.status = ANY($1::text[])
+    GROUP BY oi.product_id
+  ) sold ON sold.product_id = p.id
+  LEFT JOIN (
+    SELECT product_id, SUM(qty - COALESCE(returned_qty, 0)) AS shipped_qty
+    FROM shipments
+    WHERE from_type = 'factory'
+    GROUP BY product_id
+  ) ship ON ship.product_id = p.id
+  LEFT JOIN (
+    SELECT wi.product_id, SUM(wi.quantity) AS field_qty
+    FROM waybill_items wi
+    JOIN waybills w ON w.id = wi.waybill_id
+    WHERE w.stock_posted = true AND w.reys_id IS NULL
+    GROUP BY wi.product_id
+  ) field ON field.product_id = p.id
+  LEFT JOIN (
+    SELECT ri.product_id, SUM(ri.loaded_qty - ri.returned_qty) AS held_qty
+    FROM reys_items ri
+    GROUP BY ri.product_id
+  ) road ON road.product_id = p.id`;
+
+const STOCK_BALANCE_SQL = `
+  SELECT
+    p.id,
+    p.sku,
+    (COALESCE(pack.total_qty, 0)
+      - COALESCE(sold.sold_qty, 0)
+      - COALESCE(ship.shipped_qty, 0)
+      - COALESCE(field.field_qty, 0)) AS balance_qty
+  FROM products p
+  LEFT JOIN (
+    SELECT product_id, SUM(qty) AS total_qty FROM packaging GROUP BY product_id
+  ) pack ON pack.product_id = p.id
+  LEFT JOIN (
+    SELECT oi.product_id, SUM(oi.qty) AS sold_qty
+    FROM order_items oi
+    JOIN orders o ON o.id = oi.order_id
+    WHERE o.status = ANY($1::text[])
+    GROUP BY oi.product_id
+  ) sold ON sold.product_id = p.id
+  LEFT JOIN (
+    SELECT product_id, SUM(qty - COALESCE(returned_qty, 0)) AS shipped_qty
+    FROM shipments
+    WHERE from_type = 'factory'
+    GROUP BY product_id
+  ) ship ON ship.product_id = p.id
+  LEFT JOIN (
+    SELECT wi.product_id, SUM(wi.quantity) AS field_qty
+    FROM waybill_items wi
+    JOIN waybills w ON w.id = wi.waybill_id
+    WHERE w.stock_posted = true
+    GROUP BY wi.product_id
+  ) field ON field.product_id = p.id`;
+
+const STOCK_BALANCE_SQL_PLAIN = `
+  SELECT
+    p.id,
+    p.sku,
+    (COALESCE(pack.total_qty, 0)
+      - COALESCE(sold.sold_qty, 0)
+      - COALESCE(ship.shipped_qty, 0)) AS balance_qty
+  FROM products p
+  LEFT JOIN (
+    SELECT product_id, SUM(qty) AS total_qty FROM packaging GROUP BY product_id
+  ) pack ON pack.product_id = p.id
+  LEFT JOIN (
+    SELECT oi.product_id, SUM(oi.qty) AS sold_qty
+    FROM order_items oi
+    JOIN orders o ON o.id = oi.order_id
+    WHERE o.status = ANY($1::text[])
+    GROUP BY oi.product_id
+  ) sold ON sold.product_id = p.id
+  LEFT JOIN (
+    SELECT product_id, SUM(qty - COALESCE(returned_qty, 0)) AS shipped_qty
+    FROM shipments
+    WHERE from_type = 'factory'
+    GROUP BY product_id
+  ) ship ON ship.product_id = p.id`;
+
+async function queryBalance(client) {
+  const attempts = [STOCK_BALANCE_SQL_FULL, STOCK_BALANCE_SQL, STOCK_BALANCE_SQL_PLAIN];
+  let last;
+  for (let i = 0; i < attempts.length; i++) {
+    try {
+      return await client.query(attempts[i], [SOLD_STATUSES]);
+    } catch (err) {
+      if (err.code !== '42P01' && err.code !== '42703') throw err;
+      last = err;
+    }
+  }
+  throw last;
+}
+
 async function getProductBalanceMap(client) {
-  const r = await client.query(
-    `SELECT
-       p.id,
-       p.sku,
-       (COALESCE(pack.total_qty, 0)
-         - COALESCE(sold.sold_qty, 0)
-         - COALESCE(ship.shipped_qty, 0)) AS balance_qty
-     FROM products p
-     LEFT JOIN (
-       SELECT product_id, SUM(qty) AS total_qty FROM packaging GROUP BY product_id
-     ) pack ON pack.product_id = p.id
-     LEFT JOIN (
-       SELECT oi.product_id, SUM(oi.qty) AS sold_qty
-       FROM order_items oi
-       JOIN orders o ON o.id = oi.order_id
-       WHERE o.status = ANY($1::text[])
-       GROUP BY oi.product_id
-     ) sold ON sold.product_id = p.id
-     LEFT JOIN (
-       SELECT product_id, SUM(qty - COALESCE(returned_qty, 0)) AS shipped_qty
-       FROM shipments
-       WHERE from_type = 'factory'
-       GROUP BY product_id
-     ) ship ON ship.product_id = p.id`,
-    [SOLD_STATUSES]
-  );
+  const r = await queryBalance(client);
   const map = {};
   r.rows.forEach(function (row) {
     map[String(row.id)] = num(row.balance_qty);
@@ -369,6 +478,7 @@ const routeFiles = [
   './routes-stock',
   './v2-routes',
   './routes-customer-app',
+  './routes-agent',
 ];
 
 for (const f of routeFiles) {
