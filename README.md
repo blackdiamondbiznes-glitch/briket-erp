@@ -28,7 +28,7 @@ Agent jadvallari va `/api/agent/*` kodda qoladi, lekin admin oynasida yashirin. 
 | O'zgaruvchi | Vazifa |
 | --- | --- |
 | `TELEGRAM_BOT_TOKEN` | Agent initData HMAC va nakladnoyni Telegramga yuborish. Bo'sh bo'lsa agent API va yuborish 503. |
-| `TELEGRAM_INITDATA_MAX_AGE_SEC` | Agent initData yoshi, sukut 86400. `/yuk` egasi yo'li buni 3600 soniyadan oshirmaydi. |
+| `TELEGRAM_INITDATA_MAX_AGE_SEC` | Agent initData yoshi, soniya, sukut 86400. `/yuk` egasi yo'li buni 3600 soniyadan oshirmaydi. `auth_date` Unix soniya; 401 javobida `reason`: `missing`, `expired`, `hash_mismatch`. |
 | `ADMIN_TELEGRAM_IDS` | Vergul bilan telegram id. Bo'sh yoki o'rnatilmagan bo'lsa **hech kim** `/yuk` va Telegram orqali admin kira olmaydi — ID kodga yozilmaydi. Hozir productionda o'rnatilmagan. `/yuk` ni ochishdan oldin egasining Telegram id sini qo'ying. |
 | `CORS_ORIGIN` | Vergul bilan originlar. Productionda majburiy. |
 | `AGENT_CORS_ORIGINS` | Mini-app originlari. `CORS_ORIGIN` ga qo'shiladi, o'rnini bosmaydi. |

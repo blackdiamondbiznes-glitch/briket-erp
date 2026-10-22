@@ -9,6 +9,7 @@ const { createYukService } = require('../lib/yuk-service');
 const { createMemoryStore } = require('./memory-agent-store');
 const { signTelegramInitData } = require('../lib/telegram-webapp');
 const { authenticateOwner, ownerInitDataMaxAge } = require('../lib/admin-auth');
+const { checkTelegramInitData } = require('../lib/telegram-webapp');
 const registerAgentRoutes = require('../routes-agent');
 
 const TOKEN = 'test-bot-token';
@@ -284,6 +285,10 @@ test('owner auth rejects an empty allow-list, stale initData, and other roles', 
   const now = Math.floor(Date.now() / 1000);
   const stale = authenticateOwner(signed({ id: 1001, first_name: 'Ega' }, now - 3700), now);
   assert.equal(stale.status, 401);
+  assert.equal(stale.reason, 'expired');
+  assert.match(stale.error, /eskirgan/);
+  const missing = authenticateOwner('');
+  assert.equal(missing.reason, 'missing');
   const stranger = authenticateOwner(signed({ id: 999, first_name: 'Begona' }, now), now);
   assert.equal(stranger.status, 403);
   const ok = authenticateOwner(signed({ id: 1001, first_name: 'Ega' }, now - 100), now);
@@ -344,7 +349,9 @@ test('owner auth rejects an empty allow-list, stale initData, and other roles', 
     const old = await fetch(base + '/api/agent/yuk/customers', {
       headers: { 'x-telegram-init-data': signed({ id: 1001, first_name: 'Ega' }, now - 4000) },
     });
+    const oldBody = await old.json();
     assert.equal(old.status, 401);
+    assert.equal(oldBody.reason, 'expired');
     const good = await fetch(base + '/api/agent/yuk/me', {
       headers: { 'x-telegram-init-data': signed({ id: 1001, first_name: 'Ega' }, now) },
     });
@@ -370,6 +377,97 @@ test('owner auth rejects an empty allow-list, stale initData, and other roles', 
   void customer;
 });
 
+test('initData keeps signature in the check string and names the failure', () => {
+  const now = 1733509682;
+  const official = 'user=%7B%22id%22%3A279058397%2C%22first_name%22%3A%22Vladislav%20%2B%20-%20%3F%20%5C%2F%22%2C%22last_name%22%3A%22Kibenko%22%2C%22username%22%3A%22vdkfrost%22%2C%22language_code%22%3A%22ru%22%2C%22is_premium%22%3Atrue%2C%22allows_write_to_pm%22%3Atrue%2C%22photo_url%22%3A%22https%3A%5C%2F%5C%2Ft.me%5C%2Fi%5C%2Fuserpic%5C%2F320%5C%2F4FPEE4tmP3ATHa57u6MqTDih13LTOiMoKoLDRG4PnSA.svg%22%7D&chat_instance=8134722200314281151&chat_type=private&auth_date=1733509682&signature=TYJxVcisqbWjtodPepiJ6ghziUL94-KNpG8Pau-X7oNNLNBM72APCpi_RKiUlBvcqo5L-LAxIc3dnTzcZX_PDg&hash=a433d8f9847bd6addcc563bff7cc82c89e97ea0d90c11fe5729cae6796a36d73';
+  const token = '7342037359:AAHI25ES9xCOMPokpYoz-p8XVrZUdygo2J4';
+  const ok = checkTelegramInitData(official, ' \n' + token + '\n ', { nowSec: now, maxAgeSec: 3600 });
+  assert.equal(ok.reason, 'ok');
+  assert.equal(ok.user.id, 279058397);
+  assert.equal(ok.user.first_name, 'Vladislav + - ? /');
+  const stripped = official.replace(/&signature=[^&]+/, '');
+  assert.equal(checkTelegramInitData(stripped, token, { nowSec: now, maxAgeSec: 3600 }).reason, 'hash_mismatch');
+  const signedWithSig = signTelegramInitData(
+    {
+      auth_date: String(now),
+      signature: 'TYJxVcisqbWjtodPepiJ6ghziUL94-KNpG8Pau-X7oNNLNBM72APCpi_RKiUlBvcqo5L-LAxIc3dnTzcZX_PDg',
+      user: JSON.stringify({ id: 5052443384, first_name: 'Ega' }),
+    },
+    TOKEN
+  );
+  assert.match(signedWithSig, /(?:^|&)signature=/);
+  assert.equal(checkTelegramInitData(signedWithSig, TOKEN, { nowSec: now }).user.id, 5052443384);
+  const millis = signTelegramInitData(
+    {
+      auth_date: String(now * 1000),
+      user: JSON.stringify({ id: 7, first_name: 'Ega' }),
+    },
+    TOKEN
+  );
+  assert.equal(checkTelegramInitData(millis, TOKEN, { nowSec: now, maxAgeSec: 3600 }).reason, 'ok');
+  assert.equal(checkTelegramInitData('', TOKEN).reason, 'missing');
+  assert.equal(checkTelegramInitData(official, token, { nowSec: now + 4000, maxAgeSec: 3600 }).reason, 'expired');
+  assert.equal(checkTelegramInitData('x'.repeat(17000), TOKEN).reason, 'too_long');
+  const src = fs.readFileSync(path.join(root, 'lib/telegram-webapp.js'), 'utf8');
+  assert.doesNotMatch(src, /delete\(['"]signature['"]\)/);
+  assert.match(src, /HMAC_SHA256|createHmac\('sha256', 'WebAppData'\)/);
+});
+
+test('yuk accepts initData from the query string or JSON body, not only the header', async () => {
+  const prevToken = process.env.TELEGRAM_BOT_TOKEN;
+  const prevIds = process.env.ADMIN_TELEGRAM_IDS;
+  process.env.TELEGRAM_BOT_TOKEN = TOKEN;
+  process.env.ADMIN_TELEGRAM_IDS = '1001';
+  const now = Math.floor(Date.now() / 1000);
+  const init = signTelegramInitData(
+    {
+      auth_date: String(now),
+      signature: 'abcDEF_signature-value',
+      user: JSON.stringify({ id: 1001, first_name: 'Ega' }),
+    },
+    TOKEN
+  );
+  const store = createMemoryStore();
+  const app = express();
+  app.use(express.json());
+  registerAgentRoutes(app, null, helpers(), { store: store });
+  const server = await new Promise((resolve) => {
+    const s = app.listen(0, '127.0.0.1', () => resolve(s));
+  });
+  const base = 'http://127.0.0.1:' + server.address().port;
+  try {
+    const viaQuery = await fetch(base + '/api/agent/yuk/me?init_data=' + encodeURIComponent(init));
+    const queryBody = await viaQuery.json();
+    assert.equal(viaQuery.status, 200);
+    assert.equal(queryBody.data.telegram_id, '1001');
+    const viaAuth = await fetch(base + '/api/agent/yuk/bootstrap', {
+      headers: { Authorization: 'tma ' + init },
+    });
+    const boot = await viaAuth.json();
+    assert.equal(viaAuth.status, 200);
+    assert.equal(boot.data.role, 'owner');
+    const viaBody = await fetch(base + '/api/agent/yuk/customers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData: init, name: 'Yangi do\'kon' }),
+    });
+    const created = await viaBody.json();
+    assert.equal(viaBody.status, 201);
+    assert.equal(created.data.name, 'Yangi do\'kon');
+    const bad = await fetch(base + '/api/agent/yuk/me');
+    const badBody = await bad.json();
+    assert.equal(bad.status, 401);
+    assert.equal(badBody.reason, 'missing');
+    assert.match(badBody.error, /yo'q/);
+  } finally {
+    server.close();
+    if (prevToken == null) delete process.env.TELEGRAM_BOT_TOKEN;
+    else process.env.TELEGRAM_BOT_TOKEN = prevToken;
+    if (prevIds == null) delete process.env.ADMIN_TELEGRAM_IDS;
+    else process.env.ADMIN_TELEGRAM_IDS = prevIds;
+  }
+});
+
 test('yuk migration is additive and the page does not hardcode an owner id', () => {
   const sqlRaw = fs.readFileSync(path.join(root, 'migrations/007_yuk_xati.sql'), 'utf8');
   const sql = sqlRaw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--.*$/gm, '');
@@ -390,6 +488,12 @@ test('yuk migration is additive and the page does not hardcode an owner id', () 
   assert.match(page, /Eslatma/);
   assert.match(page, /Sozlama/);
   assert.match(page, /Saqlash va yuk xati/);
+  assert.match(page, /function readInitData/);
+  assert.match(page, /tg\.ready\(\)/);
+  assert.match(page, /Asia\/Tashkent/);
+  assert.match(page, /init_data=/);
+  assert.match(page, /tma /);
+  assert.match(page, /\.field:focus/);
   assert.doesNotMatch(page, /8600\s*\d{4}/);
   assert.doesNotMatch(page, /ADMIN_TELEGRAM_IDS\s*=\s*['"]\d+/);
   const queries = fs.readFileSync(path.join(root, 'lib/yuk-sql.js'), 'utf8');

@@ -74,7 +74,9 @@
     }
     .qty, .money, .field {
       background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; width: 100%;
+      outline: none; box-shadow: none; -webkit-appearance: none; appearance: none;
     }
+    .qty:focus, .money:focus, .field:focus { border: 1px solid var(--accent); }
     .qty { width: 64px; text-align: center; }
     .sub { text-align: right; color: var(--accent-2); font-variant-numeric: tabular-nums; font-weight: 700; }
     label.lbl { display: block; font-size: 12px; color: var(--faint); margin-bottom: 4px; }
@@ -112,16 +114,45 @@
   <div id="app" class="app"></div>
   <script>
 (function () {
-  var tg = window.Telegram && window.Telegram.WebApp;
-  if (tg) { try { tg.ready(); tg.expand(); } catch (e) {} }
-  var initData = (tg && tg.initData) || "";
+  function decodeHashPart(value) {
+    try { return decodeURIComponent(String(value || "").replace(/\+/g, "%20")); }
+    catch (e) { return String(value || ""); }
+  }
+  function readInitData() {
+    var tg = window.Telegram && window.Telegram.WebApp;
+    if (tg) {
+      try { tg.ready(); tg.expand(); } catch (e) {}
+      if (tg.initData) return tg.initData;
+    }
+    var hash = "";
+    try { hash = String(location.hash || "").replace(/^#/, ""); } catch (e) {}
+    var q = hash.indexOf("?");
+    if (q >= 0) hash = hash.slice(q + 1);
+    var parts = hash ? hash.split("&") : [];
+    for (var i = 0; i < parts.length; i++) {
+      var eq = parts[i].indexOf("=");
+      if (eq < 0) continue;
+      if (decodeHashPart(parts[i].slice(0, eq)) !== "tgWebAppData") continue;
+      return decodeHashPart(parts[i].slice(eq + 1));
+    }
+    return "";
+  }
+  function tashkentToday() {
+    try {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Tashkent", year: "numeric", month: "2-digit", day: "2-digit"
+      }).format(new Date());
+    } catch (e) {
+      return new Date().toISOString().slice(0, 10);
+    }
+  }
 
   var state = {
     tab: "sotuv",
     boot: null,
     error: "",
     loading: true,
-    saleDate: "",
+    saleDate: tashkentToday(),
     customer: null,
     qty: {},
     price: {},
@@ -189,13 +220,25 @@
 
   function api(path, opts) {
     opts = opts || {};
-    return fetch(path, {
-      method: opts.method || "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Telegram-Init-Data": initData
-      },
-      body: opts.body ? JSON.stringify(opts.body) : undefined
+    var initData = readInitData();
+    var method = opts.method || "GET";
+    var headers = { "Content-Type": "application/json" };
+    if (initData) {
+      headers["X-Telegram-Init-Data"] = initData;
+      headers.Authorization = "tma " + initData;
+    }
+    var url = path;
+    if (method === "GET" && initData) {
+      url += (path.indexOf("?") >= 0 ? "&" : "?") + "init_data=" + encodeURIComponent(initData);
+    }
+    var payload = opts.body ? Object.assign({}, opts.body) : null;
+    if (method !== "GET") {
+      payload = Object.assign({}, payload || {}, { initData: initData });
+    }
+    return fetch(url, {
+      method: method,
+      headers: headers,
+      body: payload ? JSON.stringify(payload) : undefined
     }).then(function (res) {
       return res.json().catch(function () { return {}; }).then(function (data) {
         if (!res.ok || data.ok === false) {
@@ -555,6 +598,8 @@
   }
 
   function productCards() {
+    if (state.loading && !state.boot) return '<div class="card muted">Mahsulotlar yuklanmoqda...</div>';
+    if (!products().length) return '<div class="card muted">Mahsulot yo\'q</div>';
     return products().map(function (p) {
       var q = lineQty(p.id);
       var price = state.price[p.id] != null ? state.price[p.id] : String(Math.round(Number(p.price) || 0));
@@ -750,14 +795,6 @@ html += '<label class="lbl">Muddat</label><input class="field" data-in="due" dat
 
   function render() {
     var root = document.getElementById("app");
-    if (!initData) {
-      root.innerHTML = '<div class="card"><h1>Yuk xati</h1><p>Bu sahifa Telegram ichida ochiladi.</p></div>';
-      return;
-    }
-    if (state.loading && !state.boot) {
-      root.innerHTML = '<p class="muted">Yuklanmoqda...</p>';
-      return;
-    }
     var body = state.tab === "dokon" ? storesView() : state.tab === "eslatma" ? remindView() : state.tab === "sozlama" ? settingsView() : saleView();
     var active = function (name) { return state.tab === name ? " on" : ""; };
     root.innerHTML =
@@ -775,7 +812,13 @@ html += '<label class="lbl">Muddat</label><input class="field" data-in="due" dat
 
   document.body.addEventListener("click", onClick);
   document.body.addEventListener("input", onInput);
-  loadBoot();
+  render();
+  var bootTries = 0;
+  (function waitInit() {
+    if (readInitData() || bootTries > 8) return loadBoot();
+    bootTries += 1;
+    setTimeout(waitInit, 120);
+  })();
 })();
   </script>
 </body>
