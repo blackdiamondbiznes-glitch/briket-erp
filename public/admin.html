@@ -651,7 +651,8 @@
         content: none;
         display: none;
       }
-      .table-wrap tbody td[data-label]:not([data-label=""])::before {
+      .table-wrap tbody td[data-label]:not([data-label=""])::before,
+      .table-wrap tfoot td[data-label]:not([data-label=""])::before {
         content: attr(data-label) ":";
         display: inline;
         color: var(--muted);
@@ -882,6 +883,10 @@
       .table-wrap tfoot tr.row-total td[data-label="Jami"]::before {
         display: none !important;
         content: none !important;
+      }
+      .table-wrap tfoot td[data-label]:not([data-label=""]):not([data-label="Jami"]) {
+        flex: 1 1 calc(50% - 8px);
+        min-width: 120px;
       }
 
       /* Action buttons: keep pill shape, don't inherit chip flex */
@@ -1205,6 +1210,22 @@
 
     function money(n) {
       return Math.round(Number(n || 0)).toLocaleString("uz-UZ");
+    }
+    // Tannarx = bir dona xarajat. Foyda = sotish − tannarx. Jami = × qoldiq.
+    function stockLine(p) {
+      const sale = Math.round(Number(p.sell_price != null ? p.sell_price : p.price) || 0);
+      const qty = Number(p.balance_qty) || 0;
+      const cost = Math.round(Number(p.unitCost != null ? p.unitCost : (p.unit_cost != null ? p.unit_cost : p.cost_price)) || 0);
+      const prof = Math.round(sale - cost);
+      return {
+        sale: sale,
+        qty: qty,
+        cost: cost,
+        prof: prof,
+        cval: Math.round(qty * cost),
+        pval: Math.round(qty * prof),
+        sval: Math.round(qty * sale)
+      };
     }
     function mijozNarx(optom, disc) {
       return Math.round((Number(optom) || 0) + (Number(disc) || 3000));
@@ -2032,10 +2053,11 @@
                 </thead>
                 <tbody>
                   {products.map(function (p) {
-                    const cost = p.unitCost != null ? p.unitCost : p.cost_price;
-                    const prof = p.margin != null ? p.margin : p.profit_unit;
-                    const cval = p.costValue != null ? p.costValue : p.cost_value;
-                    const pval = p.potentialProfit != null ? p.potentialProfit : p.profit_value;
+                    const line = stockLine(p);
+                    const cost = line.cost;
+                    const prof = line.prof;
+                    const cval = line.cval;
+                    const pval = line.pval;
                     return (
                       <tr key={p.id}>
                         <td data-label="Mahsulot">
@@ -2044,10 +2066,10 @@
                         </td>
                         <td data-label="Qoldiq" className={Number(p.balance_qty) < 0 ? "neg" : ""}><strong>{Number(p.balance_qty)}</strong></td>
                         <td data-label="Tannarx">{money(cost)}</td>
-                        <td data-label="Sotish">{money(p.sell_price != null ? p.sell_price : p.price)}</td>
+                        <td data-label="Sotish">{money(line.sale)}</td>
                         <td data-label="Foyda/dona">{money(prof)}</td>
                         <td data-label="Ombor tannarx">{money(cval)}</td>
-                        <td data-label="Ombor savdo">{money(p.value)}</td>
+                        <td data-label="Ombor savdo">{money(line.sval)}</td>
                         <td data-label="Kutilgan foyda" className={Number(pval) < 0 ? "neg" : ""}>{money(pval)}</td>
                       </tr>
                     );
@@ -2058,9 +2080,9 @@
                     <td data-label="Jami">Jami</td>
                     <td data-label="Qoldiq"><strong>{products.reduce(function (a, p) { return a + Number(p.balance_qty || 0); }, 0)}</strong></td>
                     <td className="desk-only" colSpan="3"></td>
-                    <td data-label="Ombor tannarx"><strong>{money(products.reduce(function (a, p) { return a + Number(p.costValue != null ? p.costValue : p.cost_value || 0); }, 0))}</strong></td>
-                    <td data-label="Ombor savdo"><strong>{money(products.reduce(function (a, p) { return a + Number(p.value || 0); }, 0))}</strong></td>
-                    <td data-label="Kutilgan foyda"><strong>{money(products.reduce(function (a, p) { return a + Number(p.potentialProfit != null ? p.potentialProfit : p.profit_value || 0); }, 0))}</strong></td>
+                    <td data-label="Ombor tannarx"><strong>{money(products.reduce(function (a, p) { return a + stockLine(p).cval; }, 0))}</strong></td>
+                    <td data-label="Ombor savdo"><strong>{money(products.reduce(function (a, p) { return a + stockLine(p).sval; }, 0))}</strong></td>
+                    <td data-label="Kutilgan foyda"><strong>{money(products.reduce(function (a, p) { return a + stockLine(p).pval; }, 0))}</strong></td>
                   </tr>
                 </tfoot>
               </table></div>
@@ -2141,7 +2163,7 @@
           sku: p.sku || "",
           weight_kg: String(p.weight_kg != null ? p.weight_kg : ""),
           price: String(p.price != null ? p.price : ""),
-          cost_price: "0",
+          cost_price: String(Math.round(Number(p.cost_price) || 0)),
           description: p.description || "",
           is_active: p.is_active !== false,
           img1: imgs.img1,
@@ -2298,11 +2320,15 @@
                 <div>
                   <label htmlFor="f-cost">Tannarx qo'lda (0 = avto)</label>
                   <input id="f-cost" type="number" min="0" step="1" value={form.cost_price} onChange={function (e) { setForm({ ...form, cost_price: e.target.value }); }} />
-                  {form.price && form.cost_price ? (
+                  {form.price && Number(form.cost_price) > 0 ? (
                     <div className="muted" style={{ fontSize: "0.72rem", marginTop: -4, marginBottom: 8 }}>
                       Foyda: {money(Math.round(Number(form.price) - Number(form.cost_price)))} so'm
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className="muted" style={{ fontSize: "0.72rem", marginTop: -4, marginBottom: 8 }}>
+                      0 = avto tannarx. Foyda = sotish − tannarx.
+                    </div>
+                  )}
                 </div>
               </div>
               <details className="dash-details">
@@ -2358,11 +2384,15 @@
                   <div>
                     <label htmlFor="f-ecost">Tannarx qo'lda (0 = avto)</label>
                     <input id="f-ecost" type="number" min="0" step="1" value={editForm.cost_price} onChange={function (e) { setEditForm({ ...editForm, cost_price: e.target.value }); }} />
-                    {editForm.price && editForm.cost_price ? (
+                    {editForm.price && Number(editForm.cost_price) > 0 ? (
                       <div className="muted" style={{ fontSize: "0.72rem", marginTop: -4, marginBottom: 8 }}>
                         Foyda: {money(Math.round(Number(editForm.price) - Number(editForm.cost_price)))} so'm
                       </div>
-                    ) : null}
+                    ) : (
+                      <div className="muted" style={{ fontSize: "0.72rem", marginTop: -4, marginBottom: 8 }}>
+                        0 = avto tannarx. Foyda = sotish − tannarx.
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label htmlFor="f-10">Holat</label>
@@ -2471,9 +2501,9 @@
                   return (
                     <tr key={p.id}>
                       <td data-label="Mahsulot">{p.sku}</td>
-                      <td>{p.weight_kg}</td>
-                      <td>{money(p.cost_price)}</td>
-                      <td>
+                      <td data-label="kg">{p.weight_kg}</td>
+                      <td data-label="Tannarx">{money(p.unit_cost != null ? p.unit_cost : p.cost_price)}</td>
+                      <td data-label="Optom">
                         {inlineId === p.id ? (
                           <input
                             className="inline-edit"
@@ -2494,8 +2524,8 @@
                           </span>
                         )}
                       </td>
-                      <td>{money(Math.round(Number(p.price || 0) - Number(p.cost_price || 0)))}</td>
-                      <td>{money(mijozNarx(p.price))}</td>
+                      <td data-label="Foyda">{money(Math.round(Number(p.price || 0) - Number(p.unit_cost != null ? p.unit_cost : p.cost_price || 0)))}</td>
+                      <td data-label="Mijoz">{money(mijozNarx(p.price))}</td>
                       <td>{(p.image_urls && p.image_urls.length) ? p.image_urls.length : 0}</td>
                       <td>
                         <StatusBadge status={p.is_active ? "active" : "closed"}>{p.is_active ? "faol" : "nofaol"}</StatusBadge>
