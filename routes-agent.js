@@ -517,4 +517,6 @@ module.exports = function registerAgentRoutes(app, pool, helpers, options) {
       sendAgentError(res, err);
     }
   });
+
+  require('./routes-yuk')(app, pool, helpers, Object.assign({}, options, { store: store }));
 };

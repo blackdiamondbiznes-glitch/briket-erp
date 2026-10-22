@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#14110e" />
+  <meta name="color-scheme" content="dark" />
+  <title>Yuk xati</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: #14110e;
+      --surface: #1e1a16;
+      --surface-2: #2a241e;
+      --line: #3d342c;
+      --text: #f6f1ea;
+      --muted: #b3a89c;
+      --faint: #8c8278;
+      --accent: #ff8a1e;
+      --accent-2: #ffb15a;
+      --ink: #1a1008;
+      --danger: #ff5d4a;
+      --ok: #3dd68c;
+      --shadow: 0 12px 40px rgba(0,0,0,.45);
+      --vv-h: 100dvh;
+      --vv-top: 0px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); }
+    body {
+      font: 16px/1.4 "Segoe UI", system-ui, sans-serif;
+      min-height: 100dvh;
+      padding-bottom: calc(76px + env(safe-area-inset-bottom));
+    }
+    button, input, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    .app { max-width: 520px; margin: 0 auto; padding: 12px 14px 24px; }
+    header.top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 12px; }
+    header.top h1 { margin: 0; font-size: 22px; letter-spacing: -.03em; }
+    header.top p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .grow { flex: 1; min-width: 0; }
+    .muted { color: var(--muted); }
+    .faint { color: var(--faint); font-size: 12px; }
+    .btn, .btn-ghost, .btn-danger {
+      border: 0; border-radius: 12px; padding: 12px 14px; font-weight: 700;
+    }
+    .btn { background: var(--accent); color: var(--ink); width: 100%; }
+    .btn:disabled { opacity: .45; }
+    .btn-ghost { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); }
+    .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+    .pick {
+      width: 100%; text-align: left; background: var(--surface-2);
+      border: 1px solid var(--line); border-radius: 14px; padding: 12px;
+    }
+    .pick strong { display: block; }
+    .banner {
+      background: #3a2412; border: 1px solid #8a4b12; color: #ffd7ad;
+      border-radius: 14px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;
+      margin-bottom: 10px;
+    }
+    .banner button { background: var(--accent); color: var(--ink); border: 0; border-radius: 10px; padding: 8px 10px; font-weight: 700; }
+    .product { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+    .stepper { display: flex; align-items: center; gap: 6px; }
+    .stepper button {
+      width: 36px; height: 36px; border-radius: 10px; border: 0; background: var(--surface-2); color: var(--text); font-size: 20px;
+    }
+    .qty, .money, .field {
+      background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; width: 100%;
+    }
+    .qty { width: 64px; text-align: center; }
+    .sub { text-align: right; color: var(--accent-2); font-variant-numeric: tabular-nums; font-weight: 700; }
+    label.lbl { display: block; font-size: 12px; color: var(--faint); margin-bottom: 4px; }
+    .totals b { font-variant-numeric: tabular-nums; }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .nav {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      background: #1a1613; border-top: 1px solid var(--line);
+      padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    }
+    .nav button { background: transparent; border: 0; color: var(--faint); padding: 8px 2px; font-size: 12px; font-weight: 700; }
+    .nav button.on { color: var(--accent); }
+    .sheet {
+      position: fixed; left: 0; right: 0; z-index: 40;
+      top: var(--vv-top); height: var(--vv-h);
+      background: var(--bg); display: flex; flex-direction: column;
+    }
+    .sheet header, .sheet .pad { padding: 12px 14px; }
+    .sheet header { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); }
+    .sheet .list { overflow: auto; flex: 1; padding: 8px 14px 24px; }
+    .hit {
+      width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--line);
+      border-radius: 14px; padding: 12px; margin-bottom: 8px;
+    }
+    .hit .debt { color: var(--accent-2); font-weight: 700; }
+    .okbox { background: #143024; border: 1px solid #1f6b45; border-radius: 16px; padding: 12px; margin-bottom: 10px; }
+    .err { color: #ffb4ab; background: #3a1814; border-radius: 12px; padding: 10px; margin-bottom: 10px; }
+    .tag { font-size: 11px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; color: var(--muted); }
+    .group h2 { font-size: 14px; margin: 14px 0 8px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div id="app" class="app"></div>
+  <script>
+(function () {
+  var tg = window.Telegram && window.Telegram.WebApp;
+  if (tg) { try { tg.ready(); tg.expand(); } catch (e) {} }
+  var initData = (tg && tg.initData) || "";
+
+  var state = {
+    tab: "sotuv",
+    boot: null,
+    error: "",
+    loading: true,
+    saleDate: "",
+    customer: null,
+    qty: {},
+    price: {},
+    naqd: "0",
+    karta: "0",
+    due: "",
+    reys: "auto",
+    note: "",
+    saving: false,
+    requestId: rid(),
+    success: null,
+    sheet: null,
+    q: "",
+    customers: [],
+    detail: null,
+    reminders: null,
+    pay: null,
+    edit: null,
+    newStore: { name: "", phone: "", address: "", latitude: "", longitude: "" },
+    dateOpen: false
+  };
+
+  function rid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return "req-" + Date.now().toString(36) + Math.random().toString(16).slice(2, 10);
+  }
+  function esc(v) {
+    return String(v == null ? "" : v).replace(/[&<>"']/g, function (ch) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch];
+    });
+  }
+  function dmy(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
+    return m ? m[3] + "." + m[2] + "." + m[1] : "";
+  }
+  function money(n) {
+    var v = Math.round(Number(n) || 0);
+    var sign = v < 0 ? "-" : "";
+    return sign + String(Math.abs(v)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  }
+  function toIso(v) {
+    var s = String(v || "").trim();
+    var m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(s);
+    if (m) return m[3] + "-" + m[2] + "-" + m[1];
+    return s;
+  }
+  function intOf(v) {
+    var s = String(v == null ? "" : v).trim();
+    if (!/^\d+$/.test(s)) return 0;
+    return Number(s);
+  }
+  function syncVV() {
+    var vv = window.visualViewport;
+    var h = vv ? vv.height : window.innerHeight;
+    var top = vv ? vv.offsetTop : 0;
+    document.documentElement.style.setProperty("--vv-h", h + "px");
+    document.documentElement.style.setProperty("--vv-top", top + "px");
+  }
+  syncVV();
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", syncVV);
+    window.visualViewport.addEventListener("scroll", syncVV);
+  }
+  window.addEventListener("resize", syncVV);
+
+  function api(path, opts) {
+    opts = opts || {};
+    return fetch(path, {
+      method: opts.method || "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Telegram-Init-Data": initData
+      },
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (!res.ok || data.ok === false) {
+          var err = new Error((data && data.error) || "So'rov bajarilmadi");
+          err.status = res.status;
+          throw err;
+        }
+        return data;
+      });
+    });
+  }
+
+  function products() { return (state.boot && state.boot.products) || []; }
+  function lineQty(id) { return intOf(state.qty[id]); }
+  function linePrice(p) {
+    if (state.price[p.id] != null && state.price[p.id] !== "") return intOf(state.price[p.id]);
+    return Math.round(Number(p.price) || 0);
+  }
+  function totals() {
+    var jami = 0;
+    products().forEach(function (p) {
+      var q = lineQty(p.id);
+      if (q > 0) jami += q * linePrice(p);
+    });
+    var paid = intOf(state.naqd) + intOf(state.karta);
+    var debt = Math.max(0, jami - paid);
+    return { jami: jami, paid: paid, debt: debt, extra: Math.max(0, paid - jami) };
+  }
+
+  function loadBoot() {
+    state.loading = true;
+    state.error = "";
+    render();
+    return api("/api/agent/yuk/bootstrap").then(function (r) {
+      state.boot = r.data;
+      state.saleDate = r.data.today;
+      if (r.data.open_reys) state.reys = String(r.data.open_reys.id);
+      state.loading = false;
+      render();
+    }).catch(function (e) {
+      state.loading = false;
+      state.error = e.message;
+      render();
+    });
+  }
+
+  function loadCustomers() {
+    return api("/api/agent/yuk/customers?q=" + encodeURIComponent(state.q || "")).then(function (r) {
+      state.customers = r.data || [];
+      render();
+    }).catch(function (e) { state.error = e.message; render(); });
+  }
+
+  function openCustomer(id) {
+    state.tab = "dokon";
+    state.detail = null;
+    state.sheet = "detail";
+    render();
+    api("/api/agent/yuk/customers/" + id).then(function (r) {
+      state.detail = r.data;
+      render();
+    }).catch(function (e) { state.error = e.message; render(); });
+  }
+
+  function loadReminders() {
+    return api("/api/agent/yuk/reminders").then(function (r) {
+      state.reminders = r.data;
+      render();
+    }).catch(function (e) { state.error = e.message; render(); });
+  }
+
+  function resetSale() {
+    state.customer = null;
+    state.qty = {};
+    state.price = {};
+    state.naqd = "0";
+    state.karta = "0";
+    state.due = "";
+    state.note = "";
+    state.requestId = rid();
+    state.saving = false;
+    if (state.boot && state.boot.open_reys) state.reys = String(state.boot.open_reys.id);
+    else state.reys = "auto";
+  }
+
+  function saveSale() {
+    if (state.saving) return;
+    var t = totals();
+    if (!state.customer) { state.error = "Do'kon tanlang"; render(); return; }
+    if (!(t.jami > 0)) { state.error = "Mahsulot tanlanmagan"; render(); return; }
+    if (t.debt > 0 && !state.due) { state.error = "Qarz uchun muddat kerak"; render(); return; }
+    var zero = products().some(function (p) { return lineQty(p.id) > 0 && linePrice(p) === 0; });
+    var items = products().filter(function (p) { return lineQty(p.id) > 0; }).map(function (p) {
+      return { product_id: p.id, quantity: lineQty(p.id), price: linePrice(p) };
+    });
+    state.saving = true;
+    state.error = "";
+    render();
+    var body = {
+      request_id: state.requestId,
+      customer_id: state.customer.id,
+      sale_date: state.saleDate,
+      naqd: intOf(state.naqd),
+      karta: intOf(state.karta),
+      due_date: t.debt > 0 ? toIso(state.due) : null,
+      note: state.note || null,
+      items: items,
+      reys_id: state.reys === "auto" ? null : state.reys,
+      confirm_zero_price: zero
+    };
+    if (zero && !window.confirm("Narx 0 so'm. Tasdiqlaysizmi?")) {
+      state.saving = false;
+      render();
+      return;
+    }
+    api("/api/agent/yuk/waybills", { method: "POST", body: body }).then(function (r) {
+      state.success = { bill: r.data, telegram: r.telegram || null };
+      try { tg.HapticFeedback.notificationOccurred("success"); } catch (e) {}
+      resetSale();
+      render();
+    }).catch(function (e) {
+      state.saving = false;
+      state.error = e.message;
+      render();
+    });
+  }
+
+  function resend(id) {
+    api("/api/agent/yuk/waybills/" + id + "/send", { method: "POST", body: {} }).then(function (r) {
+      if (state.success) state.success.telegram = { ok: true };
+      state.error = "";
+      render();
+    }).catch(function (e) {
+      if (state.success) state.success.telegram = { ok: false, error: e.message };
+      state.error = e.message;
+      render();
+    });
+  }
+
+  function copyText(text) {
+    var done = function () { state.error = ""; };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function () { window.prompt("Nusxa", text); });
+    } else window.prompt("Nusxa", text);
+  }
+
+  function shareText(text) {
+    var link = "https://t.me/share/url?text=" + encodeURIComponent(text);
+    if (tg && tg.openTelegramLink) tg.openTelegramLink(link);
+    else if (navigator.share) navigator.share({ text: text }).catch(function () {});
+    else copyText(text);
+  }
+
+  function submitPay() {
+    var pay = state.pay;
+    if (!pay || pay.step !== "confirm" || state.saving) return;
+    state.saving = true;
+    render();
+    api("/api/agent/yuk/customers/" + pay.customerId + "/payments", {
+      method: "POST",
+      body: { request_id: pay.requestId, amount: intOf(pay.amount), method: pay.method }
+    }).then(function () {
+      state.saving = false;
+      state.pay = null;
+      state.requestId = rid();
+      if (state.customer && String(state.customer.id) === String(pay.customerId)) {
+        return loadCustomers().then(function () {
+          var found = state.customers.filter(function (c) { return String(c.id) === String(pay.customerId); })[0];
+          if (found) state.customer = found;
+        });
+      }
+      return openCustomer(pay.customerId);
+    }).catch(function (e) {
+      state.saving = false;
+      state.error = e.message;
+      render();
+    });
+  }
+
+  function createStore() {
+    var f = state.newStore;
+    if (!f.name.trim() || state.saving) return;
+    state.saving = true;
+    render();
+    api("/api/agent/yuk/customers", {
+      method: "POST",
+      body: {
+        name: f.name.trim(),
+        phone: f.phone.trim() || null,
+        address: f.address.trim() || null,
+        latitude: f.latitude === "" ? null : Number(f.latitude),
+        longitude: f.longitude === "" ? null : Number(f.longitude)
+      }
+    }).then(function (r) {
+      state.customer = r.data;
+      state.sheet = null;
+      state.saving = false;
+      state.newStore = { name: "", phone: "", address: "", latitude: "", longitude: "" };
+      state.tab = "sotuv";
+      render();
+    }).catch(function (e) {
+      state.saving = false;
+      state.error = e.message;
+      render();
+    });
+  }
+
+  function pin() {
+    if (!navigator.geolocation) { state.error = "Joylashuv yo'q"; render(); return; }
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      state.newStore.latitude = String(pos.coords.latitude);
+      state.newStore.longitude = String(pos.coords.longitude);
+      render();
+    }, function () { state.error = "Joylashuv olinmadi"; render(); });
+  }
+
+  function saveEdit() {
+    var ed = state.edit;
+    if (!ed || state.saving) return;
+    state.saving = true;
+    render();
+    api("/api/agent/yuk/waybills/" + ed.id, {
+      method: "PUT",
+      body: { items: ed.items, sale_date: ed.sale_date, due_date: ed.due_date || null, confirm_zero_price: true }
+    }).then(function (r) {
+      state.saving = false;
+      state.edit = null;
+      state.error = r.data && r.data.realloc_note ? r.data.realloc_note : "";
+      if (state.detail) openCustomer(state.detail.customer.id);
+      else render();
+    }).catch(function (e) {
+      state.saving = false;
+      state.error = e.message;
+      render();
+    });
+  }
+
+  function reversePay(id) {
+    if (state.saving) return;
+    state.saving = true;
+    api("/api/agent/yuk/payments/" + id + "/reverse", {
+      method: "POST",
+      body: { request_id: rid(), note: "Tuzatish" }
+    }).then(function () {
+      state.saving = false;
+      if (state.detail) openCustomer(state.detail.customer.id);
+    }).catch(function (e) {
+      state.saving = false;
+      state.error = e.message;
+      render();
+    });
+  }
+
+  function onClick(e) {
+    var el = e.target.closest("[data-act]");
+    if (!el) return;
+    var act = el.getAttribute("data-act");
+    var id = el.getAttribute("data-id");
+    if (act === "tab") {
+      state.tab = el.getAttribute("data-tab");
+      state.sheet = null;
+      if (state.tab === "dokon") loadCustomers();
+      if (state.tab === "eslatma") loadReminders();
+      render();
+    } else if (act === "open-stores") {
+      state.sheet = "stores";
+      state.q = "";
+      loadCustomers();
+    } else if (act === "close") {
+      state.sheet = null;
+      state.dateOpen = false;
+      state.pay = null;
+      state.edit = null;
+      render();
+    } else if (act === "pick-store") {
+      var c = state.customers.filter(function (x) { return String(x.id) === String(id); })[0];
+      state.customer = c || null;
+      state.sheet = null;
+      state.tab = "sotuv";
+      render();
+    } else if (act === "new-store") {
+      state.sheet = "new";
+      render();
+    } else if (act === "qty") {
+      var delta = Number(el.getAttribute("data-d"));
+      var cur = lineQty(id);
+      state.qty[id] = String(Math.max(0, cur + delta));
+      render();
+    } else if (act === "date") {
+      state.dateOpen = true;
+      render();
+    } else if (act === "set-date") {
+      state.saleDate = el.getAttribute("data-date");
+      state.dateOpen = false;
+      render();
+    } else if (act === "save") saveSale();
+    else if (act === "copy") copyText(state.success && state.success.bill ? state.success.bill.text : "");
+    else if (act === "share") shareText(state.success && state.success.bill ? state.success.bill.text : "");
+    else if (act === "copy-card") {
+      var card = state.boot && state.boot.company && state.boot.company.card;
+      if (card) copyText(card);
+    } else if (act === "resend") resend(id);
+    else if (act === "open-customer") openCustomer(id);
+    else if (act === "pay") {
+      state.pay = { customerId: id, amount: "", method: "cash", step: "edit", requestId: rid() };
+      render();
+    } else if (act === "pay-next") {
+      if (intOf(state.pay.amount) > 0) state.pay.step = "confirm";
+      render();
+    } else if (act === "pay-back") { state.pay.step = "edit"; render(); }
+    else if (act === "pay-yes") submitPay();
+    else if (act === "method") { state.pay.method = el.getAttribute("data-method"); render(); }
+    else if (act === "create-store") createStore();
+    else if (act === "pin") pin();
+    else if (act === "edit") {
+      var bill = (state.detail.waybills || []).filter(function (w) { return String(w.id) === String(id); })[0];
+      state.edit = {
+        id: bill.id,
+        code: bill.waybill_code,
+        sale_date: String(bill.sale_date || state.boot.today).slice(0, 10),
+        due_date: bill.due_date ? String(bill.due_date).slice(0, 10) : "",
+        items: (bill.items || []).map(function (it) {
+          return { product_id: it.product_id, product_name: it.product_name, quantity: Number(it.quantity), price: Math.round(Number(it.price)) };
+        })
+      };
+      render();
+    } else if (act === "edit-qty") {
+      var item = state.edit.items[Number(el.getAttribute("data-i"))];
+      item.quantity = Math.max(0, item.quantity + Number(el.getAttribute("data-d")));
+      render();
+    } else if (act === "save-edit") saveEdit();
+    else if (act === "reverse") {
+      if (window.confirm("Bu to'lov tuzatilsinmi? Qator o'chmaydi.")) reversePay(id);
+    } else if (act === "share-bill") {
+      api("/api/agent/yuk/waybills/" + id).then(function (r) { shareText(r.data.text || ""); });
+    }
+  }
+
+  var focusKey = null;
+  function onInput(e) {
+    var el = e.target;
+    var name = el.getAttribute("data-in");
+    if (!name) return;
+    if (name === "q") { state.q = el.value; focusKey = "q"; loadCustomers(); return; }
+    else if (name === "naqd") state.naqd = el.value.replace(/[^\d]/g, "");
+    else if (name === "karta") state.karta = el.value.replace(/[^\d]/g, "");
+    else if (name === "due") state.due = el.value;
+    else if (name === "note") state.note = el.value;
+    else if (name === "reys") state.reys = el.value;
+    else if (name === "price") state.price[el.getAttribute("data-id")] = el.value.replace(/[^\d]/g, "");
+    else if (name === "qty") state.qty[el.getAttribute("data-id")] = el.value.replace(/[^\d]/g, "");
+    else if (name === "pay-amount") state.pay.amount = el.value.replace(/[^\d]/g, "");
+    else if (name.indexOf("store-") === 0) state.newStore[name.slice(6)] = el.value;
+    else if (name === "edit-price") state.edit.items[Number(el.getAttribute("data-i"))].price = intOf(el.value);
+    focusKey = el.getAttribute("data-focus") || name;
+    render();
+  }
+
+  function productCards() {
+    return products().map(function (p) {
+      var q = lineQty(p.id);
+      var price = state.price[p.id] != null ? state.price[p.id] : String(Math.round(Number(p.price) || 0));
+      var sub = q * intOf(price);
+      return '<div class="card product"><div><strong>' + esc(p.sku) + '</strong>' +
+        '<div class="faint">Narx</div><input class="money" inputmode="numeric" data-in="price" data-focus="price-' + p.id + '" data-id="' + p.id + '" value="' + esc(price) + '" /></div>' +
+        '<div><div class="stepper"><button type="button" data-act="qty" data-id="' + p.id + '" data-d="-1">−</button>' +
+        '<input class="qty" inputmode="numeric" data-in="qty" data-focus="qty-' + p.id + '" data-id="' + p.id + '" value="' + esc(state.qty[p.id] || "0") + '" />' +
+        '<button type="button" data-act="qty" data-id="' + p.id + '" data-d="1">+</button></div>' +
+        '<div class="sub">' + (q > 0 ? money(sub) : "") + '</div></div></div>';
+    }).join("");
+  }
+
+  function saleView() {
+    var t = totals();
+    var c = state.customer;
+    var company = (state.boot && state.boot.company) || {};
+    var html = "";
+    if (state.success && state.success.bill) {
+      var bill = state.success.bill;
+      var tgFail = state.success.telegram && state.success.telegram.ok === false;
+      html += '<div class="okbox"><strong>Yuk xati ' + esc(bill.waybill_code) + ' tayyor</strong>' +
+        '<p class="muted">' + esc(dmy(bill.sale_date)) + " · " + money(bill.total_amount) + " so'm</p>" +
+        '<div class="row" style="flex-wrap:wrap"><button type="button" class="btn-ghost" data-act="copy">Nusxa olish</button>' +
+        '<button type="button" class="btn-ghost" data-act="share">Telegram\'ga yuborish</button>' +
+        '<button type="button" class="btn-ghost" data-act="copy-card"' + (company.card ? "" : " disabled") + '>Karta raqami</button></div>' +
+        (tgFail ? '<p class="err">' + esc(state.success.telegram.error || "Yuborilmadi") + '</p><button type="button" class="btn" data-act="resend" data-id="' + bill.id + '">Qayta yuborish</button>' : "") +
+        '</div>';
+    }
+    html += '<button type="button" class="pick" data-act="date"><span class="faint">Sana</span><strong>' + esc(dmy(state.saleDate)) + '</strong></button>';
+    html += '<div style="height:8px"></div>';
+    html += '<button type="button" class="pick" data-act="open-stores"><span class="faint">Do\'kon</span><strong>' +
+      esc(c ? c.name : "Tanlang") + '</strong>' +
+      (c && c.phone ? '<span class="muted">' + esc(c.phone) + '</span>' : '') + '</button>';
+    if (c && Number(c.outstanding) > 0) {
+      html += '<div class="banner"><span>Eski qarz: ' + money(c.outstanding) + ' so\'m</span><button type="button" data-act="pay" data-id="' + c.id + '">Qaytarish</button></div>';
+    } else if (c && Number(c.store_credit) > 0) {
+      html += '<div class="banner"><span>Do\'kon krediti: ' + money(c.store_credit) + ' so\'m</span></div>';
+    }
+    if (state.boot && state.boot.open_reys) {
+      html += '<label class="lbl">Reys</label><select class="field" data-in="reys"><option value="' + state.boot.open_reys.id + '">' +
+        esc(state.boot.open_reys.reys_code) + ' (ochiq)</option><option value="none">Reyssiz</option></select>';
+    }
+    html += productCards();
+    html += '<div class="card totals"><div class="row"><span>Jami</span><b class="grow" style="text-align:right">' + money(t.jami) + " so'm</b></div>";
+    html += '<div class="split"><div><label class="lbl">Naqd</label><input class="field" inputmode="numeric" data-in="naqd" data-focus="naqd" value="' + esc(state.naqd) + '" /></div>' +
+      '<div><label class="lbl">Karta</label><input class="field" inputmode="numeric" data-in="karta" data-focus="karta" value="' + esc(state.karta) + '" /></div></div>';
+    html += '<div class="row"><span>To\'langan</span><b class="grow" style="text-align:right">' + money(t.paid) + '</b></div>';
+    html += '<div class="row"><span>Qoldiq qarz</span><b class="grow" style="text-align:right">' + money(t.debt) + '</b></div>';
+    if (t.extra > 0) html += '<p class="faint">Ortiqcha ' + money(t.extra) + ' so\'m eski qarzga yoziladi</p>';
+    if (t.debt > 0) {
+html += '<label class="lbl">Muddat</label><input class="field" data-in="due" data-focus="due" value="' + esc(state.due) + '" placeholder="KK.OO.YYYY" inputmode="numeric" />';
+    html += '<p class="faint">Muddat sotuv sanasidan oldin bo\'lmasin. Ko\'rinish: ' + esc(dmy(toIso(state.due)) || dmy(state.due) || "—") + '</p>';
+    }
+    html += '</div>';
+    html += '<button type="button" class="btn" data-act="save"' + (state.saving ? " disabled" : "") + '>' +
+      (state.saving ? "Saqlanmoqda..." : "Saqlash va yuk xati") + '</button>';
+    return html;
+  }
+
+  function storesView() {
+    if (state.sheet === "detail" && state.detail) return detailView();
+    var rows = state.customers.map(function (c) {
+      var debt = Number(c.outstanding) > 0
+        ? '<div class="debt">Qarz ' + money(c.outstanding) + " so'm</div>"
+        : (Number(c.store_credit) > 0 ? '<div class="muted">Kredit ' + money(c.store_credit) + '</div>' : '<div class="faint">Qarz yo\'q</div>');
+      return '<button type="button" class="hit" data-act="open-customer" data-id="' + c.id + '"><strong>' + esc(c.name) + '</strong>' +
+        '<div class="muted">' + esc(c.phone || "") + (c.address ? " · " + esc(c.address) : "") + '</div>' + debt +
+        (c.legacy_source ? '<span class="tag">Tarix</span>' : '') + '</button>';
+    }).join("") || '<p class="muted">Do\'kon yo\'q</p>';
+    return '<input class="field" placeholder="Ism, telefon, manzil" data-in="q" value="' + esc(state.q) + '" />' +
+      '<div style="height:8px"></div><button type="button" class="btn" data-act="new-store">+ Yangi do\'kon</button><div style="height:8px"></div>' + rows;
+  }
+
+  function detailView() {
+    var d = state.detail;
+    var c = d.customer;
+    var bills = (d.waybills || []).map(function (w) {
+      return '<div class="card"><div class="row"><strong class="grow">' + esc(w.waybill_code) + '</strong>' +
+        (w.legacy_source ? '<span class="tag">Tarix</span>' : '') +
+        (w.stock_posted === false && w.legacy_source ? '<span class="tag">Ombor tegilmagan</span>' : '') +
+        '</div><div class="faint">' + esc(dmy(w.sale_date || w.created_at)) + '</div>' +
+        '<div>Jami ' + money(w.total_amount) + ' · To\'langan ' + money(w.paid_amount) + ' · Qarz ' + money(w.debt_amount) + '</div>' +
+        '<div class="row" style="margin-top:8px"><button type="button" class="btn-ghost" data-act="share-bill" data-id="' + w.id + '">Ulashish</button>' +
+        '<button type="button" class="btn-ghost" data-act="edit" data-id="' + w.id + '">Tahrir</button></div></div>';
+    }).join("");
+    var pays = (d.payments || []).map(function (p) {
+      var label = p.kind === "reversal" ? "Tuzatish" : (p.kind === "backfill" ? "Tarixiy taqsim" : (p.method === "card" ? "Karta" : "Naqd"));
+      return '<div class="card"><div class="row"><span class="grow">' + label + ' ' + money(p.amount) + " so'm</span>" +
+        (p.reversed ? '<span class="tag">Tuzatilgan</span>' : '') +
+        (!p.reversed && p.kind !== "reversal" && p.kind !== "reallocation"
+          ? '<button type="button" class="btn-danger" data-act="reverse" data-id="' + p.id + '">Tuzatish</button>' : '') +
+        '</div></div>';
+    }).join("");
+    return '<button type="button" class="btn-ghost" data-act="tab" data-tab="dokon">Orqaga</button>' +
+      '<h2>' + esc(c.name) + '</h2><p class="muted">' + esc(c.phone || "") + '<br>' + esc(c.address || "") + '</p>' +
+      '<div class="card"><div>Qarz: <b>' + money(d.outstanding) + " so'm</b></div>" +
+      (Number(d.store_credit) > 0 ? '<div>Do\'kon krediti: <b>' + money(d.store_credit) + " so'm</b></div>" : '') +
+      '<button type="button" class="btn" data-act="pay" data-id="' + c.id + '">To\'lov yozish</button></div>' +
+      '<h3>Yuk xatlari</h3>' + (bills || '<p class="muted">Hali yo\'q</p>') +
+      '<h3>To\'lovlar</h3>' + (pays || '<p class="muted">Taqsimli to\'lov yo\'q</p>');
+  }
+
+  function remindView() {
+    var g = state.reminders && state.reminders.groups;
+    if (!g) return '<p class="muted">Yuklanmoqda...</p>';
+    function block(title, rows) {
+      var body = rows.map(function (w) {
+        return '<button type="button" class="hit" data-act="open-customer" data-id="' + w.customer_id + '"><strong>' + esc(w.customer_name) + '</strong>' +
+          '<div>' + esc(w.waybill_code) + ' · ' + money(w.debt_amount) + " so'm</div>" +
+          '<div class="faint">Muddat ' + esc(dmy(w.due_date)) + '</div></button>';
+      }).join("") || '<p class="faint">Yo\'q</p>';
+      return '<div class="group"><h2>' + title + '</h2>' + body + '</div>';
+    }
+    return block("Muddati o'tgan", g.overdue || []) + block("Bugun", g.today || []) + block("Ertaga", g.tomorrow || []);
+  }
+
+  function settingsView() {
+    var company = (state.boot && state.boot.company) || { name: "", phone: "", card: "", card_holder: "" };
+    var list = products().map(function (p) {
+      return '<div class="row card"><span class="grow">' + esc(p.sku) + '</span><b>' + money(p.price) + " so'm</b></div>";
+    }).join("") || '<p class="muted">Mahsulot yo\'q</p>';
+    return '<div class="card"><h2 style="margin:0 0 8px">Kompaniya</h2>' +
+      '<div>' + esc(company.name || "Nom sozlamada yo'q") + '</div>' +
+      '<div>Tel: ' + esc(company.phone || "Sozlamada yo'q") + '</div>' +
+      '<div>Karta: ' + esc(company.card || "Sozlamada yo'q") + '</div>' +
+      '<div class="faint">' + esc(company.card_holder || "") + '</div>' +
+      '<p class="faint">ERP sozlamasidan o\'qiladi. Shu yerda o\'zgartirilmaydi.</p></div>' +
+      '<h2>Mahsulot va narx</h2>' + list;
+  }
+
+  function sheetHtml() {
+    if (state.dateOpen && state.boot) {
+      var days = [];
+      var cur = state.boot.min_date;
+      var guard = 0;
+      while (cur <= state.boot.today && guard < 100) {
+        days.push(cur);
+        var p = cur.split("-");
+        var dt = new Date(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2]) + 1));
+        cur = dt.toISOString().slice(0, 10);
+        guard++;
+      }
+      return '<div class="sheet"><header><strong>Sana</strong><button type="button" class="btn-ghost" data-act="close">Yopish</button></header><div class="list">' +
+        days.slice().reverse().map(function (d) {
+          return '<button type="button" class="hit" data-act="set-date" data-date="' + d + '">' + esc(dmy(d)) + '</button>';
+        }).join("") + '</div></div>';
+    }
+    if (state.sheet === "stores") {
+      var rows = state.customers.map(function (c) {
+        var debt = Number(c.outstanding) > 0 ? money(c.outstanding) + " so'm qarz" : (Number(c.store_credit) > 0 ? money(c.store_credit) + " kredit" : "qarz yo'q");
+        return '<button type="button" class="hit" data-act="pick-store" data-id="' + c.id + '"><strong>' + esc(c.name) + '</strong>' +
+          '<div class="muted">' + esc([c.phone, c.address].filter(Boolean).join(" · ")) + '</div><div class="debt">' + debt + '</div></button>';
+      }).join("") || '<p class="muted">Topilmadi</p>';
+      return '<div class="sheet"><header><strong>Do\'kon</strong><button type="button" class="btn-ghost" data-act="close">Yopish</button></header>' +
+        '<div class="pad"><input class="field" data-in="q" data-focus="q" placeholder="Ism, telefon, manzil" value="' + esc(state.q) + '" />' +
+        '<div style="height:8px"></div><button type="button" class="btn" data-act="new-store">+ Yangi do\'kon</button></div><div class="list">' + rows + '</div></div>';
+    }
+    if (state.sheet === "new") {
+      var f = state.newStore;
+      return '<div class="sheet"><header><strong>Yangi do\'kon</strong><button type="button" class="btn-ghost" data-act="close">Yopish</button></header><div class="list">' +
+        '<label class="lbl">Nomi</label><input class="field" data-in="store-name" data-focus="store-name" value="' + esc(f.name) + '" />' +
+        '<label class="lbl">Telefon</label><input class="field" data-in="store-phone" data-focus="store-phone" inputmode="tel" value="' + esc(f.phone) + '" />' +
+        '<label class="lbl">Manzil</label><input class="field" data-in="store-address" data-focus="store-address" value="' + esc(f.address) + '" />' +
+        '<div style="height:8px"></div><button type="button" class="btn-ghost" data-act="pin">Xaritada pin</button>' +
+        '<p class="faint">' + (f.latitude ? "Pin qo'yildi" : "Pin ixtiyoriy") + '</p>' +
+        '<button type="button" class="btn" data-act="create-store"' + (state.saving ? " disabled" : "") + '>Saqlash</button></div></div>';
+    }
+    if (state.pay) {
+      var pay = state.pay;
+      var body = pay.step === "confirm"
+        ? '<p style="font-size:20px"><b>' + money(pay.amount) + " so'm to'landimi?</b></p>" +
+          '<div class="row"><button type="button" class="btn" data-act="pay-yes"' + (state.saving ? " disabled" : "") + '>Ha</button>' +
+          '<button type="button" class="btn-ghost" data-act="pay-back">Yo\'q</button></div>'
+        : '<label class="lbl">Summa</label><input class="field" data-in="pay-amount" data-focus="pay-amount" inputmode="numeric" value="' + esc(pay.amount) + '" />' +
+          '<div class="row" style="margin:8px 0"><button type="button" class="btn-ghost' + (pay.method === "cash" ? " on" : "") + '" data-act="method" data-method="cash">Naqd</button>' +
+          '<button type="button" class="btn-ghost" data-act="method" data-method="card">Karta</button></div>' +
+          '<button type="button" class="btn" data-act="pay-next"' + (intOf(pay.amount) > 0 ? "" : " disabled") + '>Davom etish</button>';
+      return '<div class="sheet"><header><strong>To\'lov</strong><button type="button" class="btn-ghost" data-act="close">Yopish</button></header><div class="list">' + body + '</div></div>';
+    }
+    if (state.edit) {
+      var ed = state.edit;
+      var items = ed.items.map(function (it, i) {
+        return '<div class="card"><strong>' + esc(it.product_name) + '</strong><div class="stepper"><button type="button" data-act="edit-qty" data-i="' + i + '" data-d="-1">−</button><span>' + it.quantity + '</span><button type="button" data-act="edit-qty" data-i="' + i + '" data-d="1">+</button></div>' +
+          '<label class="lbl">Narx</label><input class="field" data-in="edit-price" data-focus="edit-' + i + '" data-i="' + i + '" inputmode="numeric" value="' + it.price + '" /></div>';
+      }).join("");
+      return '<div class="sheet"><header><strong>Tahrir ' + esc(ed.code) + '</strong><button type="button" class="btn-ghost" data-act="close">Yopish</button></header><div class="list">' +
+        '<p class="faint">To\'langan summa o\'zgarmaydi.</p>' + items +
+        '<button type="button" class="btn" data-act="save-edit"' + (state.saving ? " disabled" : "") + '>Saqlash</button></div></div>';
+    }
+    return "";
+  }
+
+  function render() {
+    var root = document.getElementById("app");
+    if (!initData) {
+      root.innerHTML = '<div class="card"><h1>Yuk xati</h1><p>Bu sahifa Telegram ichida ochiladi.</p></div>';
+      return;
+    }
+    if (state.loading && !state.boot) {
+      root.innerHTML = '<p class="muted">Yuklanmoqda...</p>';
+      return;
+    }
+    var body = state.tab === "dokon" ? storesView() : state.tab === "eslatma" ? remindView() : state.tab === "sozlama" ? settingsView() : saleView();
+    var active = function (name) { return state.tab === name ? " on" : ""; };
+    root.innerHTML =
+      '<header class="top"><div><h1>Yuk xati</h1><p>' + esc(state.boot && state.boot.today ? dmy(state.boot.today) : "") + '</p></div></header>' +
+      (state.error ? '<div class="err">' + esc(state.error) + '</div>' : '') +
+      body +
+      '<nav class="nav"><button type="button" class="' + active("sotuv") + '" data-act="tab" data-tab="sotuv">Sotuv</button>' +
+      "<button type=\"button\" class=\"" + active("dokon") + "\" data-act=\"tab\" data-tab=\"dokon\">Do'konlar</button>" +
+      '<button type="button" class="' + active("eslatma") + '" data-act="tab" data-tab="eslatma">Eslatma</button>' +
+      '<button type="button" class="' + active("sozlama") + '" data-act="tab" data-tab="sozlama">Sozlama</button></nav>' +
+      sheetHtml();
+    var keep = focusKey ? document.querySelector('[data-focus="' + focusKey + '"]') : null;
+    if (keep) { keep.focus(); var n = keep.value.length; try { keep.setSelectionRange(n, n); } catch (e) {} }
+  }
+
+  document.body.addEventListener("click", onClick);
+  document.body.addEventListener("input", onInput);
+  loadBoot();
+})();
+  </script>
+</body>
+</html>
