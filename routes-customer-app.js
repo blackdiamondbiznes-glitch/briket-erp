@@ -290,7 +290,18 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
              AND status IN ('confirmed','paid','partial','closed')`,
           [customer.id]
         );
-        const existingDebt = num(debtR.rows[0].total);
+        let fieldDebt = 0;
+        try {
+          const fieldR = await client.query(
+            `SELECT COALESCE(SUM(debt_amount), 0) AS total FROM waybills
+             WHERE customer_id = $1 AND debt_amount > 0`,
+            [customer.id]
+          );
+          fieldDebt = num(fieldR.rows[0].total);
+        } catch (err) {
+          if (err.code !== '42P01' && err.code !== '42703') throw err;
+        }
+        const existingDebt = num(debtR.rows[0].total) + fieldDebt;
         if (existingDebt + debt > creditLimit) {
           await client.query('ROLLBACK');
           return res.status(400).json({

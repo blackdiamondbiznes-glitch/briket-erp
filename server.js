@@ -8,7 +8,7 @@
  *   PORT, TELEGRAM_BOT_TOKEN, ALLOW_DEMO_CUSTOMER, AGENT_CORS_ORIGINS,
  *   ADMIN_TELEGRAM_IDS (vergul bilan; faqat /api/agent/admin)
  * Agent API (/api/agent) TELEGRAM_BOT_TOKEN siz ishlamaydi.
- * Admin yuk xati tasdiqlanganda bitta ERP buyurtmasi yoziladi va ombor shu buyurtma orqali kamayadi.
+ * Yuk tarqatish — yuk xati buyurtma emas. stock_posted qator ombordan bir marta ayiriladi.
  */
 require('dotenv').config();
 const crypto = require('crypto');
@@ -248,7 +248,18 @@ async function checkCreditLimit(client, customerId, newDebt) {
      WHERE customer_id = $1 AND debt_amount > 0 AND status = ANY($2::text[])`,
     [customerId, CREDIT_DEBT_STATUSES]
   );
-  const existingDebt = som(debtR.rows[0].total);
+  let fieldDebt = 0;
+  try {
+    const fieldR = await client.query(
+      `SELECT COALESCE(SUM(debt_amount), 0) AS total FROM waybills
+       WHERE customer_id = $1 AND debt_amount > 0`,
+      [customerId]
+    );
+    fieldDebt = som(fieldR.rows[0].total);
+  } catch (err) {
+    if (err.code !== '42P01' && err.code !== '42703') throw err;
+  }
+  const existingDebt = som(debtR.rows[0].total) + fieldDebt;
   if (existingDebt + debtAdd > creditLimit) {
     return {
       ok: false,
@@ -267,33 +278,72 @@ async function checkCreditLimit(client, customerId, newDebt) {
   return { ok: true, existingDebt: existingDebt, creditLimit: creditLimit };
 }
 
+const STOCK_BALANCE_SQL = `
+  SELECT
+    p.id,
+    p.sku,
+    (COALESCE(pack.total_qty, 0)
+      - COALESCE(sold.sold_qty, 0)
+      - COALESCE(ship.shipped_qty, 0)
+      - COALESCE(field.field_qty, 0)) AS balance_qty
+  FROM products p
+  LEFT JOIN (
+    SELECT product_id, SUM(qty) AS total_qty FROM packaging GROUP BY product_id
+  ) pack ON pack.product_id = p.id
+  LEFT JOIN (
+    SELECT oi.product_id, SUM(oi.qty) AS sold_qty
+    FROM order_items oi
+    JOIN orders o ON o.id = oi.order_id
+    WHERE o.status = ANY($1::text[])
+    GROUP BY oi.product_id
+  ) sold ON sold.product_id = p.id
+  LEFT JOIN (
+    SELECT product_id, SUM(qty - COALESCE(returned_qty, 0)) AS shipped_qty
+    FROM shipments
+    WHERE from_type = 'factory'
+    GROUP BY product_id
+  ) ship ON ship.product_id = p.id
+  LEFT JOIN (
+    SELECT wi.product_id, SUM(wi.quantity) AS field_qty
+    FROM waybill_items wi
+    JOIN waybills w ON w.id = wi.waybill_id
+    WHERE w.stock_posted = true
+    GROUP BY wi.product_id
+  ) field ON field.product_id = p.id`;
+
+const STOCK_BALANCE_SQL_PLAIN = `
+  SELECT
+    p.id,
+    p.sku,
+    (COALESCE(pack.total_qty, 0)
+      - COALESCE(sold.sold_qty, 0)
+      - COALESCE(ship.shipped_qty, 0)) AS balance_qty
+  FROM products p
+  LEFT JOIN (
+    SELECT product_id, SUM(qty) AS total_qty FROM packaging GROUP BY product_id
+  ) pack ON pack.product_id = p.id
+  LEFT JOIN (
+    SELECT oi.product_id, SUM(oi.qty) AS sold_qty
+    FROM order_items oi
+    JOIN orders o ON o.id = oi.order_id
+    WHERE o.status = ANY($1::text[])
+    GROUP BY oi.product_id
+  ) sold ON sold.product_id = p.id
+  LEFT JOIN (
+    SELECT product_id, SUM(qty - COALESCE(returned_qty, 0)) AS shipped_qty
+    FROM shipments
+    WHERE from_type = 'factory'
+    GROUP BY product_id
+  ) ship ON ship.product_id = p.id`;
+
 async function getProductBalanceMap(client) {
-  const r = await client.query(
-    `SELECT
-       p.id,
-       p.sku,
-       (COALESCE(pack.total_qty, 0)
-         - COALESCE(sold.sold_qty, 0)
-         - COALESCE(ship.shipped_qty, 0)) AS balance_qty
-     FROM products p
-     LEFT JOIN (
-       SELECT product_id, SUM(qty) AS total_qty FROM packaging GROUP BY product_id
-     ) pack ON pack.product_id = p.id
-     LEFT JOIN (
-       SELECT oi.product_id, SUM(oi.qty) AS sold_qty
-       FROM order_items oi
-       JOIN orders o ON o.id = oi.order_id
-       WHERE o.status = ANY($1::text[])
-       GROUP BY oi.product_id
-     ) sold ON sold.product_id = p.id
-     LEFT JOIN (
-       SELECT product_id, SUM(qty - COALESCE(returned_qty, 0)) AS shipped_qty
-       FROM shipments
-       WHERE from_type = 'factory'
-       GROUP BY product_id
-     ) ship ON ship.product_id = p.id`,
-    [SOLD_STATUSES]
-  );
+  let r;
+  try {
+    r = await client.query(STOCK_BALANCE_SQL, [SOLD_STATUSES]);
+  } catch (err) {
+    if (err.code !== '42P01' && err.code !== '42703') throw err;
+    r = await client.query(STOCK_BALANCE_SQL_PLAIN, [SOLD_STATUSES]);
+  }
   const map = {};
   r.rows.forEach(function (row) {
     map[String(row.id)] = num(row.balance_qty);

@@ -1,7 +1,7 @@
 -- ============================================================
--- Admin yozadigan yuk xati.
--- 004 allaqachon qo'llangan bazada agent_id bo'sh bo'lishi mumkin,
--- yuk xati bitta ERP buyurtmasiga bog'lanadi.
+-- Admin yozadigan yuk xati (Yuk tarqatish).
+-- Buyurtma (orders) yaratilmaydi. stock_posted = true bo'lgan
+-- yuk xati tayyor mahsulot qoldig'idan bir marta ayiriladi.
 -- Qayta ishga tushirish xavfsiz. Mavjud qatorlar o'chirilmaydi,
 -- ustunlar qayta nomlanmaydi.
 -- ============================================================
@@ -24,6 +24,7 @@ END $$;
 
 ALTER TABLE waybills ADD COLUMN IF NOT EXISTS order_id INTEGER;
 ALTER TABLE waybills ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
+ALTER TABLE waybills ADD COLUMN IF NOT EXISTS stock_posted BOOLEAN NOT NULL DEFAULT false;
 
 DO $$
 BEGIN

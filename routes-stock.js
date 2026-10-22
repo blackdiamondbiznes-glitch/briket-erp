@@ -52,10 +52,10 @@ module.exports = function (app, pool, helpers) {
     SELECT
       p.id, p.sku, p.weight_kg, p.price, p.cost_price, p.is_active,
       COALESCE(pack.total_qty, 0) AS packed_qty,
-      COALESCE(sold.sold_qty, 0) AS sold_qty,
+      (COALESCE(sold.sold_qty, 0) + COALESCE(field.field_qty, 0)) AS sold_qty,
       COALESCE(ship.shipped_qty, 0) AS shipped_qty,
-      (COALESCE(pack.total_qty, 0) - COALESCE(sold.sold_qty, 0) - COALESCE(ship.shipped_qty, 0)) AS balance_qty,
-      (COALESCE(pack.total_qty, 0) - COALESCE(sold.sold_qty, 0) - COALESCE(ship.shipped_qty, 0)) * p.weight_kg AS balance_kg
+      (COALESCE(pack.total_qty, 0) - COALESCE(sold.sold_qty, 0) - COALESCE(field.field_qty, 0) - COALESCE(ship.shipped_qty, 0)) AS balance_qty,
+      (COALESCE(pack.total_qty, 0) - COALESCE(sold.sold_qty, 0) - COALESCE(field.field_qty, 0) - COALESCE(ship.shipped_qty, 0)) * p.weight_kg AS balance_kg
     FROM products p
     LEFT JOIN (
       SELECT product_id, SUM(qty) AS total_qty FROM packaging GROUP BY product_id
@@ -73,9 +73,44 @@ module.exports = function (app, pool, helpers) {
       WHERE from_type = 'factory'
       GROUP BY product_id
     ) ship ON ship.product_id = p.id
+    LEFT JOIN (
+      SELECT wi.product_id, SUM(wi.quantity) AS field_qty
+      FROM waybill_items wi
+      JOIN waybills w ON w.id = wi.waybill_id
+      WHERE w.stock_posted = true
+      GROUP BY wi.product_id
+    ) field ON field.product_id = p.id
     WHERE p.is_active = true
     ORDER BY p.sku
   `;
+
+  const skuStockSqlPlain = skuStockSql
+    .replace(/ \+ COALESCE\(field\.field_qty, 0\)/g, '')
+    .replace(/ - COALESCE\(field\.field_qty, 0\)/g, '')
+    .replace(/\s*LEFT JOIN \(\s*SELECT wi\.product_id[\s\S]*?\) field ON field\.product_id = p\.id/, '');
+
+  async function querySkuStock() {
+    try {
+      return await pool.query(skuStockSql, [soldList]);
+    } catch (err) {
+      if (err.code === '42P01' || err.code === '42703') {
+        return pool.query(skuStockSqlPlain, [soldList]);
+      }
+      throw err;
+    }
+  }
+
+  function fieldQuery(sql, params, emptyRow) {
+    return pool.query(sql, params).then(
+      function (r) { return r; },
+      function (err) {
+        if (err && (err.code === '42P01' || err.code === '42703')) {
+          return { rows: emptyRow ? [emptyRow] : [] };
+        }
+        throw err;
+      }
+    );
+  }
 
   app.get('/api/stock/materials', async (req, res) => {
     try {
@@ -102,7 +137,7 @@ module.exports = function (app, pool, helpers) {
 
   app.get('/api/stock/products', async (req, res) => {
     try {
-      const r = await pool.query(skuStockSql, [soldList]);
+      const r = await querySkuStock();
       const ctx = await loadCostContext();
       const data = r.rows.map(function (s) { return mapStockRow(s, ctx); });
       res.json({ ok: true, count: data.length, data: data });
@@ -141,6 +176,10 @@ module.exports = function (app, pool, helpers) {
         recentOrders,
         cashToday,
         cashMonth,
+        fieldToday,
+        fieldMonth,
+        fieldDebt,
+        recentField,
       ] = await Promise.all([
         pool.query(
           `SELECT COALESCE(SUM(total_amount),0) AS total FROM orders
@@ -193,7 +232,7 @@ module.exports = function (app, pool, helpers) {
            FROM batches WHERE status = 'active'`
         ),
         pool.query(`SELECT COUNT(*)::int AS cnt FROM products WHERE is_active = true`),
-        pool.query(skuStockSql, [soldList]),
+        querySkuStock(),
         pool.query(`
           SELECT
             m.id, m.name, m.unit, m.price,
@@ -226,6 +265,37 @@ module.exports = function (app, pool, helpers) {
            WHERE paid_at >= (date_trunc('month', $1::date)::timestamp AT TIME ZONE '${TZ}')
              AND paid_at < ((date_trunc('month', $1::date) + interval '1 month')::timestamp AT TIME ZONE '${TZ}')`,
           [dayStr]
+        ),
+        fieldQuery(
+          `SELECT COALESCE(SUM(total_amount),0) AS total FROM waybills
+           WHERE stock_posted = true
+             AND created_at >= ($1::timestamp AT TIME ZONE '${TZ}')
+             AND created_at < ($1::timestamp AT TIME ZONE '${TZ}') + interval '1 day'`,
+          [dayStr],
+          { total: 0 }
+        ),
+        fieldQuery(
+          `SELECT COALESCE(SUM(total_amount),0) AS total FROM waybills
+           WHERE stock_posted = true
+             AND created_at >= (date_trunc('month', $1::date)::timestamp AT TIME ZONE '${TZ}')
+             AND created_at < ((date_trunc('month', $1::date) + interval '1 month')::timestamp AT TIME ZONE '${TZ}')`,
+          [dayStr],
+          { total: 0 }
+        ),
+        fieldQuery(
+          `SELECT COALESCE(SUM(debt_amount),0) AS total FROM waybills WHERE debt_amount > 0`,
+          [],
+          { total: 0 }
+        ),
+        fieldQuery(
+          `SELECT w.id, w.waybill_code, c.name AS customer_name, w.total_amount, w.paid_amount,
+                  w.debt_amount, w.status, w.created_at
+           FROM waybills w
+           LEFT JOIN customers c ON c.id = w.customer_id
+           WHERE w.stock_posted = true
+           ORDER BY w.id DESC LIMIT 8`,
+          [],
+          null
         ),
       ]);
 
@@ -264,7 +334,9 @@ module.exports = function (app, pool, helpers) {
           alerts.push({ type: 'danger', text: m.name + ' manfiy: ' + m.balance + ' ' + m.unit });
         }
       });
-      const jamiQarz = som(debt.rows[0].total);
+      const fieldTodaySum = som(fieldToday.rows[0] && fieldToday.rows[0].total);
+      const fieldMonthSum = som(fieldMonth.rows[0] && fieldMonth.rows[0].total);
+      const jamiQarz = som(debt.rows[0].total) + som(fieldDebt.rows[0] && fieldDebt.rows[0].total);
       if (jamiQarz > highDebtThreshold) {
         alerts.push({
           type: 'danger',
@@ -284,15 +356,17 @@ module.exports = function (app, pool, helpers) {
         data: {
           timezone: TZ,
           business_date: dayStr,
-          bugungi_savdo: som(salesToday.rows[0].total),
+          bugungi_savdo: som(salesToday.rows[0].total) + fieldTodaySum,
+          yuk_tarqatish_bugun: fieldTodaySum,
           bugungi_xarajat: som(expenseToday.rows[0].total),
-          bugungi_foyda: som(salesToday.rows[0].total) - som(expenseToday.rows[0].total),
+          bugungi_foyda: som(salesToday.rows[0].total) + fieldTodaySum - som(expenseToday.rows[0].total),
           bugungi_naqd_tushum: som(cashToday.rows[0].total),
           bugungi_qadoq_kg: packTodayKg,
           bugungi_qadoq_qty: num(packToday.rows[0].qty),
-          oylik_savdo: som(salesMonth.rows[0].total),
+          oylik_savdo: som(salesMonth.rows[0].total) + fieldMonthSum,
+          yuk_tarqatish_oy: fieldMonthSum,
           oylik_xarajat: som(expenseMonth.rows[0].total),
-          oylik_foyda: som(salesMonth.rows[0].total) - som(expenseMonth.rows[0].total),
+          oylik_foyda: som(salesMonth.rows[0].total) + fieldMonthSum - som(expenseMonth.rows[0].total),
           oylik_naqd_tushum: som(cashMonth.rows[0].total),
           oylik_qadoq_kg: num(packMonth.rows[0].kg),
           oylik_qadoq_qty: num(packMonth.rows[0].qty),
@@ -304,6 +378,7 @@ module.exports = function (app, pool, helpers) {
           material_stock,
           active_batches: batches.rows,
           recent_orders: recentOrders.rows,
+          recent_field_sales: recentField.rows,
           alerts,
         },
       });

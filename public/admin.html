@@ -1794,7 +1794,7 @@
             <div className="dash-kpi kpi-click" role="button" tabIndex="0" onClick={function () { if (onNavigate) onNavigate("orders"); }}>
               <div className="label">Savdo</div>
               <div className="value">{money(savdo)}</div>
-              <div className="trend">tasdiqlangan buyurtmalar</div>
+              <div className="trend">{Number(isMonth ? data.yuk_tarqatish_oy : data.yuk_tarqatish_bugun) > 0 ? "shu jumladan yuk tarqatish " + money(isMonth ? data.yuk_tarqatish_oy : data.yuk_tarqatish_bugun) : "buyurtma va yuk tarqatish"}</div>
             </div>
             <div className="dash-kpi kpi-click" role="button" tabIndex="0" onClick={function () { if (onNavigate) onNavigate("payments"); }}>
               <div className="label">Naqd tushum</div>
@@ -1809,7 +1809,7 @@
             <div className={"dash-kpi kpi-click" + (Number(data.jami_qarz) > 3000000 ? " dash-kpi-danger" : "")} role="button" tabIndex="0" onClick={function () { if (onNavigate) onNavigate("people-debt"); }}>
               <div className="label">Qarz</div>
               <div className={"value" + (Number(data.jami_qarz) > 3000000 ? " neg" : "")}>{money(data.jami_qarz)}</div>
-              <div className="trend">sotilgan buyurtmalar</div>
+              <div className="trend">buyurtma va yuk xati</div>
             </div>
           </div>
 
@@ -1968,6 +1968,37 @@
                   </tbody>
                 </table>
                 <DashMoreBtn arr={orders} k="order" />
+                </div>
+              )}
+            </div>
+
+            <div className="card tight">
+              <h2>Yuk tarqatish</h2>
+              {(data.recent_field_sales || []).length === 0 ? (
+                <div className="empty">
+                  <div className="empty-ico"><Ico name="box" /></div>
+                  <div className="empty-title">Yuk xati yo'q</div>
+                  Sotuv → Yuk tarqatish dan yoziladi. Buyurtmalar ro'yxatiga tushmaydi.
+                </div>
+              ) : (
+                <div className="table-wrap dash-dense">
+                <table>
+                  <thead>
+                    <tr><th>Kod</th><th>Mijoz</th><th>Summa</th><th>Qarz</th></tr>
+                  </thead>
+                  <tbody>
+                    {dashSlice(data.recent_field_sales, "field").map(function (w) {
+                      return (
+                        <tr key={w.id} onClick={function () { if (onNavigate) onNavigate("yukxati"); }} style={{ cursor: "pointer" }}>
+                          <td data-label="Kod">{w.waybill_code}</td>
+                          <td data-label="Mijoz">{w.customer_name || "-"}</td>
+                          <td data-label="Summa">{money(w.total_amount)}</td>
+                          <td data-label="Qarz">{money(w.debt_amount)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
                 </div>
               )}
             </div>
@@ -4514,6 +4545,7 @@
       const [orders, setOrders] = useState([]);
       const [payments, setPayments] = useState([]);
       const [shipments, setShipments] = useState([]);
+      const [fieldSales, setFieldSales] = useState([]);
       const [partnerDebt, setPartnerDebt] = useState({});
       const [tur, setTur] = useState("all");
       const [q, setQ] = useState("");
@@ -4530,7 +4562,8 @@
           api("/api/partners?active=0"),
           api("/api/orders?limit=100"),
           api("/api/payments?limit=200"),
-          api("/api/shipments?limit=100")
+          api("/api/shipments?limit=100"),
+          api("/api/agent/admin/waybills?scope=admin").catch(function () { return { data: [] }; })
         ]).then(function (arr) {
           const parts = arr[1].data || [];
           setCustomers(arr[0].data || []);
@@ -4538,6 +4571,7 @@
           setOrders(arr[2].data || []);
           setPayments(arr[3].data || []);
           setShipments(arr[4].data || []);
+          setFieldSales(arr[5].data || []);
           setErr("");
           return Promise.all(parts.map(function (p) {
             return api("/api/partners/" + p.id + "/debt")
@@ -4569,10 +4603,15 @@
       }, [props.pageFilter, partners]);
 
       function debtForCustomer(c) {
-        return orders.reduce(function (s, o) {
+        const fromOrders = orders.reduce(function (s, o) {
           if (String(o.customer_id || "") !== String(c.id)) return s;
           return s + Number(o.debt_amount || 0);
         }, 0);
+        const fromField = fieldSales.reduce(function (s, w) {
+          if (String(w.customer_id || "") !== String(c.id)) return s;
+          return s + Number(w.debt_amount || 0);
+        }, 0);
+        return fromOrders + fromField;
       }
 
       const rows = [];
@@ -4755,6 +4794,29 @@
                   </tbody>
                 </table></div>
               )}
+              {opened.kind === "customer" ? (
+                <div>
+                  <h3 style={{ fontSize: "0.9rem", margin: "12px 0 8px" }}>Yuk tarqatish</h3>
+                  {fieldSales.filter(function (w) { return String(w.customer_id || "") === String(opened.id); }).length === 0 ? (
+                    <div className="muted">Yuk xati yo'q</div>
+                  ) : (
+                    <div className="table-wrap list-dense"><table>
+                      <thead><tr><th>Kod</th><th>Summa</th><th>Qarz</th></tr></thead>
+                      <tbody>
+                        {fieldSales.filter(function (w) { return String(w.customer_id || "") === String(opened.id); }).map(function (w) {
+                          return (
+                            <tr key={w.id}>
+                              <td data-label="Kod">{w.waybill_code}</td>
+                              <td data-label="Summa">{money(w.total_amount)}</td>
+                              <td data-label="Qarz">{money(w.debt_amount)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table></div>
+                  )}
+                </div>
+              ) : null}
               <h3 style={{ fontSize: "0.9rem", margin: "12px 0 8px" }}>To'lovlar</h3>
               {cardPays.length === 0 ? <div className="muted">To'lov yo'q</div> : (
                 <div className="table-wrap list-dense"><table>
@@ -4828,7 +4890,7 @@
       useEffect(function () {
         if (!agentsUi && tab === "agents") {
           setModuleId("mijozlar");
-          setTab("yukxati");
+          setTab("people");
         }
       }, [agentsUi, tab]);
 
@@ -4865,6 +4927,7 @@
           bottom: true,
           tabs: [
             { id: "orders", label: "Buyurtmalar" },
+            { id: "yukxati", label: "Yuk tarqatish" },
             { id: "shipments", label: "Dilerlarga berilgan tovar" }
           ]
         },
@@ -4900,7 +4963,6 @@
             { id: "people", label: "Ro'yxat" },
             { id: "people-debt", label: "Qarzdorlar" },
             { id: "payments", label: "To'lovlar" },
-            { id: "yukxati", label: "Yuk xati" },
             { id: "agents", label: "Agentlar" }
           ]
         },

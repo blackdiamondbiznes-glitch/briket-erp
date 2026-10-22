@@ -437,6 +437,7 @@ CREATE TABLE IF NOT EXISTS waybills (
   status              TEXT NOT NULL DEFAULT 'open',
   note                TEXT,
   idempotency_key     TEXT,
+  stock_posted        BOOLEAN NOT NULL DEFAULT false,
   legacy_source       TEXT,
   legacy_id           TEXT,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -587,6 +588,7 @@ CREATE INDEX IF NOT EXISTS idx_product_map_product ON product_map (product_id);
 -- 005: admin yuk xati. 004 ning eski nusxasi qo'llangan bo'lsa ham qayta yuradi.
 ALTER TABLE waybills ADD COLUMN IF NOT EXISTS order_id INTEGER;
 ALTER TABLE waybills ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
+ALTER TABLE waybills ADD COLUMN IF NOT EXISTS stock_posted BOOLEAN NOT NULL DEFAULT false;
 
 DO $$
 BEGIN

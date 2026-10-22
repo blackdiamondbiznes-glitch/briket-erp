@@ -170,6 +170,7 @@ function createMemoryStore(initial) {
         idempotency_key: input.idempotencyKey || null,
         order_id: null,
         order_code: null,
+        stock_posted: input.stockPosted === true,
         created_at: new Date().toISOString(),
         customer_name: (state.customers.find((c) => same(c.id, input.customerId)) || {}).name || null,
         agent_name: (state.agents.find((a) => same(a.id, input.agentId)) || {}).full_name || null,
@@ -192,9 +193,28 @@ function createMemoryStore(initial) {
           created_at: waybill.created_at,
         });
       }
+      if (waybill.stock_posted && state.stock) {
+        d.items.forEach(function (it) {
+          const k = String(it.product_id);
+          state.stock[k] = Number(state.stock[k] || 0) - Number(it.quantity);
+        });
+      }
       waybill.items = items;
       waybill.commission_earned_now = Number(input.commissionNow) || 0;
       return waybill;
+    },
+
+    async insertFieldPayment(input) {
+      const row = {
+        id: next('erpPayment'),
+        order_id: null,
+        customer_id: input.customerId,
+        amount: input.amount,
+        method: input.method || 'cash',
+        note: input.note || null,
+      };
+      state.erpPayments.push(row);
+      return row;
     },
 
     async listWaybills(agentId) {
@@ -464,92 +484,21 @@ function createMemoryStore(initial) {
       });
     },
 
-    async insertSoldOrder(input) {
-      const id = next('order');
-      const code = 'ORD-' + input.day + '-' + String(id).padStart(6, '0');
-      const order = {
-        id: id,
-        order_code: code,
-        customer_id: input.customerId,
-        customer_name: input.customerName,
-        phone: input.phone || null,
-        status: input.status,
-        total_amount: input.total,
-        paid_amount: input.paid,
-        debt_amount: input.debt,
-        debt_due: input.due || null,
-        source: 'yuk_xati',
-        note: input.note || null,
-      };
-      state.orders.push(order);
-      input.lines.forEach((line) => {
-        state.orderItems.push({
-          id: state.orderItems.length + 1,
-          order_id: id,
-          product_id: line.product_id,
-          sku: line.sku,
-          qty: line.qty,
-          unit_price: line.unit_price,
-          line_total: line.line_total,
-        });
-        if (state.stock) {
-          const k = String(line.product_id);
-          state.stock[k] = Number(state.stock[k] || 0) - Number(line.qty);
-        }
-      });
-      if (Number(input.paid) > 0) {
-        state.erpPayments.push({
-          id: next('erpPayment'),
-          order_id: id,
-          customer_id: input.customerId,
-          amount: input.paid,
-          method: 'cash',
-          note: 'Yuk xati boshlang\'ich to\'lov',
-        });
-      }
-      return order;
-    },
-
-    async attachOrder(waybillId, orderId, orderCode) {
-      const waybill = state.waybills.find((w) => same(w.id, waybillId));
-      if (!waybill || waybill.order_id != null) {
-        const err = new Error('Yuk xati buyurtmasi allaqachon bog\'langan');
-        err.status = 409;
-        err.code = '23505';
-        throw err;
-      }
-      waybill.order_id = orderId;
-      waybill.order_code = orderCode;
-      return waybill;
-    },
-
     async applyAdminPayment(input) {
       const waybill = state.waybills.find((w) => same(w.id, input.waybillId));
       if (!waybill || Number(waybill.debt_amount) < Number(input.amount)) return null;
       waybill.paid_amount = Number(waybill.paid_amount) + Number(input.amount);
       waybill.debt_amount = Number(waybill.debt_amount) - Number(input.amount);
       waybill.status = waybill.debt_amount <= 0 ? 'paid' : 'partial';
-      let order = null;
-      if (input.orderId) {
-        order = state.orders.find((o) => same(o.id, input.orderId)) || null;
-        if (order && Number(order.debt_amount) >= Number(input.amount)) {
-          order.paid_amount = Number(order.paid_amount) + Number(input.amount);
-          order.debt_amount = Number(order.debt_amount) - Number(input.amount);
-          order.status = order.debt_amount <= 0 ? 'paid' : 'partial';
-          state.erpPayments.push({
-            id: next('erpPayment'),
-            order_id: order.id,
-            customer_id: input.customerId,
-            amount: input.amount,
-            method: input.method || 'cash',
-            note: input.note || 'Yuk xati qarz to\'lovi',
-          });
-        }
-      }
-      const full = withItems(waybill);
-      full.order = order;
-      full.order_code = order ? order.order_code : waybill.order_code;
-      return full;
+      state.erpPayments.push({
+        id: next('erpPayment'),
+        order_id: null,
+        customer_id: input.customerId,
+        amount: input.amount,
+        method: input.method || 'cash',
+        note: input.note || 'Yuk xati qarz to\'lovi',
+      });
+      return withItems(waybill);
     },
 
     async adminDebts(agentId) {

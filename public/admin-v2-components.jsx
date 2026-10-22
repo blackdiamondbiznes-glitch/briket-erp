@@ -979,7 +979,7 @@
           })
         });
         idemRef.current = "";
-        setMsg({ text: "Yuk xati yozildi. Ombor buyurtma orqali kamaydi.", type: "ok" });
+        setMsg({ text: "Yuk xati yozildi. Ombor shu savdo bilan kamaydi.", type: "ok" });
         setLines([{ product_id: "", quantity: "1", price: "" }]);
         setPaid("0");
         setDue("");
@@ -1028,8 +1028,8 @@
       <div>
         <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
         <div className="card">
-          <h2>Yuk xati</h2>
-          <p className="muted">Mavjud mijozga yuk xati. Tasdiqlangach buyurtma yoziladi va tayyor mahsulot ombori shu buyurtma bilan kamayadi. Komissiya yo'q — agentlar hali yo'q.</p>
+          <h2>Yuk tarqatish</h2>
+          <p className="muted">Do'konga chiqib yozilgan savdo. Hujjat — yuk xati. Buyurtmalar ro'yxatiga tushmaydi. Tasdiqlangach tayyor mahsulot ombori shu yuk xati bilan bir marta kamayadi. Komissiya yo'q — agentlar hali yo'q. Reys (yuklab chiqish va qoldiq qaytarish) keyingi qadam.</p>
           {err ? <div className="msg err">{err}</div> : null}
           <form onSubmit={submit}>
             <div className="form-row">
@@ -1096,11 +1096,11 @@
         </div>
 
         <div className="card">
-          <h2>Yozilgan yuk xatlar</h2>
+          <h2>Yuk xatlar</h2>
           {rows.length === 0 ? <V2Empty title="Yuk xati yo'q" sub="Yuqoridagi formadan boshlang." /> : (
             <div className="table-wrap list-dense"><table>
               <thead>
-                <tr><th>Kod</th><th>Mijoz</th><th>Jami</th><th>To'langan</th><th>Qarz</th><th>Buyurtma</th><th></th></tr>
+                <tr><th>Kod</th><th>Mijoz</th><th>Jami</th><th>To'langan</th><th>Qarz</th><th>Holat</th><th></th></tr>
               </thead>
               <tbody>
                 {rows.map(function (w) {
@@ -1111,7 +1111,7 @@
                       <td data-label="Jami">{money(w.total_amount)}</td>
                       <td data-label="To'langan">{money(w.paid_amount)}</td>
                       <td data-label="Qarz">{money(w.debt_amount)}</td>
-                      <td data-label="Buyurtma">{w.order_code || "—"}</td>
+                      <td data-label="Holat">{w.status === "paid" ? "To'langan" : (w.status === "partial" ? "Qisman" : "Qarz")}</td>
                       <td className="sticky-actions" data-label="Amallar">
                         <button type="button" className="btn-ghost btn-sm" onClick={function () {
                           openDoc(w.id, "html").catch(function (e) { setMsg({ text: e.message, type: "err" }); });

@@ -331,6 +331,9 @@ test('migration is additive', () => {
   assert.match(sql5, /ADD COLUMN IF NOT EXISTS idempotency_key/);
   assert.match(sql5, /agents_ui_enabled/);
   assert.match(sql5, /ALTER COLUMN agent_id DROP NOT NULL/);
+  assert.match(sql5, /stock_posted/);
+  assert.match(sql, /stock_posted/);
+  assert.match(schema, /stock_posted/);
   [sql, sql5].forEach(function (text) {
     assert.doesNotMatch(text, /\bDROP\s+TABLE\b/i);
     assert.doesNotMatch(text, /\bDROP\s+COLUMN\b/i);
@@ -344,6 +347,15 @@ test('migration is additive', () => {
   assert.match(server, /AGENT_CORS_ORIGINS/);
   assert.match(server, /\/api\/agent\/admin/);
   assert.match(server, /routes-agent/);
+  assert.match(server, /stock_posted/);
+  const stockRoutes = fs.readFileSync(path.join(root, 'routes-stock.js'), 'utf8');
+  assert.match(stockRoutes, /yuk_tarqatish_bugun/);
+  assert.match(stockRoutes, /stock_posted = true/);
+  const sales = fs.readFileSync(path.join(root, 'routes-sales.js'), 'utf8');
+  assert.doesNotMatch(sales, /waybills/);
+  const adminHtml = fs.readFileSync(path.join(root, 'public/admin.html'), 'utf8');
+  assert.match(adminHtml, /Yuk tarqatish/);
+  assert.doesNotMatch(adminHtml, /Dala savdosi/);
 });
 
 test('service scopes customers, computes money, and blocks over-withdrawal', async () => {
@@ -547,7 +559,7 @@ test('HTTP auth, admin key, and server-side total', async () => {
   }
 });
 
-test('admin yuk xati links one order, reduces stock once, and ignores commission', async () => {
+test('admin yuk xati is not an order, reduces stock once, and ignores commission', async () => {
   const seeded = createMemoryStore();
   const catalog = [{ id: 3, sku: '1kg', price: 1000, is_active: true }];
   seeded.getActiveProductsByIds = async (ids) =>
@@ -563,23 +575,23 @@ test('admin yuk xati links one order, reduces stock once, and ignores commission
   };
   const first = await service.createAdminWaybill(body);
   assert.equal(first.agent_id, null);
+  assert.equal(first.order_id, null);
+  assert.equal(first.stock_posted, true);
   assert.equal(Number(first.total_amount), 2000);
   assert.equal(Number(first.debt_amount), 1500);
   assert.equal(Number(first.commission_amount), 0);
   assert.equal(first.items[0].commission, 0);
-  assert.equal(first.order.source, 'yuk_xati');
-  assert.equal(first.order.status, 'partial');
-  assert.equal(Number(first.order.debt_amount), 1500);
   assert.equal(seeded.stockCheckCount(), 1);
-  assert.equal((await seeded.listOrders()).length, 1);
+  assert.equal((await seeded.listOrders()).length, 0);
   assert.equal(seeded.stockSnapshot()['3'], 8);
   assert.equal((await seeded.listErpPayments()).length, 1);
+  assert.equal((await seeded.listErpPayments())[0].order_id, null);
 
   const again = await service.createAdminWaybill(body);
   assert.equal(again.replay, true);
-  assert.equal(again.order_id, first.order_id);
+  assert.equal(again.id, first.id);
   assert.equal(seeded.stockCheckCount(), 1);
-  assert.equal((await seeded.listOrders()).length, 1);
+  assert.equal((await seeded.listOrders()).length, 0);
   assert.equal(seeded.stockSnapshot()['3'], 8);
   assert.equal((await seeded.listErpPayments()).length, 1);
 
@@ -593,7 +605,7 @@ test('admin yuk xati links one order, reduces stock once, and ignores commission
     }),
     /Zaxira/
   );
-  assert.equal((await seeded.listOrders()).length, 1);
+  assert.equal((await seeded.listOrders()).length, 0);
 
   seeded.checkCredit = async function () {
     return { ok: false, error: 'Nasiya limiti yetarli emas' };
@@ -608,7 +620,7 @@ test('admin yuk xati links one order, reduces stock once, and ignores commission
     }),
     /Nasiya/
   );
-  assert.equal((await seeded.listOrders()).length, 1);
+  assert.equal((await seeded.listOrders()).length, 0);
   delete seeded.checkCredit;
 
   await assert.rejects(
@@ -618,12 +630,10 @@ test('admin yuk xati links one order, reduces stock once, and ignores commission
   const paid = await service.recordAdminPayment(first.id, { amount: 1500, note: 'naqd' });
   assert.equal(Number(paid.debt_amount), 0);
   assert.equal(paid.status, 'paid');
-  const orders = await seeded.listOrders();
-  assert.equal(orders[0].status, 'paid');
-  assert.equal(Number(orders[0].debt_amount), 0);
-  assert.equal(Number(orders[0].paid_amount), 2000);
+  assert.equal((await seeded.listOrders()).length, 0);
   const cash = await seeded.listErpPayments();
   assert.equal(cash.length, 2);
+  assert.equal(cash.every((p) => p.order_id == null), true);
   assert.equal(cash.reduce((s, p) => s + Number(p.amount), 0), 2000);
   const agentPays = await seeded.listDebtPayments(1);
   assert.equal(agentPays.length, 0);
@@ -681,8 +691,9 @@ test('admin waybill HTTP accepts admin key or telegram admin', async () => {
     });
     assert.equal(tg.status, 201);
     assert.equal(tg.data.data.agent_id, null);
+    assert.equal(tg.data.data.order_id, null);
     assert.equal(Number(tg.data.data.commission_amount), 0);
-    assert.match(tg.data.data.order_code, /^ORD-/);
+    assert.equal(tg.data.data.stock_posted, true);
     const replay = await call('/api/agent/admin/waybills', {
       method: 'POST',
       headers: { 'x-admin-key': 'secret-admin' },
@@ -693,8 +704,8 @@ test('admin waybill HTTP accepts admin key or telegram admin', async () => {
       },
     });
     assert.equal(replay.status, 200);
-    assert.equal(replay.data.data.order_id, tg.data.data.order_id);
-    assert.equal((await seeded.listOrders()).length, 1);
+    assert.equal(replay.data.data.id, tg.data.data.id);
+    assert.equal((await seeded.listOrders()).length, 0);
     const html = await call('/api/agent/admin/waybills/' + tg.data.data.id + '/nakladnoy', {
       headers: { 'x-admin-key': 'secret-admin' },
     });
