@@ -12,6 +12,7 @@ const { createAgentService } = require('../lib/agent-service');
 const { createMemoryStore } = require('./memory-agent-store');
 const registerAgentRoutes = require('../routes-agent');
 const { runImport } = require('../scripts/import-mini-app');
+const cleanup = require('../scripts/cleanup-test-data');
 const { sendNakladnoyPdf } = require('../lib/send-nakladnoy');
 
 const TOKEN = 'test-bot-token';
@@ -278,7 +279,7 @@ test('apply import writes only inside a transaction and has no deletes', async (
   assert.equal(dry.wrote, false);
   assert.equal(calls.length, 0);
   assert.match(logs[0], /DRY-RUN/);
-  assert.match(logs.join('\n'), /ombor/);
+  assert.match(logs.join('\n'), /ombor/i);
 
   calls.length = 0;
   const applied = await runImport({
@@ -302,8 +303,46 @@ test('apply import writes only inside a transaction and has no deletes', async (
   assert.doesNotMatch(blob, /INSERT INTO orders/i);
   const waybillAt = calls.findIndex(function (sql) { return /INSERT INTO waybills/i.test(sql); });
   assert.equal(paramsLog[waybillAt][1], null);
+  assert.equal(paramsLog[waybillAt][4], 100);
+  assert.equal(paramsLog[waybillAt][5], 400);
+  assert.match(calls[waybillAt], /stock_posted/);
+  assert.match(calls[waybillAt], /false/);
+  assert.match(blob, /INSERT INTO payments/);
   const customerAt = calls.findIndex(function (sql) { return /INSERT INTO customers/i.test(sql); });
   assert.match(calls[customerAt], /NULL/);
+});
+
+test('import apply stops when a store debt does not reconcile', async () => {
+  const calls = [];
+  const erpClient = {
+    async query(sql) {
+      calls.push(sql);
+      return { rows: [] };
+    },
+  };
+  const mini = {
+    profiles: [],
+    stores: [{ id: 's1', name: 'Do\'kon', phone: '901112233' }],
+    products: [],
+    orders: [{ id: 9, store_id: 's1', total_amount: 1000, paid_amount: 200, debt_amount: 1000 }],
+    order_items: [],
+    debt_payments: [{ id: 3, store_id: 's1', amount: 200 }],
+    commission_events: [],
+    commission_withdrawals: [],
+    access_requests: [],
+  };
+  await assert.rejects(
+    () => runImport({
+      apply: true,
+      mini: mini,
+      erp: { customers: [], products: [] },
+      links: {},
+      erpClient: erpClient,
+      log: () => {},
+    }),
+    /Qarz farqi/
+  );
+  assert.equal(calls.length, 0);
 });
 
 test('migration is additive', () => {
@@ -311,6 +350,8 @@ test('migration is additive', () => {
   const sql = sqlRaw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--.*$/gm, '');
   const sql5raw = fs.readFileSync(path.join(root, 'migrations/005_admin_waybills.sql'), 'utf8');
   const sql5 = sql5raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--.*$/gm, '');
+  const sql6raw = fs.readFileSync(path.join(root, 'migrations/006_reys.sql'), 'utf8');
+  const sql6 = sql6raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--.*$/gm, '');
   const schema = fs.readFileSync(path.join(root, 'schema.sql'), 'utf8');
   assert.match(sql, /CREATE TABLE IF NOT EXISTS agents/);
   assert.match(sql, /CREATE TABLE IF NOT EXISTS waybills/);
@@ -334,7 +375,13 @@ test('migration is additive', () => {
   assert.match(sql5, /stock_posted/);
   assert.match(sql, /stock_posted/);
   assert.match(schema, /stock_posted/);
-  [sql, sql5].forEach(function (text) {
+  assert.match(sql6, /CREATE TABLE IF NOT EXISTS reyslar/);
+  assert.match(sql6, /CREATE TABLE IF NOT EXISTS reys_items/);
+  assert.match(sql6, /CREATE TABLE IF NOT EXISTS archived_rows/);
+  assert.match(sql6, /ADD COLUMN IF NOT EXISTS reys_id/);
+  assert.match(schema, /CREATE TABLE IF NOT EXISTS reyslar/);
+  assert.match(schema, /archived_rows/);
+  [sql, sql5, sql6].forEach(function (text) {
     assert.doesNotMatch(text, /\bDROP\s+TABLE\b/i);
     assert.doesNotMatch(text, /\bDROP\s+COLUMN\b/i);
     assert.doesNotMatch(text, /\bTRUNCATE\b/i);
@@ -348,14 +395,23 @@ test('migration is additive', () => {
   assert.match(server, /\/api\/agent\/admin/);
   assert.match(server, /routes-agent/);
   assert.match(server, /stock_posted/);
+  assert.match(server, /reys_items/);
   const stockRoutes = fs.readFileSync(path.join(root, 'routes-stock.js'), 'utf8');
   assert.match(stockRoutes, /yuk_tarqatish_bugun/);
   assert.match(stockRoutes, /stock_posted = true/);
+  assert.match(stockRoutes, /yolda_qty/);
+  assert.match(stockRoutes, /reys_id IS NOT NULL/);
   const sales = fs.readFileSync(path.join(root, 'routes-sales.js'), 'utf8');
   assert.doesNotMatch(sales, /waybills/);
   const adminHtml = fs.readFileSync(path.join(root, 'public/admin.html'), 'utf8');
   assert.match(adminHtml, /Yuk tarqatish/);
+  assert.match(adminHtml, /Yo'lda/);
   assert.doesNotMatch(adminHtml, /Dala savdosi/);
+  const panel = fs.readFileSync(path.join(root, 'public/admin-v2-components.jsx'), 'utf8');
+  assert.match(panel, /Reysni boshlash/);
+  assert.match(panel, /Yuklandi/);
+  assert.match(panel, /Qaytdi/);
+  assert.doesNotMatch(panel, /Dala savdosi/);
 });
 
 test('service scopes customers, computes money, and blocks over-withdrawal', async () => {
@@ -748,4 +804,188 @@ test('send nakladnoy posts the PDF and refuses a missing chat', async () => {
   assert.equal(seen.url, 'https://api.telegram.org/bottok/sendDocument');
   assert.equal(typeof seen.body.get, 'function');
   await assert.rejects(() => sendNakladnoyPdf({ token: 'tok', chatId: '', pdf: Buffer.from('x') }), /Telegram ID/);
+});
+
+test('reys moves stock to the road and a yuk xati on it does not touch ombor again', async () => {
+  const seeded = createMemoryStore();
+  const catalog = [{ id: 3, sku: '1kg', price: 1000, is_active: true }];
+  seeded.getActiveProductsByIds = async (ids) =>
+    catalog.filter((p) => (ids || []).map(String).includes(String(p.id)));
+  const customer = await seeded.insertPlainCustomer({ name: 'Chorsu', phone: '901112233' });
+  await seeded.setStock({ 3: 10 });
+  const service = createAgentService(seeded, helpers());
+
+  const trip = await service.startReys({
+    idempotency_key: 'reys-key-1',
+    items: [{ product_id: 3, quantity: 4 }],
+  });
+  assert.equal(trip.status, 'open');
+  assert.equal(trip.summary.yuklandi, 4);
+  assert.equal(trip.summary.sotildi, 0);
+  assert.equal(trip.summary.qaytdi, 0);
+  assert.equal(trip.summary.yolda, 4);
+  assert.equal(seeded.stockSnapshot()['3'], 6);
+
+  const again = await service.startReys({ idempotency_key: 'reys-key-1', items: [{ product_id: 3, quantity: 4 }] });
+  assert.equal(again.replay, true);
+  assert.equal(again.id, trip.id);
+  assert.equal(seeded.stockSnapshot()['3'], 6);
+  await assert.rejects(
+    () => service.startReys({ idempotency_key: 'reys-key-2', items: [{ product_id: 3, quantity: 1 }] }),
+    /Ochiq reys/
+  );
+
+  const onTrip = await service.createAdminWaybill({
+    customer_id: customer.id,
+    reys_id: trip.id,
+    paid_amount: 1000,
+    idempotency_key: 'trip-bill',
+    items: [{ product_id: 3, quantity: 2, price: 1000 }],
+  });
+  assert.equal(onTrip.stock_posted, false);
+  assert.equal(onTrip.reys_id, trip.id);
+  assert.equal(onTrip.order_id, null);
+  assert.equal(seeded.stockSnapshot()['3'], 6);
+  assert.equal((await seeded.listOrders()).length, 0);
+
+  await assert.rejects(
+    () => service.createAdminWaybill({
+      customer_id: customer.id,
+      reys_id: trip.id,
+      paid_amount: 0,
+      idempotency_key: 'trip-over',
+      items: [{ product_id: 3, quantity: 3, price: 1000 }],
+    }),
+    /yuki yetarli emas/
+  );
+  assert.equal(seeded.stockSnapshot()['3'], 6);
+
+  const direct = await service.createAdminWaybill({
+    customer_id: customer.id,
+    paid_amount: 0,
+    idempotency_key: 'direct-bill',
+    items: [{ product_id: 3, quantity: 1, price: 1000 }],
+  });
+  assert.equal(direct.stock_posted, true);
+  assert.equal(direct.reys_id, null);
+  assert.equal(seeded.stockSnapshot()['3'], 5);
+
+  const open = await service.getReys(trip.id);
+  assert.equal(open.summary.sotildi, 2);
+  assert.equal(open.summary.yolda, 2);
+  assert.equal(open.summary.tushum, 1000);
+  assert.equal(open.summary.qarz, 1000);
+
+  const closed = await service.closeReys(trip.id);
+  assert.equal(closed.status, 'closed');
+  assert.equal(closed.summary.qaytdi, 2);
+  assert.equal(closed.summary.yolda, 0);
+  assert.equal(seeded.stockSnapshot()['3'], 7);
+  const closedAgain = await service.closeReys(trip.id);
+  assert.equal(closedAgain.replay, true);
+  assert.equal(seeded.stockSnapshot()['3'], 7);
+  await assert.rejects(
+    () => service.createAdminWaybill({
+      customer_id: customer.id,
+      reys_id: trip.id,
+      paid_amount: 0,
+      idempotency_key: 'after-close',
+      items: [{ product_id: 3, quantity: 1, price: 1000 }],
+    }),
+    /yopilgan/
+  );
+});
+
+test('cleanup lists test debts and archives only confirmed ids', async () => {
+  const rows = {
+    orders: [{ id: 1, order_code: 'ORD-1', customer_id: 4, customer_name: 'Chorsu', status: 'confirmed', total_amount: 1000, paid_amount: 0, debt_amount: 1000 }],
+    payments: [{ id: 5, order_id: 1, customer_id: 4, amount: 200, method: 'cash' }],
+    shipments: [{ id: 3, shipment_code: 'SH-1', sku: '1kg', qty: 10, status: 'given' }],
+    waybills: [{ id: 2, waybill_code: 'YX-1', customer_id: 4, debt_amount: 50, stock_posted: true, reys_id: null }],
+    order_items: [{ id: 9, order_id: 1, qty: 1 }],
+    waybill_items: [{ id: 8, waybill_id: 2, quantity: 1 }],
+  };
+  function clientFor(state) {
+    const calls = [];
+    return {
+      calls: calls,
+      async query(sql, params) {
+        calls.push(sql);
+        if (/^BEGIN/.test(sql) || /^COMMIT/.test(sql) || /^ROLLBACK/.test(sql)) return { rows: [] };
+        if (/INSERT INTO archived_rows/.test(sql)) return { rows: [] };
+        if (/^DELETE FROM/.test(sql)) return { rows: [] };
+        if (/FROM orders WHERE id = ANY/.test(sql)) {
+          return { rows: state.orders.filter((r) => params[0].includes(r.id)) };
+        }
+        if (/FROM payments WHERE id = ANY/.test(sql)) {
+          return { rows: state.payments.filter((r) => params[0].includes(r.id)) };
+        }
+        if (/FROM shipments WHERE id = ANY/.test(sql)) {
+          return { rows: state.shipments.filter((r) => params[0].includes(r.id)) };
+        }
+        if (/FROM waybills WHERE id = ANY/.test(sql)) {
+          return { rows: state.waybills.filter((r) => params[0].includes(Number(r.id))) };
+        }
+        if (/FROM payments WHERE order_id = ANY/.test(sql)) {
+          return { rows: state.payments.filter((r) => params[0].includes(r.order_id)) };
+        }
+        if (/FROM waybills WHERE order_id = ANY/.test(sql)) return { rows: [] };
+        if (/FROM order_items/.test(sql)) return { rows: state.order_items };
+        if (/FROM waybill_items/.test(sql)) return { rows: state.waybill_items };
+        if (/agent_debt_allocations/.test(sql) || /agent_commission_events/.test(sql)) return { rows: [] };
+        if (/FROM orders ORDER BY id/.test(sql)) return { rows: state.orders };
+        if (/FROM payments ORDER BY id/.test(sql)) return { rows: state.payments };
+        if (/FROM shipments ORDER BY id/.test(sql)) return { rows: state.shipments };
+        if (/FROM waybills ORDER BY id/.test(sql)) return { rows: state.waybills };
+        if (/FROM customers/.test(sql)) {
+          return { rows: [{ id: 4, name: 'Chorsu', phone: '901', order_debt: 1000 }] };
+        }
+        if (/FROM waybills WHERE debt_amount/.test(sql)) return { rows: [{ customer_id: 4, debt: 50 }] };
+        return { rows: [] };
+      },
+    };
+  }
+
+  const dryClient = clientFor(rows);
+  const logs = [];
+  const dry = await cleanup.runCleanup({ apply: false, client: dryClient, log: (line) => logs.push(line) });
+  assert.equal(dry.wrote, false);
+  assert.match(logs[0], /DRY-RUN/);
+  assert.match(logs.join('\n'), /ORD-1/);
+  assert.match(logs.join('\n'), /buyurtma=1000/);
+  assert.doesNotMatch(dryClient.calls.join('\n'), /\bDELETE\b/i);
+  assert.equal(cleanup.parseIds(JSON.parse(logs.filter((l) => l.startsWith('{'))[0])).orders[0], 1);
+  await assert.rejects(() => cleanup.runCleanup({ apply: true, client: dryClient }), /--ids/);
+
+  const applyClient = clientFor(rows);
+  const applied = await cleanup.runCleanup({
+    apply: true,
+    ids: { orders: [1], payments: [5], shipments: [3], waybills: [2] },
+    client: applyClient,
+    log: () => {},
+  });
+  assert.equal(applied.wrote, true);
+  const blob = applyClient.calls.join('\n');
+  assert.match(blob, /^BEGIN/);
+  assert.match(blob, /COMMIT/);
+  const firstDelete = applyClient.calls.findIndex((sql) => /^DELETE FROM/.test(sql));
+  const lastArchive = applyClient.calls.reduce(function (at, sql, i) {
+    return /INSERT INTO archived_rows/.test(sql) ? i : at;
+  }, -1);
+  assert.ok(lastArchive >= 0 && lastArchive < firstDelete);
+  assert.match(blob, /DELETE FROM orders/);
+  assert.doesNotMatch(blob, /DELETE FROM customers/);
+
+  const missing = clientFor(rows);
+  await assert.rejects(
+    () => cleanup.runCleanup({
+      apply: true,
+      ids: { orders: [99], payments: [], shipments: [], waybills: [] },
+      client: missing,
+      log: () => {},
+    }),
+    /topilmadi/
+  );
+  assert.match(missing.calls.join('\n'), /ROLLBACK/);
+  assert.doesNotMatch(missing.calls.join('\n'), /COMMIT/);
 });

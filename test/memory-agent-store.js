@@ -24,6 +24,8 @@ function blank() {
     erpPayments: [],
     stock: null,
     stockChecks: [],
+    reyslar: [],
+    reysItems: [],
     seq: {
       agent: 1,
       request: 1,
@@ -36,6 +38,8 @@ function blank() {
       withdrawal: 1,
       order: 1,
       erpPayment: 1,
+      reys: 1,
+      reysItem: 1,
     },
   };
 }
@@ -170,6 +174,7 @@ function createMemoryStore(initial) {
         idempotency_key: input.idempotencyKey || null,
         order_id: null,
         order_code: null,
+        reys_id: input.reysId != null ? input.reysId : null,
         stock_posted: input.stockPosted === true,
         created_at: new Date().toISOString(),
         customer_name: (state.customers.find((c) => same(c.id, input.customerId)) || {}).name || null,
@@ -193,7 +198,7 @@ function createMemoryStore(initial) {
           created_at: waybill.created_at,
         });
       }
-      if (waybill.stock_posted && state.stock) {
+      if (waybill.stock_posted && !waybill.reys_id && state.stock) {
         d.items.forEach(function (it) {
           const k = String(it.product_id);
           state.stock[k] = Number(state.stock[k] || 0) - Number(it.quantity);
@@ -202,6 +207,86 @@ function createMemoryStore(initial) {
       waybill.items = items;
       waybill.commission_earned_now = Number(input.commissionNow) || 0;
       return waybill;
+    },
+
+    async findReysByIdempotency(key) {
+      if (!key) return null;
+      return state.reyslar.find((r) => r.idempotency_key && same(r.idempotency_key, key)) || null;
+    },
+
+    async findOpenReys() {
+      const open = state.reyslar.filter((r) => r.status === 'open');
+      return open.length ? open[open.length - 1] : null;
+    },
+
+    async lockReys(reysId) {
+      return state.reyslar.find((r) => same(r.id, reysId)) || null;
+    },
+
+    async getReys(reysId) {
+      return state.reyslar.find((r) => same(r.id, reysId)) || null;
+    },
+
+    async listReyslar() {
+      return state.reyslar.slice().sort((a, b) => b.id - a.id);
+    },
+
+    async listReysItems(reysId) {
+      return state.reysItems.filter((it) => same(it.reys_id, reysId));
+    },
+
+    async listWaybillsByReys(reysId) {
+      return state.waybills.filter((w) => same(w.reys_id, reysId)).map(withItems);
+    },
+
+    async saveReys(input) {
+      const reys = {
+        id: next('reys'),
+        reys_code: input.code,
+        status: 'open',
+        note: input.note || null,
+        idempotency_key: input.idempotencyKey || null,
+        loaded_at: new Date().toISOString(),
+        closed_at: null,
+      };
+      state.reyslar.push(reys);
+      (input.lines || []).forEach((line) => {
+        const row = {
+          id: next('reysItem'),
+          reys_id: reys.id,
+          product_id: line.product_id,
+          sku: line.sku || '',
+          loaded_qty: line.quantity,
+          returned_qty: 0,
+        };
+        state.reysItems.push(row);
+        if (state.stock) {
+          const k = String(line.product_id);
+          state.stock[k] = Number(state.stock[k] || 0) - Number(line.quantity);
+        }
+      });
+      return reys;
+    },
+
+    async setReturnedQty(itemId, qty) {
+      const row = state.reysItems.find((it) => same(it.id, itemId));
+      if (!row) return null;
+      const prev = Number(row.returned_qty || 0);
+      const nextQty = Number(qty || 0);
+      row.returned_qty = nextQty;
+      if (state.stock) {
+        const k = String(row.product_id);
+        state.stock[k] = Number(state.stock[k] || 0) + (nextQty - prev);
+      }
+      return row;
+    },
+
+    async markReysClosed(reysId) {
+      const reys = state.reyslar.find((r) => same(r.id, reysId) && r.status === 'open');
+      if (!reys) return null;
+      reys.status = 'closed';
+      reys.closed_at = new Date().toISOString();
+      return reys;
     },
 
     async insertFieldPayment(input) {

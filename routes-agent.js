@@ -43,7 +43,7 @@ module.exports = function registerAgentRoutes(app, pool, helpers, options) {
   function sendAgentError(res, err) {
     if (err && (err.code === '42P01' || err.code === '42703')) {
       err.status = 503;
-      err.message = 'Agent jadvallari yo\'q. migrations/004 va 005 ni qo\'llang.';
+      err.message = 'Agent jadvallari yo\'q. migrations/004, 005 va 006 ni qo\'llang.';
     }
     sendError(res, err);
   }
@@ -374,6 +374,50 @@ module.exports = function registerAgentRoutes(app, pool, helpers, options) {
   function safeCode(code) {
     return String(code || 'xat').replace(/[^A-Za-z0-9._-]+/g, '_');
   }
+
+  app.get('/api/agent/admin/reyslar', async (req, res) => {
+    if (!adminAllowed(req, res)) return;
+    try {
+      const data = await service.listReyslar();
+      res.json({ ok: true, count: data.length, data: data });
+    } catch (err) {
+      sendAgentError(res, err);
+    }
+  });
+
+  app.post('/api/agent/admin/reyslar', async (req, res) => {
+    if (!adminAllowed(req, res)) return;
+    try {
+      const data = await service.startReys(req.body || {});
+      res.status(data && data.replay ? 200 : 201).json({ ok: true, data: data });
+    } catch (err) {
+      sendAgentError(res, err);
+    }
+  });
+
+  app.post('/api/agent/admin/reyslar/:id/close', async (req, res) => {
+    if (!adminAllowed(req, res)) return;
+    const id = idParam(req, res);
+    if (!id) return;
+    try {
+      const data = await service.closeReys(id);
+      res.json({ ok: true, data: data });
+    } catch (err) {
+      sendAgentError(res, err);
+    }
+  });
+
+  app.get('/api/agent/admin/reyslar/:id', async (req, res) => {
+    if (!adminAllowed(req, res)) return;
+    const id = idParam(req, res);
+    if (!id) return;
+    try {
+      const data = await service.getReys(id);
+      res.json({ ok: true, data: data });
+    } catch (err) {
+      sendAgentError(res, err);
+    }
+  });
 
   app.post('/api/agent/admin/waybills', async (req, res) => {
     if (!adminAllowed(req, res)) return;

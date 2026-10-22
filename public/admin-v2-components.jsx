@@ -878,21 +878,34 @@
     const [busy, setBusy] = useState(false);
     const [payFor, setPayFor] = useState(null);
     const [payAmount, setPayAmount] = useState("");
+    const [trips, setTrips] = useState([]);
+    const [reysId, setReysId] = useState("");
+    const [reysTouched, setReysTouched] = useState(false);
+    const [loadLines, setLoadLines] = useState([{ product_id: "", quantity: "1" }]);
+    const [reysNote, setReysNote] = useState("");
     const idemRef = useRef("");
+    const reysKey = useRef("");
 
     const load = useCallback(function () {
       Promise.all([
         api("/api/customers"),
         api("/api/products"),
-        api("/api/agent/admin/waybills?scope=admin")
+        api("/api/agent/admin/waybills?scope=admin"),
+        api("/api/agent/admin/reyslar").catch(function () { return { data: [] }; })
       ]).then(function (arr) {
         const cust = (arr[0].data || []).filter(function (c) { return c.is_active !== false; });
         setCustomers(cust);
         setProducts((arr[1].data || []).filter(function (p) { return p.is_active !== false; }));
         setRows(arr[2].data || []);
+        const list = arr[3].data || [];
+        setTrips(list);
         setErr("");
+        if (!reysTouched) {
+          const open = list.filter(function (t) { return t.status === "open"; })[0];
+          setReysId(open ? String(open.id) : "");
+        }
       }).catch(function (e) { setErr(e.message); });
-    }, [api]);
+    }, [api, reysTouched]);
 
     useEffect(function () { load(); }, [load]);
 
@@ -967,19 +980,26 @@
             price: unitPrice(line)
           };
         });
+        const payload = {
+          customer_id: Number(customerId),
+          paid_amount: paidN,
+          due_date: due || null,
+          note: note || null,
+          items: items,
+          idempotency_key: idemRef.current
+        };
+        if (reysId) payload.reys_id = Number(reysId);
         await api("/api/agent/admin/waybills", {
           method: "POST",
-          body: JSON.stringify({
-            customer_id: Number(customerId),
-            paid_amount: paidN,
-            due_date: due || null,
-            note: note || null,
-            items: items,
-            idempotency_key: idemRef.current
-          })
+          body: JSON.stringify(payload)
         });
         idemRef.current = "";
-        setMsg({ text: "Yuk xati yozildi. Ombor shu savdo bilan kamaydi.", type: "ok" });
+        setMsg({
+          text: reysId
+            ? "Yuk xati yozildi. Reys yukidan ayirildi."
+            : "Yuk xati yozildi. Ombor shu savdo bilan kamaydi.",
+          type: "ok"
+        });
         setLines([{ product_id: "", quantity: "1", price: "" }]);
         setPaid("0");
         setDue("");
@@ -1024,15 +1044,159 @@
       }
     }
 
+    const openTrip = trips.filter(function (t) { return t.status === "open"; })[0] || null;
+    const closedTrips = trips.filter(function (t) { return t.status !== "open"; });
+
+    function setLoadLine(index, patch) {
+      setLoadLines(function (prev) {
+        return prev.map(function (line, i) { return i === index ? Object.assign({}, line, patch) : line; });
+      });
+    }
+
+    async function startTrip(e) {
+      e.preventDefault();
+      if (busy) return;
+      if (!reysKey.current) {
+        reysKey.current = "reys-" + Date.now().toString(36) + "-" + Math.random().toString(16).slice(2, 10);
+      }
+      setBusy(true);
+      try {
+        const items = loadLines.filter(function (line) { return line.product_id && Number(line.quantity) > 0; }).map(function (line) {
+          return { product_id: Number(line.product_id), quantity: Number(line.quantity) };
+        });
+        const created = await api("/api/agent/admin/reyslar", {
+          method: "POST",
+          body: JSON.stringify({ items: items, note: reysNote || null, idempotency_key: reysKey.current })
+        });
+        reysKey.current = "";
+        setLoadLines([{ product_id: "", quantity: "1" }]);
+        setReysNote("");
+        if (created.data && created.data.id) {
+          setReysTouched(true);
+          setReysId(String(created.data.id));
+        }
+        setMsg({ text: "Reys boshlandi. Yuk ombordan yo'lga chiqdi.", type: "ok" });
+        load();
+      } catch (error) {
+        setMsg({ text: error.message, type: "err" });
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function closeTrip(trip) {
+      if (busy || !trip) return;
+      if (!window.confirm("Qolgan yuk omborga qaytadi. Reysni yopasizmi?")) return;
+      setBusy(true);
+      try {
+        await api("/api/agent/admin/reyslar/" + trip.id + "/close", { method: "POST", body: "{}" });
+        setReysTouched(true);
+        setReysId("");
+        setMsg({ text: "Reys yopildi. Qoldiq omborga qaytdi.", type: "ok" });
+        load();
+      } catch (error) {
+        setMsg({ text: error.message, type: "err" });
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function TripSummary(props) {
+      const s = props.trip.summary || {};
+      return (
+        <div>
+          <p className="muted">{props.trip.reys_code} · {props.trip.status === "open" ? "Yo'lda" : "Yopilgan"}</p>
+          <p>Yuklandi {s.yuklandi || 0} · Sotildi {s.sotildi || 0} · Qaytdi {s.qaytdi || 0} · Yo'lda {s.yolda || 0}</p>
+          <p>Tushum {money(s.tushum)} · Qarz {money(s.qarz)}</p>
+          {(s.lines || []).length ? (
+            <div className="table-wrap list-dense"><table>
+              <thead><tr><th>Mahsulot</th><th>Yuklandi</th><th>Sotildi</th><th>Qaytdi</th><th>Yo'lda</th></tr></thead>
+              <tbody>
+                {s.lines.map(function (line) {
+                  return (
+                    <tr key={line.product_id}>
+                      <td data-label="Mahsulot">{line.sku || ("#" + line.product_id)}</td>
+                      <td data-label="Yuklandi">{line.loaded_qty}</td>
+                      <td data-label="Sotildi">{line.sold_qty}</td>
+                      <td data-label="Qaytdi">{line.returned_qty}</td>
+                      <td data-label="Yo'lda">{line.yolda_qty}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table></div>
+          ) : null}
+        </div>
+      );
+    }
+
     return (
       <div>
         <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
         <div className="card">
+          <h2>Reys</h2>
+          <p className="muted">Yukni ombordan yo'lga chiqaring. Shu reysdagi yuk xati shu yukdan ayiriladi. Yopilganda qolgani omborga qaytadi. Reyssiz yuk xati ham yoziladi.</p>
+          {openTrip ? (
+            <div>
+              <TripSummary trip={openTrip} />
+              <button type="button" className="btn" disabled={busy} onClick={function () { closeTrip(openTrip); }}>Reysni yopish</button>
+            </div>
+          ) : (
+            <form onSubmit={startTrip}>
+              {loadLines.map(function (line, index) {
+                return (
+                  <div className="form-row" key={index}>
+                    <div>
+                      <label>Mahsulot *</label>
+                      <select value={line.product_id} onChange={function (e) { setLoadLine(index, { product_id: e.target.value }); }} required={index === 0}>
+                        <option value="">Tanlang</option>
+                        {products.map(function (p) {
+                          return <option key={p.id} value={p.id}>{p.sku}</option>;
+                        })}
+                      </select>
+                    </div>
+                    <div>
+                      <label>Yuklandi</label>
+                      <input type="number" min="1" step="1" value={line.quantity} onChange={function (e) { setLoadLine(index, { quantity: e.target.value }); }} />
+                    </div>
+                  </div>
+                );
+              })}
+              <button type="button" className="btn-ghost btn-sm" onClick={function () {
+                setLoadLines(function (prev) { return prev.concat([{ product_id: "", quantity: "1" }]); });
+              }}>Mahsulot qo'shish</button>
+              <div className="form-row">
+                <div>
+                  <label>Izoh</label>
+                  <input value={reysNote} onChange={function (e) { setReysNote(e.target.value); }} />
+                </div>
+              </div>
+              <button className="btn" type="submit" disabled={busy}>{busy ? "Yozilmoqda..." : "Reysni boshlash"}</button>
+            </form>
+          )}
+          {closedTrips.length ? (
+            <div style={{ marginTop: 12 }}>
+              <h3 style={{ fontSize: "0.9rem" }}>Yopilgan reyslar</h3>
+              {closedTrips.slice(0, 5).map(function (trip) {
+                return <TripSummary key={trip.id} trip={trip} />;
+              })}
+            </div>
+          ) : null}
+        </div>
+        <div className="card">
           <h2>Yuk tarqatish</h2>
-          <p className="muted">Do'konga chiqib yozilgan savdo. Hujjat — yuk xati. Buyurtmalar ro'yxatiga tushmaydi. Tasdiqlangach tayyor mahsulot ombori shu yuk xati bilan bir marta kamayadi. Komissiya yo'q — agentlar hali yo'q. Reys (yuklab chiqish va qoldiq qaytarish) keyingi qadam.</p>
+          <p className="muted">Do'konga chiqib yozilgan savdo. Hujjat — yuk xati. Buyurtmalar ro'yxatiga tushmaydi. Reyssiz yuk xati ombordan bir marta kamayadi. Reys ichidagi yuk xati shu reys yukidan ayiriladi, ombordan ikkinchi marta emas.</p>
           {err ? <div className="msg err">{err}</div> : null}
           <form onSubmit={submit}>
             <div className="form-row">
+              <div>
+                <label>Reys</label>
+                <select value={reysId} onChange={function (e) { setReysTouched(true); setReysId(e.target.value); }}>
+                  <option value="">Reyssiz — ombordan</option>
+                  {openTrip ? <option value={String(openTrip.id)}>{openTrip.reys_code} · yo'lda</option> : null}
+                </select>
+                <p className="muted">{reysId ? "Shu reys yukidan ayiriladi." : "Ombordan bir marta kamayadi."}</p>
+              </div>
               <div>
                 <label>Mijoz *</label>
                 <select value={customerId} onChange={function (e) { setCustomerId(e.target.value); }} required>
@@ -1100,7 +1264,7 @@
           {rows.length === 0 ? <V2Empty title="Yuk xati yo'q" sub="Yuqoridagi formadan boshlang." /> : (
             <div className="table-wrap list-dense"><table>
               <thead>
-                <tr><th>Kod</th><th>Mijoz</th><th>Jami</th><th>To'langan</th><th>Qarz</th><th>Holat</th><th></th></tr>
+                <tr><th>Kod</th><th>Mijoz</th><th>Reys</th><th>Jami</th><th>To'langan</th><th>Qarz</th><th>Holat</th><th></th></tr>
               </thead>
               <tbody>
                 {rows.map(function (w) {
@@ -1108,6 +1272,7 @@
                     <tr key={w.id}>
                       <td data-label="Kod">{w.waybill_code}</td>
                       <td data-label="Mijoz">{w.customer_name || "—"}</td>
+                      <td data-label="Reys">{(trips.filter(function (t) { return String(t.id) === String(w.reys_id); })[0] || {}).reys_code || "—"}</td>
                       <td data-label="Jami">{money(w.total_amount)}</td>
                       <td data-label="To'langan">{money(w.paid_amount)}</td>
                       <td data-label="Qarz">{money(w.debt_amount)}</td>

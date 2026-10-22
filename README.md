@@ -19,7 +19,7 @@ Hozir diler/agent yo'q. Admin o'zi **Yuk tarqatish** qiladi: mavjud ERP mijozga 
 
 Tasdiqlangan yuk xati `stock_posted = true` bo'ladi. Tayyor mahsulot qoldig'i shu qatorlar yig'indisidan **bir marta** ayiriladi (ombor hisobi buyurtma qoldig'iga qo'shilmaydi). Bugungi/oylik savdo va mijoz qarzi shu summani qo'shib hisoblaydi. Naqd to'lov `payments` ga yoziladi, `order_id` bo'sh. Bir xil `idempotency_key` ikkinchi yuk xati ochmaydi.
 
-Reys (chiqishda yuklangan miqdor, yo'ldagi yuk xatlar, qaytgan qoldiq) keyingi qadam. Hozir har bir yuk xati o'zi ombordan ayiriladi.
+Reys — Sotuv → Yuk tarqatish ichida. Boshlashda yuk ombordan yo'lga chiqadi. Shu reysdagi yuk xati shu yukdan ayiriladi, ombordan ikkinchi marta emas. Yopilganda qolgani omborga qaytadi. Hisob: yuklandi / sotildi / qaytdi / tushum / qarz. Reyssiz yuk xati avvalgidek ombordan bir marta kamayadi. Bir vaqtda bitta ochiq reys.
 
 Agent jadvallari va `/api/agent/*` kodda qoladi, lekin admin oynasida yashirin. `settings.agents_ui_enabled = 1` bo'lsa Agentlar yorlig'i chiqadi. Komissiya bloki agentlar ro'yxati bo'sh bo'lsa ko'rinmaydi. Admin yuk xatida `agent_id` bo'sh, komissiya 0.
 
@@ -37,13 +37,16 @@ Agent jadvallari va `/api/agent/*` kodda qoladi, lekin admin oynasida yashirin. 
 
 ### Rollout
 
-1. Supabase SQL Editor da ketma-ket ishga tushiring: `migrations/004_agent_field_sales.sql`, keyin `migrations/005_admin_waybills.sql`. Ikkalasi qayta yurishga yaroqli. Mavjud qatorlar o'chirilmaydi, ustunlar qayta nomlanmaydi.
+1. Supabase SQL Editor da ketma-ket ishga tushiring: `migrations/004_agent_field_sales.sql`, `migrations/005_admin_waybills.sql`, `migrations/006_reys.sql`. Hammasi qayta yurishga yaroqli. Mavjud qatorlar o'chirilmaydi, ustunlar qayta nomlanmaydi.
 2. Shu PR merge bo'lgach servisni yangilang. Migratsiyasiz yuk xati endpointlari 503 beradi, qolgan API o'zgarmaydi.
 3. Admin → Sotuv → Yuk tarqatish. Mijoz va mahsulotni tanlang, to'lov va qarzni ko'ring, yuk xatini yozing. Chop etish server HTML ini ochadi. PDF va Telegramga yuborish (mijozda `telegram_id` va bot token bo'lsa) shu yerdan.
 4. Agentlar yorlig'i Sozlama dagi belgi yoqilmaguncha chiqmaydi.
-5. Importni avval dry-run qiling. `--apply` ni dublikatlarni ko'rib chiqqandan keyin. Tarixiy mini-app qatorlari admin mijoz/yuk xati bo'ladi, `stock_posted` false qoladi va joriy omborni o'zgartirmaydi.
+5. Haqiqiy savdo tarixi mini-appda. ERP dagi sinov qarzini avval dry-run bilan ko'ring. `--apply` faqat egasi tasdiqlagan `--ids` fayl bilan, nusxa `archived_rows` ga tushgach, bitta tranzaksiyada o'chiradi. Mijozlar o'chirilmaydi.
+6. Importni avval dry-run qiling. Mini-app buyurtmalari Yuk tarqatish yuk xati bo'ladi, `stock_posted=false`, ombor va Bugun savdosi o'zgarmaydi. Qarz har bir do'kon bo'yicha solishtiriladi. Dublikat `--links` siz yozilmaydi. FARQ bo'lsa `--apply` to'xtaydi (`--accept-debt-as-stored` saqlangan qarzni o'zgartirmaydi).
 
 ```bash
+node scripts/cleanup-test-data.js
+node scripts/cleanup-test-data.js --apply --ids ids.json
 node scripts/import-mini-app.js
 node scripts/import-mini-app.js --apply --links links.json
 ```

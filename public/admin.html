@@ -1843,6 +1843,7 @@
                       <th>Qadoqlangan</th>
                       <th>Sotuv</th>
                       <th>Diler</th>
+                      <th>Yo'lda</th>
                       <th>Qoldiq</th>
                       <th>Qiymat</th>
                     </tr>
@@ -1856,6 +1857,7 @@
                           <td data-label="Qadoqlangan">{Number(s.packed_qty)}</td>
                           <td data-label="Sotuv">{Number(s.sold_qty)}</td>
                           <td data-label="Diler">{Number(s.shipped_qty || 0)}</td>
+                          <td data-label="Yo'lda">{Number(s.yolda_qty || 0)}</td>
                           <td data-label="Qoldiq" className={bal <= 0 ? "neg" : ""}><strong>{bal}</strong></td>
                           <td data-label="Qiymat">{money(s.value)}</td>
                         </tr>
@@ -2080,7 +2082,7 @@
             ) : (
               <div className="table-wrap list-dense"><table>
                 <thead>
-                  <tr><th>Mahsulot</th><th>Qoldiq</th><th>Tannarx</th><th>Sotish</th><th>Foyda/dona</th><th>Ombor tannarx</th><th>Ombor savdo</th><th>Kutilgan foyda</th></tr>
+                  <tr><th>Mahsulot</th><th>Qoldiq</th><th>Yo'lda</th><th>Tannarx</th><th>Sotish</th><th>Foyda/dona</th><th>Ombor tannarx</th><th>Ombor savdo</th><th>Kutilgan foyda</th></tr>
                 </thead>
                 <tbody>
                   {products.map(function (p) {
@@ -2096,6 +2098,7 @@
                           {p.cost_override ? <div className="muted" style={{ fontSize: "0.7rem" }}>qo'lda</div> : null}
                         </td>
                         <td data-label="Qoldiq" className={Number(p.balance_qty) < 0 ? "neg" : ""}><strong>{Number(p.balance_qty)}</strong></td>
+                        <td data-label="Yo'lda">{Number(p.yolda_qty || 0)}</td>
                         <td data-label="Tannarx">{money(cost)}</td>
                         <td data-label="Sotish">{money(line.sale)}</td>
                         <td data-label="Foyda/dona">{money(prof)}</td>
@@ -2110,6 +2113,7 @@
                   <tr className="row-total">
                     <td data-label="Jami">Jami</td>
                     <td data-label="Qoldiq"><strong>{products.reduce(function (a, p) { return a + Number(p.balance_qty || 0); }, 0)}</strong></td>
+                    <td data-label="Yo'lda"><strong>{products.reduce(function (a, p) { return a + Number(p.yolda_qty || 0); }, 0)}</strong></td>
                     <td className="desk-only" colSpan="3"></td>
                     <td data-label="Ombor tannarx"><strong>{money(products.reduce(function (a, p) { return a + stockLine(p).cval; }, 0))}</strong></td>
                     <td data-label="Ombor savdo"><strong>{money(products.reduce(function (a, p) { return a + stockLine(p).sval; }, 0))}</strong></td>

@@ -42,11 +42,68 @@ module.exports = function (app, pool, helpers) {
       costValue: figs.costValue,
       profit_value: figs.profit_value,
       potentialProfit: figs.potentialProfit,
+      yolda_qty: num(s.yolda_qty),
       cost_computed: c.cost_computed,
       cost_override: c.cost_override,
       cost_parts: c.cost_parts
     };
   }
+
+  const skuStockSqlFull = `
+    SELECT
+      p.id, p.sku, p.weight_kg, p.price, p.cost_price, p.is_active,
+      COALESCE(pack.total_qty, 0) AS packed_qty,
+      (COALESCE(sold.sold_qty, 0) + COALESCE(field.field_qty, 0)) AS sold_qty,
+      COALESCE(ship.shipped_qty, 0) AS shipped_qty,
+      COALESCE(yolda.yolda_qty, 0) AS yolda_qty,
+      (COALESCE(pack.total_qty, 0) - COALESCE(sold.sold_qty, 0) - COALESCE(field.field_qty, 0) - COALESCE(ship.shipped_qty, 0) - COALESCE(road.held_qty, 0)) AS balance_qty,
+      (COALESCE(pack.total_qty, 0) - COALESCE(sold.sold_qty, 0) - COALESCE(field.field_qty, 0) - COALESCE(ship.shipped_qty, 0) - COALESCE(road.held_qty, 0)) * p.weight_kg AS balance_kg
+    FROM products p
+    LEFT JOIN (
+      SELECT product_id, SUM(qty) AS total_qty FROM packaging GROUP BY product_id
+    ) pack ON pack.product_id = p.id
+    LEFT JOIN (
+      SELECT oi.product_id, SUM(oi.qty) AS sold_qty
+      FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id
+      WHERE o.status = ANY($1::text[])
+      GROUP BY oi.product_id
+    ) sold ON sold.product_id = p.id
+    LEFT JOIN (
+      SELECT product_id, SUM(qty - COALESCE(returned_qty, 0)) AS shipped_qty
+      FROM shipments
+      WHERE from_type = 'factory'
+      GROUP BY product_id
+    ) ship ON ship.product_id = p.id
+    LEFT JOIN (
+      SELECT wi.product_id, SUM(wi.quantity) AS field_qty
+      FROM waybill_items wi
+      JOIN waybills w ON w.id = wi.waybill_id
+      WHERE w.stock_posted = true AND w.reys_id IS NULL
+      GROUP BY wi.product_id
+    ) field ON field.product_id = p.id
+    LEFT JOIN (
+      SELECT ri.product_id, SUM(ri.loaded_qty - ri.returned_qty) AS held_qty
+      FROM reys_items ri
+      GROUP BY ri.product_id
+    ) road ON road.product_id = p.id
+    LEFT JOIN (
+      SELECT ri.product_id,
+             SUM(ri.loaded_qty - COALESCE(sold_trip.qty, 0)) AS yolda_qty
+      FROM reys_items ri
+      JOIN reyslar r ON r.id = ri.reys_id AND r.status = 'open'
+      LEFT JOIN (
+        SELECT w.reys_id, wi.product_id, SUM(wi.quantity) AS qty
+        FROM waybill_items wi
+        JOIN waybills w ON w.id = wi.waybill_id
+        WHERE w.reys_id IS NOT NULL
+        GROUP BY w.reys_id, wi.product_id
+      ) sold_trip ON sold_trip.reys_id = ri.reys_id AND sold_trip.product_id = ri.product_id
+      GROUP BY ri.product_id
+    ) yolda ON yolda.product_id = p.id
+    WHERE p.is_active = true
+    ORDER BY p.sku
+  `;
 
   const skuStockSql = `
     SELECT
@@ -90,14 +147,17 @@ module.exports = function (app, pool, helpers) {
     .replace(/\s*LEFT JOIN \(\s*SELECT wi\.product_id[\s\S]*?\) field ON field\.product_id = p\.id/, '');
 
   async function querySkuStock() {
-    try {
-      return await pool.query(skuStockSql, [soldList]);
-    } catch (err) {
-      if (err.code === '42P01' || err.code === '42703') {
-        return pool.query(skuStockSqlPlain, [soldList]);
+    const attempts = [skuStockSqlFull, skuStockSql, skuStockSqlPlain];
+    let last;
+    for (let i = 0; i < attempts.length; i++) {
+      try {
+        return await pool.query(attempts[i], [soldList]);
+      } catch (err) {
+        if (err.code !== '42P01' && err.code !== '42703') throw err;
+        last = err;
       }
-      throw err;
     }
+    throw last;
   }
 
   function fieldQuery(sql, params, emptyRow) {
@@ -106,6 +166,18 @@ module.exports = function (app, pool, helpers) {
       function (err) {
         if (err && (err.code === '42P01' || err.code === '42703')) {
           return { rows: emptyRow ? [emptyRow] : [] };
+        }
+        throw err;
+      }
+    );
+  }
+
+  function fieldQueryTiered(wideSql, narrowSql, params, emptyRow) {
+    return pool.query(wideSql, params).then(
+      function (r) { return r; },
+      function (err) {
+        if (err && (err.code === '42P01' || err.code === '42703')) {
+          return fieldQuery(narrowSql, params, emptyRow);
         }
         throw err;
       }
@@ -266,7 +338,11 @@ module.exports = function (app, pool, helpers) {
              AND paid_at < ((date_trunc('month', $1::date) + interval '1 month')::timestamp AT TIME ZONE '${TZ}')`,
           [dayStr]
         ),
-        fieldQuery(
+        fieldQueryTiered(
+          `SELECT COALESCE(SUM(total_amount),0) AS total FROM waybills
+           WHERE (stock_posted = true OR reys_id IS NOT NULL)
+             AND created_at >= ($1::timestamp AT TIME ZONE '${TZ}')
+             AND created_at < ($1::timestamp AT TIME ZONE '${TZ}') + interval '1 day'`,
           `SELECT COALESCE(SUM(total_amount),0) AS total FROM waybills
            WHERE stock_posted = true
              AND created_at >= ($1::timestamp AT TIME ZONE '${TZ}')
@@ -274,7 +350,11 @@ module.exports = function (app, pool, helpers) {
           [dayStr],
           { total: 0 }
         ),
-        fieldQuery(
+        fieldQueryTiered(
+          `SELECT COALESCE(SUM(total_amount),0) AS total FROM waybills
+           WHERE (stock_posted = true OR reys_id IS NOT NULL)
+             AND created_at >= (date_trunc('month', $1::date)::timestamp AT TIME ZONE '${TZ}')
+             AND created_at < ((date_trunc('month', $1::date) + interval '1 month')::timestamp AT TIME ZONE '${TZ}')`,
           `SELECT COALESCE(SUM(total_amount),0) AS total FROM waybills
            WHERE stock_posted = true
              AND created_at >= (date_trunc('month', $1::date)::timestamp AT TIME ZONE '${TZ}')
@@ -287,7 +367,13 @@ module.exports = function (app, pool, helpers) {
           [],
           { total: 0 }
         ),
-        fieldQuery(
+        fieldQueryTiered(
+          `SELECT w.id, w.waybill_code, c.name AS customer_name, w.total_amount, w.paid_amount,
+                  w.debt_amount, w.status, w.created_at
+           FROM waybills w
+           LEFT JOIN customers c ON c.id = w.customer_id
+           WHERE (w.stock_posted = true OR w.reys_id IS NOT NULL)
+           ORDER BY w.id DESC LIMIT 8`,
           `SELECT w.id, w.waybill_code, c.name AS customer_name, w.total_amount, w.paid_amount,
                   w.debt_amount, w.status, w.created_at
            FROM waybills w

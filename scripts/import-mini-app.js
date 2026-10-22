@@ -21,6 +21,7 @@ const { Pool } = require('pg');
 const {
   LEGACY_SOURCE,
   buildImportPlan,
+  reconcileOrders,
 } = require('../lib/import-match');
 
 function poolFor(url) {
@@ -62,6 +63,7 @@ function printPlan(plan, log) {
         '\tjami-tolangan=' + d.reconstructed_unpaid +
         '\ttolovlar=' + d.payments_sum +
         '\tsaqlandi-(jami-tolangan)=' + d.stored_minus_reconstructed +
+        '\tqoladi=' + d.remaining_debt +
         '\t' + d.interpretation
     );
   });
@@ -80,7 +82,9 @@ function printPlan(plan, log) {
     ', mos kelmagan mahsulot ' + plan.counts.unmatched_products
   );
   out('Tasdiqlangan bog\'lash: --links {"stores":{"<uuid>":<customer_id>},"products":{"<uuid>":<product_id>}}');
-  out('Egalik: mijoz va yuk xati adminniki (agent_id bo\'sh). Tarixiy qatorlar ERP buyurtmasi va ombor qoldig\'iga yozilmaydi.');
+  out('Yuk tarqatish tarixi: har bir mini buyurtma yuk xati, stock_posted=false. Omborga va Bugun savdosiga tushmaydi.');
+  out('Egalik: mijoz va yuk xati adminniki (agent_id bo\'sh). Dublikat do\'kon --links siz yozilmaydi.');
+  out('Qarz farqi (FARQ) bo\'lsa --apply to\'xtaydi. Saqlangan qarzni o\'zgartirmasdan yozish: --accept-debt-as-stored');
 }
 
 async function findLegacy(erp, table, legacyId) {
@@ -320,22 +324,26 @@ async function applyImport(erp, mini, plan) {
       waybillId = existing.id;
       skip();
     } else {
+      const moneyRow = (plan.reconciled && plan.reconciled[legacyId]) || {
+        paid_amount: order.paid_amount || 0,
+        debt_amount: order.debt_amount || 0,
+      };
       const ins = await erp.query(
         `INSERT INTO waybills
            (waybill_code, agent_id, customer_id, total_amount, paid_amount, debt_amount,
-            commission_amount, due_date, status, note, legacy_source, legacy_id, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,COALESCE($13, NOW()))
+            commission_amount, due_date, status, note, legacy_source, legacy_id, stock_posted, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,false,COALESCE($13, NOW()))
          RETURNING id`,
         [
           'YX-LEG-' + legacyId,
           null,
           customerIds[storeId],
           order.total_amount || 0,
-          order.paid_amount || 0,
-          order.debt_amount || 0,
+          moneyRow.paid_amount,
+          moneyRow.debt_amount,
           0,
           order.due_date || null,
-          Number(order.debt_amount) > 0 ? (Number(order.paid_amount) > 0 ? 'partial' : 'open') : 'paid',
+          Number(moneyRow.debt_amount) > 0 ? (Number(moneyRow.paid_amount) > 0 ? 'partial' : 'open') : 'paid',
           null,
           LEGACY_SOURCE,
           legacyId,
@@ -414,6 +422,17 @@ async function applyImport(erp, mini, plan) {
     );
     paymentIds[legacyId] = ins.rows[0].id;
     inserted();
+    await erp.query(
+      `INSERT INTO payments (order_id, customer_id, amount, method, note, paid_at)
+       VALUES (NULL,$1,$2,'cash',$3,COALESCE($4, NOW()))`,
+      [
+        customerIds[storeId],
+        pay.amount || 0,
+        'Yuk tarqatish tarix ' + legacyId,
+        pay.created_at || null,
+      ]
+    );
+    inserted();
   }
 
   for (const ev of mini.commission_events || []) {
@@ -480,9 +499,24 @@ async function applyImport(erp, mini, plan) {
 async function runImport(opts) {
   const log = opts.log || console.log;
   const plan = buildImportPlan(opts.mini, opts.erp, opts.links);
+  const skippedStores = {};
+  (plan.actions || []).forEach(function (a) {
+    if (a.type === 'skip_customer') skippedStores[a.store_id] = true;
+  });
+  const blocked = (plan.debts || []).filter(function (d) {
+    return d.needs_review && !skippedStores[String(d.store_id)];
+  });
+  plan.reconciled = reconcileOrders(opts.mini && opts.mini.orders, plan.debts);
   log(opts.apply ? 'APPLY — ERP ga yoziladi' : 'DRY-RUN — hech narsa yozilmaydi');
   printPlan(plan, log);
   if (!opts.apply) return { plan: plan, wrote: false };
+  if (blocked.length && !opts.acceptDebtAsStored) {
+    const err = new Error(
+      'Qarz farqi bor (' + blocked.length + ' do\'kon). FARQ qatorlarini ko\'ring. Saqlangan qarz bilan yozish: --accept-debt-as-stored'
+    );
+    err.status = 400;
+    throw err;
+  }
   if (!opts.erpClient) throw new Error('erp client kerak');
   await opts.erpClient.query('BEGIN');
   try {
@@ -553,6 +587,7 @@ function loadLinks(argv) {
 
 async function main() {
   const apply = process.argv.indexOf('--apply') !== -1;
+  const acceptDebtAsStored = process.argv.indexOf('--accept-debt-as-stored') !== -1;
   const miniUrl = (process.env.MINI_DATABASE_URL || '').trim();
   const erpUrl = (process.env.DATABASE_URL || '').trim();
   if (!miniUrl) {
@@ -583,7 +618,14 @@ async function main() {
         const products = await snap.query('SELECT id, sku FROM products');
         erp = { customers: customers.rows, products: products.rows };
         await snap.query('SET default_transaction_read_only = off');
-        await runImport({ apply: true, mini: mini, erp: erp, links: links, erpClient: snap });
+        await runImport({
+          apply: true,
+          mini: mini,
+          erp: erp,
+          links: links,
+          erpClient: snap,
+          acceptDebtAsStored: acceptDebtAsStored,
+        });
       } finally {
         snap.release();
       }
