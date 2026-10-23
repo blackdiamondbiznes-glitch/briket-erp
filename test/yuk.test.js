@@ -1320,3 +1320,83 @@ test('erp admin session opens /yuk without initData and records that operator', 
     else process.env.TELEGRAM_BOT_TOKEN = prevToken;
   }
 });
+
+test('parity: price edit, map coords, last sale, ulush, and daily report', async () => {
+  const ctx = await shop();
+  await assert.rejects(
+    () => ctx.service.updateStandardPrice(5, { price: 9000, unit_commission: 200 }, 'writer'),
+    /faqat admin/
+  );
+  const saved = await ctx.service.updateStandardPrice(5, { price: 9000, unit_commission: 200 }, 'owner');
+  assert.equal(saved.price, 9000);
+  assert.equal(saved.unit_commission, 200);
+  const boot = await ctx.service.bootstrap();
+  assert.equal(boot.products[0].price, 9000);
+  assert.equal(boot.products[0].unit_commission, 200);
+  const sale = await ctx.service.createSale({
+    request_id: 'req-ulush-1',
+    customer_id: ctx.customer.id,
+    sale_date: '2026-10-21',
+    due_date: '2026-10-25',
+    naqd: 9000,
+    karta: 0,
+    items: [{ product_id: 5, quantity: 2, price: 9000 }],
+  }, { id: 1001, first_name: 'Ega' });
+  assert.equal(Number(sale.commission_amount), 0);
+  assert.equal(Number(sale.items[0].commission), 400);
+  const customers = await ctx.service.listCustomers('');
+  const row = customers.find((c) => String(c.id) === String(ctx.customer.id));
+  assert.equal(String(row.last_sale_date).slice(0, 10), '2026-10-21');
+  const edited = await ctx.service.updateCustomer(ctx.customer.id, {
+    name: 'Chorsu',
+    phone: '901112233',
+    address: 'Bozor',
+    latitude: 41.311081,
+    longitude: 69.240562,
+  });
+  assert.equal(Number(edited.latitude), 41.311081);
+  assert.equal(Number(edited.longitude), 69.240562);
+  const daily = await ctx.service.dailyReport('2026-10-21');
+  assert.match(daily.text, /Chorsu/);
+  assert.match(daily.text, /21\.10\.2026/);
+  const view = await ctx.service.ulush('2026-10-21', 'owner');
+  assert.equal(view.enabled_on, '2026-10-21');
+  assert.equal(view.yigilgan, 200);
+  assert.equal(view.ochilmagan, 200);
+  assert.equal(view.qoldiq, 200);
+  const took = await ctx.service.withdrawUlush({ amount: 200 }, { id: 1001, first_name: 'Ega' }, 'owner');
+  assert.equal(took.qoldiq, 0);
+  assert.equal(took.withdrawal.amount, 200);
+  await assert.rejects(
+    () => ctx.service.withdrawUlush({ amount: 1 }, { id: 1001, first_name: 'Ega' }, 'owner'),
+    /Qoldiqdan oshmasin/
+  );
+  const again = await ctx.service.ulush('2026-10-21', 'owner');
+  assert.equal(again.olingan, 200);
+  assert.equal(again.qoldiq, 0);
+  assert.equal(again.withdrawals.length, 1);
+  await assert.rejects(
+    () => ctx.service.editSale(sale.id, { paid_amount: 1, items: [{ product_id: 5, quantity: 2, price: 9000 }] }),
+    /tahrirlanmaydi/
+  );
+
+  const sqlRaw = fs.readFileSync(path.join(root, 'migrations/011_yuk_ulush.sql'), 'utf8');
+  const sql = sqlRaw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--.*$/gm, '');
+  assert.match(sql, /ADD COLUMN IF NOT EXISTS yuk_unit_commission INTEGER/);
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS yuk_commission_withdrawals/);
+  assert.doesNotMatch(sql, /\bUPDATE\b/i);
+  assert.doesNotMatch(sql, /\bDELETE\s+FROM\b/i);
+  assert.doesNotMatch(sql, /\bDROP\b/i);
+  const page = fs.readFileSync(path.join(root, 'public/yuk.html'), 'utf8');
+  assert.match(page, /Ulush/);
+  assert.match(page, /Oxirgi sotuv/);
+  assert.match(page, /← Admin panel/);
+  assert.match(page, /BackButton/);
+  assert.match(page, /Xaritadan belgilash/);
+  assert.match(page, /openstreetmap\.org/);
+  assert.match(page, /Chop etish/);
+  assert.match(page, /grid-template-columns: repeat\(5, 1fr\)/);
+  assert.match(page, /can_edit_prices/);
+  assert.doesNotMatch(page, /8600\s*\d{4}/);
+  assert.doesNotMatch(page, /5052443384/);
+});

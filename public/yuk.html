@@ -6,7 +6,9 @@
   <meta name="theme-color" content="#12141A" />
   <meta name="color-scheme" content="dark" />
   <title>Yuk xati</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     :root {
       --bg: var(--tg-theme-bg-color, #12141A);
@@ -134,7 +136,7 @@
     }
     .nav {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
-      display: grid; grid-template-columns: repeat(4, 1fr);
+      display: grid; grid-template-columns: repeat(5, 1fr);
       background: rgba(18, 20, 26, .95); border-top: 1px solid var(--coal-600);
       box-shadow: var(--shadow); backdrop-filter: blur(8px);
       padding-bottom: env(safe-area-inset-bottom);
@@ -225,6 +227,14 @@
     .pending-box { background: #3a2a12; border: 1px solid #8a6a20; color: #ffe7b8; }
     .reject-box { background: #3a1814; border: 1px solid #8a3a32; color: #ffd0c8; }
     .lock a.btn-ghost { display: flex; justify-content: center; text-decoration: none; margin-top: 10px; }
+    a.admin-back { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; margin: 0 0 12px; min-height: 40px; }
+    .map-box { height: 280px; border-radius: 12px; overflow: hidden; background: var(--coal-900); }
+    .leaflet-container { font: inherit; background: var(--coal-900); }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .stats.three { grid-template-columns: 1fr 1fr 1fr; }
+    .stat { background: var(--coal-800); border: 1px solid var(--coal-700); border-radius: 16px; padding: 10px; }
+    .stat b { display: block; font-size: 16px; }
+    .stat.ok { border-color: #065f46; background: rgba(6, 78, 59, .25); }
   </style>
 </head>
 <body>
@@ -318,6 +328,17 @@
     newStore: { name: "", phone: "", address: "", latitude: "", longitude: "" },
     dateOpen: false,
     sort: "debt",
+    saleFilter: "",
+    reportDate: tashkentToday(),
+    ulushDate: tashkentToday(),
+    ulush: null,
+    ulushTake: "",
+    editStore: null,
+    mapLat: "",
+    mapLng: "",
+    mapBack: "new",
+    dateFor: "sale",
+    backBound: false,
     picker: false
   };
 
@@ -498,6 +519,8 @@
       state.gate = "allowed";
       state.boot = r.data;
       state.saleDate = r.data.today;
+      state.reportDate = r.data.today;
+      state.ulushDate = r.data.today;
       if (r.data.open_reys) state.reys = String(r.data.open_reys.id);
       state.loading = false;
       render();
@@ -514,6 +537,15 @@
     var copy = (list || []).slice();
     if (state.sort === "name") {
       copy.sort(function (a, b) { return String(a.name || "").localeCompare(String(b.name || ""), "uz"); });
+    } else if (state.sort === "recent") {
+      copy.sort(function (a, b) {
+        var da = String(a.last_sale_date || "");
+        var db = String(b.last_sale_date || "");
+        if (!da && db) return 1;
+        if (da && !db) return -1;
+        if (da !== db) return da < db ? 1 : -1;
+        return String(a.name || "").localeCompare(String(b.name || ""), "uz");
+      });
     } else {
       copy.sort(function (a, b) {
         var d = Number(b.outstanding || 0) - Number(a.outstanding || 0);
@@ -571,7 +603,8 @@
       copy: '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
       send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
       card: '<rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/>',
-      warn: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>'
+      warn: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+      print: '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/>'
     };
     return '<svg class="ico' + (cls ? " " + cls : "") + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (p[name] || "") + "</svg>";
   }
@@ -665,7 +698,12 @@
     render();
     api("/api/agent/yuk/customers/" + pay.customerId + "/payments", {
       method: "POST",
-      body: { request_id: pay.requestId, amount: intOf(pay.amount), method: pay.method }
+      body: {
+        request_id: pay.requestId,
+        amount: intOf(pay.amount),
+        method: pay.method,
+        note: pay.note ? String(pay.note).trim() : null
+      }
     }).then(function () {
       state.saving = false;
       state.pay = null;
@@ -728,7 +766,7 @@
     render();
     api("/api/agent/yuk/waybills/" + ed.id, {
       method: "PUT",
-      body: { items: ed.items, sale_date: ed.sale_date, due_date: ed.due_date || null, confirm_zero_price: true }
+      body: { items: ed.items, sale_date: ed.sale_date, due_date: ed.due_date ? String(ed.due_date).slice(0, 10) : null, confirm_zero_price: true }
     }).then(function (r) {
       state.saving = false;
       state.edit = null;
@@ -758,6 +796,216 @@
     });
   }
 
+  function adminBackLink() {
+    if (readInitData()) return "";
+    if (!readAdminSession()) return "";
+    return '<a class="btn-ghost admin-back" href="/admin">← Admin panel</a>';
+  }
+  function innerScreen() {
+    return !!(state.dateOpen || state.pay || state.edit || state.sheet);
+  }
+  function goBack() {
+    if (state.dateOpen) { state.dateOpen = false; render(); return; }
+    if (state.sheet === "map") { state.sheet = state.mapBack || "new"; render(); return; }
+    if (state.pay || state.edit || (state.sheet && state.sheet !== "detail")) {
+      state.pay = null;
+      state.edit = null;
+      if (state.sheet !== "detail") state.sheet = null;
+      render();
+      return;
+    }
+    if (state.detail || state.sheet === "detail") {
+      state.detail = null;
+      state.sheet = null;
+      render();
+    }
+  }
+  function syncBackButton() {
+    var tg = window.Telegram && window.Telegram.WebApp;
+    if (!tg || !tg.BackButton) return;
+    try {
+      if (state.gate === "allowed" && readInitData() && innerScreen()) {
+        tg.BackButton.show();
+        if (!state.backBound && tg.BackButton.onClick) {
+          state.backBound = true;
+          tg.BackButton.onClick(goBack);
+        }
+      } else {
+        tg.BackButton.hide();
+      }
+    } catch (e) {}
+  }
+  function formStore() {
+    return state.sheet === "edit-store" || state.mapBack === "edit" && state.sheet === "map"
+      ? state.editStore
+      : state.newStore;
+  }
+  function osmLink(lat, lng) {
+    return "https://www.openstreetmap.org/?mlat=" + encodeURIComponent(lat) + "&mlon=" + encodeURIComponent(lng) + "#map=17/" + lat + "/" + lng;
+  }
+  function openMap(back) {
+    var src = back === "edit" ? state.editStore : state.newStore;
+    state.mapBack = back;
+    state.mapLat = src && src.latitude ? String(src.latitude) : "41.311081";
+    state.mapLng = src && src.longitude ? String(src.longitude) : "69.240562";
+    state.sheet = "map";
+    render();
+  }
+  function applyMap() {
+    var target = state.mapBack === "edit" ? state.editStore : state.newStore;
+    if (!target) return;
+    target.latitude = String(state.mapLat || "");
+    target.longitude = String(state.mapLng || "");
+    var lat = Number(target.latitude);
+    var lng = Number(target.longitude);
+    var keep = state.mapBack;
+    if (target.address || !window.fetch || !isFinite(lat)) {
+      state.sheet = keep;
+      render();
+      return;
+    }
+    fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=" + lat + "&lon=" + lng, { headers: { Accept: "application/json" } })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (data && data.display_name && !target.address) target.address = String(data.display_name).slice(0, 300);
+      })
+      .catch(function () {})
+      .then(function () {
+        state.sheet = keep;
+        render();
+      });
+  }
+  function geoHere() {
+    if (!navigator.geolocation) { state.error = "Joylashuv yo'q"; render(); return; }
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      state.mapLat = String(pos.coords.latitude);
+      state.mapLng = String(pos.coords.longitude);
+      if (state._map && state._marker) {
+        var ll = [Number(state.mapLat), Number(state.mapLng)];
+        state._marker.setLatLng(ll);
+        state._map.setView(ll, 16);
+        var lab = document.getElementById("map-pos");
+        if (lab) lab.textContent = Number(state.mapLat).toFixed(6) + ", " + Number(state.mapLng).toFixed(6);
+        return;
+      }
+      render();
+    }, function () { state.error = "Joylashuv olinmadi"; render(); });
+  }
+  function mountMap() {
+    var el = document.getElementById("yuk-map");
+    if (!el || !window.L) return;
+    var lat = Number(state.mapLat) || 41.311081;
+    var lng = Number(state.mapLng) || 69.240562;
+    var map = L.map(el).setView([lat, lng], state.mapLat ? 16 : 12);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" }).addTo(map);
+    var marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+    function set(ll) {
+      state.mapLat = String(ll.lat);
+      state.mapLng = String(ll.lng);
+      var lab = document.getElementById("map-pos");
+      if (lab) lab.textContent = ll.lat.toFixed(6) + ", " + ll.lng.toFixed(6);
+      var latIn = document.querySelector('[data-in="map-lat"]');
+      var lngIn = document.querySelector('[data-in="map-lng"]');
+      if (latIn) latIn.value = state.mapLat;
+      if (lngIn) lngIn.value = state.mapLng;
+    }
+    marker.on("dragend", function () { set(marker.getLatLng()); });
+    map.on("click", function (ev) { marker.setLatLng(ev.latlng); set(ev.latlng); });
+    state._map = map;
+    state._marker = marker;
+    setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 60);
+  }
+  function printText(text) {
+    var w = window.open("", "_blank");
+    if (!w) { state.error = "Chop etish oynasi ochilmadi"; render(); return; }
+    w.document.write("<!DOCTYPE html><html><head><meta charset='utf-8'><title>Yuk xati</title><style>body{font:14px/1.45 ui-monospace,monospace;white-space:pre-wrap;padding:24px}</style></head><body>" + esc(text || "") + "</body></html>");
+    w.document.close();
+    w.focus();
+    setTimeout(function () { try { w.print(); } catch (e) {} }, 150);
+  }
+  function printBill(id) {
+    api("/api/agent/yuk/waybills/" + id).then(function (r) { printText((r.data && r.data.text) || ""); });
+  }
+  function copyDaily() {
+    api("/api/agent/yuk/daily?date=" + encodeURIComponent(state.reportDate || "")).then(function (r) {
+      state.reportPreview = (r.data && r.data.text) || "";
+      copyText(state.reportPreview);
+    }).catch(function (e) { state.error = e.message; render(); });
+  }
+  function loadUlush() {
+    return api("/api/agent/yuk/ulush?date=" + encodeURIComponent(state.ulushDate || "")).then(function (r) {
+      state.ulush = r.data;
+      render();
+    }).catch(function (e) { state.error = e.message; render(); });
+  }
+  function takeUlush() {
+    if (state.saving) return;
+    state.saving = true;
+    render();
+    api("/api/agent/yuk/ulush/withdrawals", {
+      method: "POST",
+      body: { amount: intOf(state.ulushTake), note: "Oldim" }
+    }).then(function () {
+      state.saving = false;
+      state.ulushTake = "";
+      return loadUlush();
+    }).catch(function (e) {
+      state.saving = false;
+      state.error = e.message;
+      render();
+    });
+  }
+  function savePrice(id) {
+    var priceEl = document.querySelector('[data-in="std-price"][data-id="' + id + '"]');
+    var unitEl = document.querySelector('[data-in="std-unit"][data-id="' + id + '"]');
+    if (!priceEl || state.saving) return;
+    var price = intOf(priceEl.value);
+    var unit = unitEl ? intOf(unitEl.value) : 0;
+    state.saving = true;
+    render();
+    api("/api/agent/yuk/products/" + id, {
+      method: "PUT",
+      body: { price: price, unit_commission: unit }
+    }).then(function () {
+      state.saving = false;
+      return loadBoot();
+    }).catch(function (e) {
+      state.saving = false;
+      state.error = e.message;
+      render();
+    });
+  }
+  function saveStoreEdit() {
+    var f = state.editStore;
+    if (!f || !f.name.trim() || state.saving) return;
+    state.saving = true;
+    render();
+    api("/api/agent/yuk/customers/" + f.id, {
+      method: "PUT",
+      body: {
+        name: f.name.trim(),
+        phone: f.phone.trim() || null,
+        address: f.address.trim() || null,
+        latitude: f.latitude === "" ? null : Number(f.latitude),
+        longitude: f.longitude === "" ? null : Number(f.longitude)
+      }
+    }).then(function () {
+      state.saving = false;
+      state.sheet = "detail";
+      return openCustomer(f.id);
+    }).catch(function (e) {
+      state.saving = false;
+      state.error = e.message;
+      render();
+    });
+  }
+  function shownStores() {
+    if (!state.saleFilter) return state.customers;
+    return state.customers.filter(function (c) {
+      return String(c.last_sale_date || "").slice(0, 10) === state.saleFilter;
+    });
+  }
+
   function onClick(e) {
     var el = e.target.closest("[data-act]");
     if (!el) {
@@ -777,11 +1025,16 @@
     if (act === "tab") {
       state.tab = el.getAttribute("data-tab");
       state.sheet = null;
+      state.detail = null;
       state.picker = false;
-      if (state.tab !== "dokon") state.detail = null;
+      state.pay = null;
+      state.edit = null;
       if (state.tab === "dokon") { state.q = ""; loadCustomers(); }
       if (state.tab === "eslatma") loadReminders();
+      if (state.tab === "ulush") loadUlush();
       render();
+    } else if (act === "back") {
+      goBack();
     } else if (act === "sort") {
       state.sort = el.getAttribute("data-sort") || "debt";
       state.customers = sortCustomers(state.customers);
@@ -792,6 +1045,7 @@
       if (state.picker) loadCustomers();
       else render();
     } else if (act === "close") {
+      if (state.sheet === "map") { state.sheet = state.mapBack || "new"; state.dateOpen = false; render(); return; }
       state.sheet = null;
       state.dateOpen = false;
       state.pay = null;
@@ -815,10 +1069,20 @@
       state.qty[id] = String(Math.max(0, cur + delta));
       render();
     } else if (act === "date") {
+      state.dateFor = "sale";
+      state.dateOpen = true;
+      render();
+    } else if (act === "edit-date") {
+      state.dateFor = "edit";
       state.dateOpen = true;
       render();
     } else if (act === "set-date") {
-      state.saleDate = el.getAttribute("data-date");
+      var picked = el.getAttribute("data-date");
+      if (state.dateFor === "edit" && state.edit) state.edit.sale_date = picked;
+      else if (state.dateFor === "report") state.reportDate = picked;
+      else if (state.dateFor === "filter") { state.saleFilter = picked; state.customers = sortCustomers(state.customers); }
+      else if (state.dateFor === "ulush") { state.ulushDate = picked; loadUlush(); }
+      else state.saleDate = picked;
       state.dateOpen = false;
       render();
     } else if (act === "save") saveSale();
@@ -830,7 +1094,7 @@
     } else if (act === "resend") resend(id);
     else if (act === "open-customer") openCustomer(id);
     else if (act === "pay") {
-      state.pay = { customerId: id, amount: "", method: "cash", step: "edit", requestId: rid() };
+      state.pay = { customerId: id, amount: "", method: "cash", note: "", step: "edit", requestId: rid() };
       render();
     } else if (act === "pay-next") {
       if (intOf(state.pay.amount) > 0) state.pay.step = "confirm";
@@ -839,7 +1103,25 @@
     else if (act === "pay-yes") submitPay();
     else if (act === "method") { state.pay.method = el.getAttribute("data-method"); render(); }
     else if (act === "create-store") createStore();
-    else if (act === "pin") pin();
+    else if (act === "save-store") saveStoreEdit();
+    else if (act === "open-map") openMap(el.getAttribute("data-back") || "new");
+    else if (act === "geo") geoHere();
+    else if (act === "map-ok") applyMap();
+    else if (act === "edit-store") {
+      var cstore = state.detail && state.detail.customer;
+      if (!cstore) return;
+      state.editStore = {
+        id: cstore.id,
+        name: cstore.name || "",
+        phone: cstore.phone || "",
+        address: cstore.address || "",
+        latitude: cstore.latitude != null ? String(cstore.latitude) : "",
+        longitude: cstore.longitude != null ? String(cstore.longitude) : ""
+      };
+      state.sheet = "edit-store";
+      render();
+    }
+    else if (act === "pin") openMap("new");
     else if (act === "edit") {
       var bill = (state.detail.waybills || []).filter(function (w) { return String(w.id) === String(id); })[0];
       state.edit = {
@@ -859,11 +1141,19 @@
     } else if (act === "save-edit") saveEdit();
     else if (act === "reverse") {
       if (window.confirm("Bu to'lov tuzatilsinmi? Qator o'chmaydi.")) reversePay(id);
-    } else if (act === "copy-bill") {
+    }     else if (act === "copy-bill") {
       api("/api/agent/yuk/waybills/" + id).then(function (r) { copyText(r.data.text || ""); });
     } else if (act === "share-bill") {
       api("/api/agent/yuk/waybills/" + id).then(function (r) { shareText(r.data.text || ""); });
-    }
+    } else if (act === "print") printText(state.success && state.success.bill ? state.success.bill.text : "");
+    else if (act === "print-bill") printBill(id);
+    else if (act === "daily") copyDaily();
+    else if (act === "report-date") { state.dateFor = "report"; state.dateOpen = true; render(); }
+    else if (act === "sale-filter") { state.dateFor = "filter"; state.dateOpen = true; render(); }
+    else if (act === "clear-filter") { state.saleFilter = ""; render(); }
+    else if (act === "ulush-date") { state.dateFor = "ulush"; state.dateOpen = true; render(); }
+    else if (act === "ulush-take") takeUlush();
+    else if (act === "save-price") savePrice(id);
   }
 
   var focusKey = null;
@@ -880,8 +1170,17 @@
     else if (name === "price") state.price[el.getAttribute("data-id")] = el.value.replace(/[^\d]/g, "");
     else if (name === "qty") state.qty[el.getAttribute("data-id")] = el.value.replace(/[^\d]/g, "");
     else if (name === "pay-amount") state.pay.amount = el.value.replace(/[^\d]/g, "");
-    else if (name.indexOf("store-") === 0) state.newStore[name.slice(6)] = el.value;
+    else if (name === "pay-note") state.pay.note = el.value;
+    else if (name === "ulush-take") state.ulushTake = el.value.replace(/[^\d]/g, "");
+    else if (name === "map-lat") { state.mapLat = el.value; return; }
+    else if (name === "map-lng") { state.mapLng = el.value; return; }
+    else if (name === "std-price" || name === "std-unit") return;
+    else if (name.indexOf("store-") === 0) {
+      var bag = state.sheet === "edit-store" ? state.editStore : state.newStore;
+      if (bag) bag[name.slice(6)] = el.value;
+    }
     else if (name === "edit-price") state.edit.items[Number(el.getAttribute("data-i"))].price = intOf(el.value);
+    else if (name === "edit-due" && state.edit) state.edit.due_date = toIso(el.value);
     focusKey = el.getAttribute("data-focus") || name;
     render();
   }
@@ -929,6 +1228,7 @@
         '<p class="faint">Yozgan: ' + esc(bill.created_by_name || "Eski yozuv") + '</p>' +
         '<div class="actions"><button type="button" class="btn-ghost" data-act="copy">' + icon("copy", "sm") + 'Nusxa olish</button>' +
         '<button type="button" class="btn-ghost share" data-act="share">' + icon("send", "sm") + "Telegram'ga yuborish</button>" +
+        '<button type="button" class="btn-ghost" data-act="print">' + icon("print", "sm") + 'Chop etish</button>' +
         '<button type="button" class="btn-ghost" data-act="copy-card"' + (company.card ? "" : " disabled") + '>' + icon("card", "sm") + 'Karta raqami</button></div>' +
         (tgFail ? '<p class="err">' + esc(state.success.telegram.error || "Yuborilmadi") + '</p><button type="button" class="btn" data-act="resend" data-id="' + bill.id + '">Qayta yuborish</button>' : "") +
         '</div>';
@@ -973,27 +1273,36 @@
   function storesView() {
     if (state.sheet === "detail" && state.detail) return detailView();
     var total = state.customers.reduce(function (s, c) { return s + Number(c.outstanding || 0); }, 0);
-    var rows = state.customers.map(function (c) {
+    var rows = shownStores().map(function (c) {
       var debtTone = Number(c.outstanding) > 0 ? "debt-num" : "faint";
+      var last = c.last_sale_date ? "Oxirgi sotuv " + dmy(c.last_sale_date) : "Sotuv yo'q";
       return '<li class="store-row"><button type="button" class="open" data-act="open-customer" data-id="' + c.id + '">' +
         '<span class="grow"><span class="block"><strong>' + esc(c.name) + '</strong></span>' +
-        '<span class="faint">' + esc(c.phone || c.address || "—") + '</span></span>' +
+        '<span class="faint">' + esc(c.phone || c.address || "—") + " · " + esc(last) + '</span></span>' +
         '<span class="num ' + debtTone + '">' + money(c.outstanding) + '</span>' + icon("right", "sm") + '</button>' +
         '<button type="button" class="pay-side" data-act="pay" data-id="' + c.id + '"' + (Number(c.outstanding) > 0 ? "" : " disabled") + ' aria-label="Qarz qaytarish">' +
         icon("wallet", "sm") + "Qaytar</button></li>";
     }).join("");
     var chips = [
       ["debt", "Qarz"],
-      ["name", "Nom"]
+      ["name", "Nom"],
+      ["recent", "Oxirgi sotuv"]
     ].map(function (opt) {
       return '<button type="button" class="chip' + (state.sort === opt[0] ? " on" : "") + '" data-act="sort" data-sort="' + opt[0] + '">' + opt[1] + '</button>';
     }).join("");
     return '<header class="pagehead"><p class="eyebrow">Do\'konlar va qarzlar</p><h1>Do\'konlar</h1>' +
       '<p>Umumiy qarz: <span class="num debt-num">' + money(total) + " so'm</span></p></header>" +
+      '<div class="card"><p class="eyebrow">Kunlik yuklar</p><div class="row">' +
+      '<button type="button" class="field grow" data-act="report-date">' + esc(dmy(state.reportDate) || "Sana") + '</button>' +
+      '<button type="button" class="btn fit" data-act="daily">Nusxa</button></div>' +
+      (state.reportPreview ? '<p class="hint">Nusxalandi</p>' : '') + '</div>' +
       '<div class="row mb"><label class="search">' + icon("search", "sm") +
       '<input data-in="q" data-focus="q" placeholder="Do\'kon nomi" value="' + esc(state.q) + '" /></label>' +
       '<button type="button" class="btn fit" data-act="new-store">+ Yangi</button></div>' +
       '<div class="chips" role="group" aria-label="Tartib">' + chips + '</div>' +
+      '<div class="row mb"><button type="button" class="field grow" data-act="sale-filter">' +
+      (state.saleFilter ? "Oxirgi sotuv: " + esc(dmy(state.saleFilter)) : "Oxirgi sotuv sanasi bo'yicha filtr") + '</button>' +
+      (state.saleFilter ? '<button type="button" class="btn-ghost" data-act="clear-filter">Tozalash</button>' : '') + '</div>' +
       (rows ? '<ul style="list-style:none;margin:0;padding:0">' + rows + '</ul>' : '<p class="muted">Do\'kon topilmadi. Yangisini qo\'shing.</p>');
   }
 
@@ -1002,13 +1311,18 @@
     var c = d.customer;
     var company = (state.boot && state.boot.company) || {};
     var bills = (d.waybills || []).map(function (w) {
+      var lines = (w.items || []).map(function (it) {
+        return '<div class="faint">• ' + esc(it.product_name) + ' × ' + esc(it.quantity) + ' = ' + money(it.subtotal) + " so'm</div>";
+      }).join("");
       return '<div class="card"><div class="row"><strong class="grow">' + esc(w.waybill_code) + '</strong>' +
         (w.legacy_source ? '<span class="tag muted">Tarix</span>' : '') +
         (w.stock_posted === false && w.legacy_source ? '<span class="tag muted">Ombor tegilmagan</span>' : '') +
         '</div><div class="faint">' + esc(dmy(w.sale_date || w.created_at)) + ' · Yozgan: ' + esc(w.created_by_name || "Eski yozuv") + '</div>' +
+        lines +
         '<div class="num">Jami ' + money(w.total_amount) + ' · To\'langan ' + money(w.paid_amount) + ' · Qarz ' + money(w.debt_amount) + '</div>' +
         '<div class="actions" style="margin-top:8px"><button type="button" class="btn-ghost" data-act="copy-bill" data-id="' + w.id + '">' + icon("copy", "sm") + 'Nusxa</button>' +
         '<button type="button" class="btn-ghost share" data-act="share-bill" data-id="' + w.id + '">' + icon("send", "sm") + 'Telegram</button>' +
+        '<button type="button" class="btn-ghost" data-act="print-bill" data-id="' + w.id + '">' + icon("print", "sm") + 'Chop</button>' +
         '<button type="button" class="btn-ghost" data-act="copy-card"' + (company.card ? "" : " disabled") + '>' + icon("card", "sm") + 'Karta</button>' +
         '<button type="button" class="btn-ghost" data-act="edit" data-id="' + w.id + '">Tahrir</button></div></div>';
     }).join("");
@@ -1021,14 +1335,18 @@
           ? '<button type="button" class="btn-danger" data-act="reverse" data-id="' + p.id + '">Tuzatish</button>' : '') +
         '</div></div>';
     }).join("");
-    return '<button type="button" class="btn-ghost" data-act="tab" data-tab="dokon" style="margin-bottom:8px">← Orqaga</button>' +
+    var map = (c.latitude != null && c.longitude != null && c.latitude !== "" && c.longitude !== "")
+      ? '<p><a href="' + osmLink(c.latitude, c.longitude) + '" target="_blank" rel="noreferrer">Xaritada ochish</a></p>'
+      : '';
+    return '<button type="button" class="btn-ghost" data-act="back" style="margin-bottom:8px">← Orqaga</button>' +
       '<header class="pagehead"><h1>' + esc(c.name) + '</h1>' +
       (c.phone ? '<p>' + esc(c.phone) + '</p>' : '') +
-      (c.address ? '<p>' + esc(c.address) + '</p>' : '') + '</header>' +
+      (c.address ? '<p>' + esc(c.address) + '</p>' : '') + map + '</header>' +
       '<div class="card"><div>Qarz: <b class="num debt-num">' + money(d.outstanding) + " so'm</b></div>" +
       (Number(d.store_credit) > 0 ? '<div>Do\'kon krediti: <b class="num">' + money(d.store_credit) + " so'm</b></div>" : '') +
-      '<button type="button" class="btn" data-act="pay" data-id="' + c.id + '" style="margin-top:8px">To\'lov yozish</button></div>' +
-      '<h2 class="section-title">Yuk xatlari</h2>' + (bills || '<p class="muted">Hali yo\'q</p>') +
+      '<button type="button" class="btn" data-act="pay" data-id="' + c.id + '" style="margin-top:8px">Qarz qaytarish</button>' +
+      '<button type="button" class="btn-ghost" data-act="edit-store" style="margin-top:8px;width:100%">Do\'konni tahrirlash</button></div>' +
+      '<h2 class="section-title">Tarix</h2>' + (bills || '<p class="muted">Hali yo\'q</p>') +
       '<h2 class="section-title">To\'lovlar</h2>' + (pays || '<p class="muted">Taqsimli to\'lov yo\'q</p>');
   }
 
@@ -1060,12 +1378,23 @@
 
   function settingsView() {
     var company = (state.boot && state.boot.company) || { name: "", phone: "", card: "", card_holder: "" };
+    var can = state.boot && state.boot.can_edit_prices;
     var list = products().map(function (p) {
+      if (!can) {
+        return '<div class="card"><p style="margin:0 0 8px"><strong>' + esc(p.sku) + '</strong></p>' +
+          '<label class="lbl">Standart narx (so\'m)</label><p class="num" style="margin:0;font-size:18px">' + money(p.price) + " so'm</p></div>";
+      }
       return '<div class="card"><p style="margin:0 0 8px"><strong>' + esc(p.sku) + '</strong></p>' +
-        '<label class="lbl">Standart narx (so\'m)</label><p class="num" style="margin:0;font-size:18px">' + money(p.price) + " so'm</p></div>";
+        '<label class="lbl">Standart narx (so\'m)</label>' +
+        '<input class="field num" data-in="std-price" data-focus="std-' + p.id + '" data-id="' + p.id + '" inputmode="numeric" value="' + Math.round(Number(p.price) || 0) + '" />' +
+        '<label class="lbl" style="margin-top:8px">Ulush, 1 dona (so\'m)</label>' +
+        '<input class="field num" data-in="std-unit" data-focus="unit-' + p.id + '" data-id="' + p.id + '" inputmode="numeric" value="' + Math.round(Number(p.unit_commission) || 0) + '" />' +
+        '<button type="button" class="btn" data-act="save-price" data-id="' + p.id + '" style="margin-top:8px"' + (state.saving ? " disabled" : "") + '>Saqlash</button></div>';
     }).join("") || '<p class="muted">Mahsulot yo\'q</p>';
     return '<header class="pagehead"><p class="eyebrow">Sozlamalar</p><h1>Mahsulot narxlari</h1>' +
-      '<p class="hint">Narx va to\'lov ma\'lumoti ERP sozlamasidan o\'qiladi. Shu yerda o\'zgartirilmaydi.</p></header>' +
+      '<p class="hint">' + (can
+        ? "Standart narx ERP mahsulot narxiga yoziladi. Ulush yuk xati komissiyasiga yozilmaydi."
+        : "Narxni faqat admin o'zgartiradi.") + '</p></header>' +
       list +
       '<section class="card"><p style="margin:0 0 4px"><strong>To\'lov ma\'lumotlari</strong></p>' +
       '<p class="num" style="margin:0">' + esc(company.card || "Karta sozlamada yo'q") +
@@ -1073,6 +1402,53 @@
       '<p style="margin:4px 0 0">' + esc(company.phone || "Telefon sozlamada yo'q") + '</p>' +
       (company.name ? '<p style="margin:4px 0 0">' + esc(company.name) + '</p>' : '') +
       '</section>';
+  }
+
+  function ulushView() {
+    var u = state.ulush;
+    var can = state.boot && state.boot.can_edit_prices;
+    var html = '<header class="pagehead"><p class="eyebrow">Ish haqi</p><h1>Ulush</h1>' +
+      '<p class="hint">Ulush hisobi ' + esc(u && u.enabled_on ? dmy(u.enabled_on) : "—") + ' dan. Yuk xati komissiyasi 0 qoladi.</p></header>';
+    if (!u) return html + '<p class="muted">Yuklanmoqda…</p>';
+    var src = { sale: "Naqd sotuv", debt_payment: "Qarz to'lovi", sale_edit: "Tahrir" };
+    html += '<div class="stats"><div class="stat"><span class="faint">Bugun jami</span><b class="num debt-ok">' + money(u.today_total) + " so'm</b></div>" +
+      '<div class="stat"><span class="faint">Kecha jami</span><b class="num">' + money(u.yesterday_total) + " so'm</b></div></div>";
+    html += '<div class="stats three"><div class="stat"><span class="faint">Yig\'ilgan</span><b class="num">' + money(u.yigilgan) + '</b></div>' +
+      '<div class="stat"><span class="faint">Olingan</span><b class="num">' + money(u.olingan) + '</b></div>' +
+      '<div class="stat ok"><span class="faint">Qoldiq</span><b class="num debt-ok">' + money(u.qoldiq) + '</b></div></div>';
+    if (can) {
+      html += '<div class="row mb"><input class="field num grow" data-in="ulush-take" data-focus="ulush-take" inputmode="numeric" placeholder="Olgan summa" value="' + esc(state.ulushTake) + '" />' +
+        '<button type="button" class="btn fit" data-act="ulush-take"' + (state.saving || !(Number(u.qoldiq) > 0) ? " disabled" : "") + '>Oldim</button></div>' +
+        '<p class="hint">Kunlik tarix o\'chmaydi. Oldim faqat umumiy qoldiqdan ayiradi.</p>';
+    }
+    html += '<div class="card"><p class="faint">Ochilmagan ulush</p><p class="num debt-num" style="font-size:20px;margin:4px 0">' + money(u.ochilmagan) + " so'm</p>" +
+      '<p class="hint">Qarz hali to\'lanmagani uchun ochilmagan ulush. Bu qoldiq emas.</p></div>';
+    html += '<label class="lbl">Sana</label><button type="button" class="field" data-act="ulush-date">' + esc(dmy(state.ulushDate) || "—") + '</button>';
+    html += '<div class="row" style="margin:12px 0 8px"><strong class="grow">Kunlik voqealar</strong><b class="num debt-ok">' + money(u.day_total) + " so'm</b></div>";
+    if (!(u.events || []).length) html += '<p class="muted">Bu kunda ochilgan ulush yo\'q.</p>';
+    else html += (u.events || []).map(function (ev) {
+      var sign = Number(ev.amount) < 0 ? "" : "+";
+      return '<div class="card"><div class="row"><span class="grow"><strong>' + esc(src[ev.source] || ev.source) + '</strong>' +
+        '<span class="faint block">' + esc(ev.customer_name || "Do'kon") + ' · ' + esc(ev.waybill_code || "") + '</span></span>' +
+        '<b class="num debt-ok">' + sign + money(ev.amount) + '</b></div></div>';
+    }).join("");
+    if ((u.withdrawals || []).length) {
+      html += '<h2 class="section-title">Olinganlar</h2>' + u.withdrawals.map(function (w) {
+        return '<div class="row card"><span class="faint grow">' + esc(dmy(w.taken_on)) + '</span><b class="num">-' + money(w.amount) + '</b></div>';
+      }).join("");
+    }
+    return html;
+  }
+
+  function storeFields(f, back) {
+    var pin = f.latitude ? "Nuqta belgilangan — tahrirlash" : "Xaritadan belgilash";
+    var link = f.latitude && f.longitude
+      ? '<p><a href="' + osmLink(f.latitude, f.longitude) + '" target="_blank" rel="noreferrer">Xaritada ochish</a></p>'
+      : '';
+    return '<div><label class="lbl">Nomi *</label><input class="field" data-in="store-name" data-focus="store-name" value="' + esc(f.name) + '" placeholder="Masalan: Karvon market" /></div>' +
+      '<div><label class="lbl">Telefon</label><input class="field" data-in="store-phone" data-focus="store-phone" inputmode="tel" value="' + esc(f.phone) + '" placeholder="+99890..." /></div>' +
+      '<div><label class="lbl">Manzil</label><input class="field" data-in="store-address" data-focus="store-address" value="' + esc(f.address) + '" /></div>' +
+      '<button type="button" class="btn-ghost" data-act="open-map" data-back="' + back + '">' + pin + '</button>' + link;
   }
 
   function sheetHtml() {
@@ -1097,11 +1473,24 @@
       var f = state.newStore;
       return '<div class="overlay"><div class="sheet" role="dialog" aria-modal="true"><header><strong>+ Yangi do\'kon</strong>' +
         '<button type="button" class="btn-ghost" data-act="close" aria-label="Yopish">Yopish</button></header><div class="list">' +
-        '<div><label class="lbl">Nomi *</label><input class="field" data-in="store-name" data-focus="store-name" value="' + esc(f.name) + '" placeholder="Masalan: Karvon market" /></div>' +
-        '<div><label class="lbl">Telefon</label><input class="field" data-in="store-phone" data-focus="store-phone" inputmode="tel" value="' + esc(f.phone) + '" placeholder="+99890..." /></div>' +
-        '<div><label class="lbl">Manzil</label><input class="field" data-in="store-address" data-focus="store-address" value="' + esc(f.address) + '" /></div>' +
-        '<button type="button" class="btn-ghost" data-act="pin">' + (f.latitude ? "Nuqta belgilangan — tahrirlash" : "Xaritadan belgilash") + '</button>' +
+        storeFields(f, "new") +
         '<button type="button" class="btn" data-act="create-store"' + (state.saving ? " disabled" : "") + '>' + (state.saving ? "Saqlanmoqda…" : "Saqlash") + '</button></div></div></div>';
+    }
+    if (state.sheet === "edit-store" && state.editStore) {
+      return '<div class="overlay"><div class="sheet" role="dialog" aria-modal="true"><header><strong>Do\'konni tahrirlash</strong>' +
+        '<button type="button" class="btn-ghost" data-act="close" aria-label="Yopish">Yopish</button></header><div class="list">' +
+        storeFields(state.editStore, "edit") +
+        '<button type="button" class="btn" data-act="save-store"' + (state.saving ? " disabled" : "") + '>Saqlash</button></div></div></div>';
+    }
+    if (state.sheet === "map") {
+      return '<div class="overlay"><div class="sheet" role="dialog" aria-modal="true"><header><strong>Xarita</strong>' +
+        '<button type="button" class="btn-ghost" data-act="close" aria-label="Yopish">Yopish</button></header><div class="list">' +
+        '<div id="yuk-map" class="map-box"></div>' +
+        '<p id="map-pos" class="faint num">' + esc(state.mapLat) + ", " + esc(state.mapLng) + '</p>' +
+        '<div class="split"><div><label class="lbl">Kenglik</label><input class="field num" data-in="map-lat" data-focus="map-lat" value="' + esc(state.mapLat) + '" /></div>' +
+        '<div><label class="lbl">Uzunlik</label><input class="field num" data-in="map-lng" data-focus="map-lng" value="' + esc(state.mapLng) + '" /></div></div>' +
+        '<button type="button" class="btn-ghost" data-act="geo">Joriy joyimni olish</button>' +
+        '<button type="button" class="btn" data-act="map-ok">Shu joyni saqlash</button></div></div></div>';
     }
     if (state.pay) {
       var pay = state.pay;
@@ -1114,6 +1503,7 @@
           '<button type="button" class="btn-ghost" data-act="pay-back">Yo\'q</button></div>'
         : (who ? '<p class="muted">' + esc(who) + '</p>' : '') +
           '<div><label class="lbl">To\'langan summa *</label><input class="field num" data-in="pay-amount" data-focus="pay-amount" inputmode="numeric" value="' + esc(pay.amount) + '" /></div>' +
+          '<div><label class="lbl">Izoh</label><input class="field" data-in="pay-note" data-focus="pay-note" value="' + esc(pay.note || "") + '" placeholder="Naqd / karta" /></div>' +
           '<div class="row"><button type="button" class="btn-ghost' + (pay.method === "cash" ? " on" : "") + '" data-act="method" data-method="cash">Naqd</button>' +
           '<button type="button" class="btn-ghost' + (pay.method === "card" ? " on" : "") + '" data-act="method" data-method="card">Karta</button></div>' +
           '<button type="button" class="btn" data-act="pay-next"' + (intOf(pay.amount) > 0 ? "" : " disabled") + '>Davom etish</button>';
@@ -1130,7 +1520,10 @@
       }).join("");
       return '<div class="overlay"><div class="sheet" role="dialog" aria-modal="true"><header><strong>Tahrir ' + esc(ed.code) + '</strong>' +
         '<button type="button" class="btn-ghost" data-act="close" aria-label="Yopish">Yopish</button></header><div class="list">' +
-        '<p class="hint">To\'langan summa o\'zgarmaydi. Tuzatish yangi qator yozadi, eski to\'lov o\'chmaydi.</p>' + items +
+        '<p class="hint">To\'langan summa o\'zgarmaydi. Tuzatish yangi qator yozadi, eski to\'lov o\'chmaydi.</p>' +
+        '<label class="lbl">Sotuv sanasi</label><button type="button" class="field" data-act="edit-date">' + esc(dmy(ed.sale_date) || "—") + '</button>' +
+        '<label class="lbl">Qarz muddati</label><input class="field" data-in="edit-due" data-focus="edit-due" value="' + esc(ed.due_date ? dmy(ed.due_date) : "") + '" placeholder="KK.OO.YYYY" />' +
+        items +
         '<button type="button" class="btn" data-act="save-edit"' + (state.saving ? " disabled" : "") + '>Saqlash</button></div></div></div>';
     }
     return "";
@@ -1153,7 +1546,7 @@
       var session = readAdminSession();
       if (session) who = session.operator || "Admin";
     }
-    var body = state.tab === "dokon" ? storesView() : state.tab === "eslatma" ? remindView() : state.tab === "sozlama" ? settingsView() : saleView();
+    var body = state.tab === "dokon" ? storesView() : state.tab === "ulush" ? ulushView() : state.tab === "eslatma" ? remindView() : state.tab === "sozlama" ? settingsView() : saleView();
     var active = function (name) { return state.tab === name ? " on" : ""; };
     var count = reminderCount();
     var badge = count > 0 ? '<span class="badge">' + (count > 9 ? "9+" : String(count)) + "</span>" : "";
@@ -1162,16 +1555,20 @@
         '<span class="ico-wrap">' + icon(ico) + (id === "eslatma" ? badge : "") + "</span>" + label + "</button>";
     }
     root.innerHTML =
+      adminBackLink() +
       (who ? '<p class="who">' + esc(state.boot && state.boot.today ? dmy(state.boot.today) : "") + " · " + esc(who) + "</p>" : "") +
       (state.error ? '<div class="err">' + esc(state.error) + "</div>" : "") +
       body +
       '<nav class="nav" aria-label="Asosiy menyu">' +
       tabBtn("sotuv", "Sotuv", "cart") +
       tabBtn("dokon", "Do'konlar", "store") +
+      tabBtn("ulush", "Ulush", "wallet") +
       tabBtn("eslatma", "Eslatma", "bell") +
       tabBtn("sozlama", "Sozlama", "gear") +
       "</nav>" +
       sheetHtml();
+    syncBackButton();
+    if (state.sheet === "map") mountMap();
     var keep = focusKey ? document.querySelector('[data-focus="' + focusKey + '"]') : null;
     if (keep) { keep.focus(); var n = keep.value.length; try { keep.setSelectionRange(n, n); } catch (e) {} }
   }
