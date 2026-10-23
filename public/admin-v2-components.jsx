@@ -913,6 +913,7 @@
     const [reysTouched, setReysTouched] = useState(false);
     const [loadLines, setLoadLines] = useState([{ product_id: "", quantity: "1" }]);
     const [reysNote, setReysNote] = useState("");
+    const [requests, setRequests] = useState([]);
     const idemRef = useRef("");
     const reysKey = useRef("");
 
@@ -921,12 +922,14 @@
         api("/api/customers"),
         api("/api/products"),
         api("/api/agent/admin/waybills?scope=admin"),
-        api("/api/agent/admin/reyslar").catch(function () { return { data: [] }; })
+        api("/api/agent/admin/reyslar").catch(function () { return { data: [] }; }),
+        api("/api/agent/admin/yuk-access-requests?status=pending").catch(function () { return { data: [] }; })
       ]).then(function (arr) {
         const cust = (arr[0].data || []).filter(function (c) { return c.is_active !== false; });
         setCustomers(cust);
         setProducts((arr[1].data || []).filter(function (p) { return p.is_active !== false; }));
         setRows(arr[2].data || []);
+        setRequests(arr[4].data || []);
         const list = arr[3].data || [];
         setTrips(list);
         setErr("");
@@ -1160,9 +1163,52 @@
       );
     }
 
+    async function decideAccess(row, action) {
+      if (busy || !row) return;
+      setBusy(true);
+      try {
+        await api("/api/agent/admin/yuk-access-requests/" + encodeURIComponent(row.telegram_id) + "/" + action, {
+          method: "POST",
+          body: JSON.stringify({})
+        });
+        setMsg({ text: action === "approve" ? "Tasdiqlandi" : "Rad etildi", type: "ok" });
+        load();
+      } catch (error) {
+        setMsg({ text: error.message, type: "err" });
+      } finally {
+        setBusy(false);
+      }
+    }
+
     return (
       <div>
         <Msg text={msg.text} type={msg.type} onClose={function () { setMsg({}); }} />
+        <div className="card">
+          <h2>Kirish so'rovlari</h2>
+          <p className="muted">Yuk xati yozishga ruxsat. @briketborbot dagi tugma eski botga boradi va ERP ruxsatini bermaydi. Shu yerdan tasdiqlang yoki rad eting.</p>
+          {requests.length ? (
+            <div className="table-wrap"><table>
+              <thead><tr><th>Ism</th><th>Username</th><th>id</th><th></th></tr></thead>
+              <tbody>
+                {requests.map(function (row) {
+                  const name = row.full_name || [row.first_name, row.last_name].filter(Boolean).join(" ") || "—";
+                  return (
+                    <tr key={row.telegram_id}>
+                      <td data-label="Ism">{name}</td>
+                      <td data-label="Username">{row.username ? "@" + row.username : "—"}</td>
+                      <td data-label="id">{row.telegram_id}</td>
+                      <td>
+                        <button type="button" className="btn btn-sm" disabled={busy} onClick={function () { decideAccess(row, "approve"); }}>✅ Tasdiqlash</button>
+                        {" "}
+                        <button type="button" className="btn-ghost btn-sm" disabled={busy} onClick={function () { decideAccess(row, "reject"); }}>❌ Rad etish</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table></div>
+          ) : <p className="muted">Kutilayotgan so'rov yo'q.</p>}
+        </div>
         <div className="card">
           <h2>Reys</h2>
           <p className="muted">Yukni ombordan yo'lga chiqaring. Shu reysdagi yuk xati shu yukdan ayiriladi. Yopilganda qolgani omborga qaytadi. Reyssiz yuk xati ham yoziladi.</p>

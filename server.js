@@ -7,6 +7,8 @@
  * Ixtiyoriy:
  *   PORT, ALLOW_DEMO_CUSTOMER, AGENT_CORS_ORIGINS,
  *   YUK_BOT_TOKEN (@briketborbot), ERP_BOT_TOKEN (@Blckdmndbrqts_bot),
+ *   YUK_WEBHOOK_SECRET — /api/agent/yuk/telegram-webhook.
+ *   @briketborbot webhooki eski Supabase funksiyasida qoladi. Uni almashtirmang.
  *   TELEGRAM_BOT_TOKEN (@briket_mijoz_bot, HMAC zaxirasi va xabar yuborish).
  *   initData HMAC shu uchtalikdan o'rnatilganlariga tekshiriladi.
  *   ADMIN_TELEGRAM_IDS (vergul bilan; bo'sh bo'lsa hech kim kirmaydi).

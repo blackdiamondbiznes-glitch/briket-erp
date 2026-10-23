@@ -31,7 +31,8 @@ Agent jadvallari va `/api/agent/*` kodda qoladi, lekin admin oynasida yashirin. 
 | `ERP_BOT_TOKEN` | @Blckdmndbrqts_bot. briket-erp shu botda ham ishlaydi. initData HMAC da ikkinchi tekshiriladi. Bo'sh bo'lsa tashlab ketiladi. |
 | `TELEGRAM_BOT_TOKEN` | @briket_mijoz_bot. initData HMAC uchun zaxira. Nakladnoy va mijoz xabarlarini yuborish shu tokenda qoladi — boshqa botga almashtirilmaydi. Uchala token ham bo'sh bo'lsa agent API 503. |
 | `TELEGRAM_INITDATA_MAX_AGE_SEC` | Agent initData yoshi, soniya, sukut 86400. `/yuk` egasi yo'li buni 3600 soniyadan oshirmaydi. `auth_date` Unix soniya; 401 javobida `reason`: `missing`, `expired`, `hash_mismatch`. |
-| `ADMIN_TELEGRAM_IDS` | Vergul bilan telegram id. Bo'sh yoki o'rnatilmagan bo'lsa **hech kim** `/yuk` va Telegram orqali admin kira olmaydi — ID kodga yozilmaydi. Hozir productionda o'rnatilmagan. `/yuk` ni ochishdan oldin egasining Telegram id sini qo'ying. |
+| `ADMIN_TELEGRAM_IDS` | Vergul bilan telegram id. Bo'sh yoki o'rnatilmagan bo'lsa **hech kim** `/yuk` va Telegram orqali admin kira olmaydi — ID kodga yozilmaydi. Hozir productionda o'rnatilmagan. `/yuk` ni ochishdan oldin egasining Telegram id sini qo'ying. Shu ro'yxatdagi egalar har doim kira oladi va faqat ular kirish so'rovini tasdiqlaydi. |
+| `YUK_WEBHOOK_SECRET` | `POST /api/agent/yuk/telegram-webhook` sarlavhasi `X-Telegram-Bot-Api-Secret-Token`. Bo'sh bo'lsa endpoint 503. Token qiymati logga yozilmaydi. |
 | `CORS_ORIGIN` | Vergul bilan originlar. Productionda majburiy. |
 | `AGENT_CORS_ORIGINS` | Mini-app originlari. `CORS_ORIGIN` ga qo'shiladi, o'rnini bosmaydi. |
 | `ADMIN_KEY` | Admin panel va `/api/agent/admin/*`. |
@@ -39,8 +40,27 @@ Agent jadvallari va `/api/agent/*` kodda qoladi, lekin admin oynasida yashirin. 
 
 ### Rollout
 
-1. Supabase SQL Editor da ketma-ket ishga tushiring: `migrations/004_agent_field_sales.sql`, `migrations/005_admin_waybills.sql`, `migrations/006_reys.sql`, `migrations/007_yuk_xati.sql`, `migrations/008_yuk_creator.sql`. Hammasi qayta yurishga yaroqli. Mavjud qatorlar o'chirilmaydi, ustunlar qayta nomlanmaydi. 007 faqat yangi ustun, jadval va `waybill_code_seq` qo'shadi. `paid_amount` ni o'zgartirmaydi. 008 yuk xati va `/yuk` to'loviga yozuvchining Telegram id va ismini nullable ustun qilib qo'shadi. Eski qatorlar NULL qoladi va ekranda «Eski yozuv» deb chiqadi.
-2. Shu PR merge bo'lgach servisni yangilang. `ADMIN_TELEGRAM_IDS` ni egasining Telegram id si bilan to'ldiring. `YUK_BOT_TOKEN` (@briketborbot) va `ERP_BOT_TOKEN` (@Blckdmndbrqts_bot) ni qo'ying; `TELEGRAM_BOT_TOKEN` mijoz botida qoladi va HMAC zaxirasi. Bo'sh ro'yxatda `/yuk` 401 qaytaradi. Mini-app manzili: `https://<host>/yuk`.
+1. Supabase SQL Editor da ketma-ket ishga tushiring: `migrations/004_agent_field_sales.sql`, `migrations/005_admin_waybills.sql`, `migrations/006_reys.sql`, `migrations/007_yuk_xati.sql`, `migrations/008_yuk_creator.sql`, `migrations/009_yuk_access.sql`. Hammasi qayta yurishga yaroqli. Mavjud qatorlar o'chirilmaydi, ustunlar qayta nomlanmaydi. 007 faqat yangi ustun, jadval va `waybill_code_seq` qo'shadi. `paid_amount` ni o'zgartirmaydi. 008 yuk xati va `/yuk` to'loviga yozuvchining Telegram id va ismini nullable ustun qilib qo'shadi. Eski qatorlar NULL qoladi va ekranda «Eski yozuv» deb chiqadi. 009 faqat `yuk_access_requests` va `yuk_allowed_users` jadvallarini yaratadi.
+2. Shu PR merge bo'lgach servisni yangilang. `ADMIN_TELEGRAM_IDS` ni egasining Telegram id si bilan to'ldiring. `YUK_BOT_TOKEN` (@briketborbot) va `ERP_BOT_TOKEN` (@Blckdmndbrqts_bot) ni qo'ying; `TELEGRAM_BOT_TOKEN` mijoz botida qoladi va HMAC zaxirasi. Bo'sh ro'yxatda `/yuk` 401 qaytaradi. Mini-app manzili: `https://<host>/yuk`. `YUK_WEBHOOK_SECRET` ni qo'ying (harf, raqam, `_`, `-`).
+
+### Kirish so'rovi
+
+`ADMIN_TELEGRAM_IDS` dagi egalar har doim kira oladi. Boshqa hisob `/yuk` da faqat qulflangan ekranni ko'radi: forma, do'kon va mahsulot so'rovi yo'q. «Ruxsat so'rash» `yuk_access_requests` ga `pending` yozadi va tekshiruvdan o'tgan bot orqali egalarga xabar yuboradi. Xabar matni: `🔐 Yangi kirish so'rovi`, Ism, Username, id, Vaqt. Tugmalar: `✅ Tasdiqlash` (`access_approve:{id}`), `❌ Rad etish` (`access_reject:{id}`). Bir soat ichida qayta so'rov egaga ikkinchi xabar yubormaydi. Rad etilgan hisob qayta so'rov ocholmaydi. Tasdiqlangan hisob yuk xati yozadi, lekin boshqasini tasdiqlay olmaydi.
+
+**@briketborbot webhookini o'zgartirmang.** U hozir eski Supabase `telegram-webhook` funksiyasiga qaraydi va o'sha funksiya ishlayapti. Shu bot yuborgan tugma bosilsa, javob eski funksiyaga boradi: u eski mini-app bazasini yangilaydi, ERP `yuk_allowed_users` ni emas. Webhookni `https://<host>/api/agent/yuk/telegram-webhook` ga ko'chirish eski botning tugmalarini to'xtatadi.
+
+ERP ruxsati hozir admin paneldan beriladi: Sotuv → Yuk tarqatish → Kirish so'rovlari → Tasdiqlash / Rad etish. Panel tasdiqlangan odamga shu tekshiruv botidan xabar yuboradi. Webhook shart emas.
+
+Agar keyin tugma ERP da ishlasin desangiz, webhooki bo'sh botni (masalan @Blckdmndbrqts_bot, agar unda boshqa webhook yo'q bo'lsa) shu manzilga qo'ying va `allowed_updates` ni faqat `callback_query` qiling. @briket_mijoz_bot webhookini ham almashtirmang — mijoz xabarlari shu botda qoladi.
+
+```bash
+curl -s "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook" \
+  -d "url=https://<host>/api/agent/yuk/telegram-webhook" \
+  -d "secret_token=<YUK_WEBHOOK_SECRET>" \
+  -d 'allowed_updates=["callback_query"]'
+```
+
+`<BOT_TOKEN>` ni logga yozmang. Bu qadamni @briketborbot uchun ishlatmang, toki eski botni ataylab o'chirish kerak bo'lmasa.
 3. Tarixiy yuk xati taqsimi alohida, avval dry-run: `node scripts/backfill-waybill-allocations.js`. `--apply` faqat ko'rib chiqilgach. U `payment_allocations` yozadi, `paid_amount` ni tegmaydi, qator o'chirmaydi. Import (`legacy_source`, `stock_posted=false`) dry-run siz ham ekranda o'z `paid_amount` / `debt_amount` ini ko'rsatadi.
 4. Admin → Sotuv → Yuk tarqatish. Mijoz va mahsulotni tanlang, to'lov va qarzni ko'ring, yuk xatini yozing. Chop etish server HTML ini ochadi. PDF va Telegramga yuborish (mijozda `telegram_id` va bot token bo'lsa) shu yerdan. Telefon: `/yuk` — Sotuv, Do'konlar, Eslatma, Sozlama. Kompaniya karta va telefon Sozlama (`company_card`, `company_phone`) dan o'qiladi.
 5. Agentlar yorlig'i Sozlama dagi belgi yoqilmaguncha chiqmaydi. `/yuk` ni `ADMIN_TELEGRAM_IDS` dagi egasi, akasi va otasi ochadi. Har bir yangi yuk xati va `/yuk` to'lovi yozuvchining ismini saqlaydi. Agent oynasi yashirin qoladi.

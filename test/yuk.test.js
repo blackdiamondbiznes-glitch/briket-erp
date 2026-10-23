@@ -10,6 +10,7 @@ const { createMemoryStore } = require('./memory-agent-store');
 const { signTelegramInitData, checkTelegramInitData, checkTelegramInitDataAny, configuredInitDataTokens } = require('../lib/telegram-webapp');
 const { creatorFromUser, creatorLabel } = require('../lib/yuk-creator');
 const { authenticateOwner, ownerInitDataMaxAge, telegramAdminUser } = require('../lib/admin-auth');
+const { createYukAccess } = require('../lib/yuk-access');
 const registerAgentRoutes = require('../routes-agent');
 const registerCustomerApp = require('../routes-customer-app');
 
@@ -833,4 +834,292 @@ test('reminders group by Tashkent due dates and legacy rows stay visible', async
   assert.equal(boot.company.card, '');
   assert.equal(boot.company.phone, '998900000000');
   assert.equal(boot.products[0].price, 8000);
+});
+
+test('yuk access request notifies owners, dedups for an hour, and only env owners approve', async () => {
+  const prev = {
+    YUK_BOT_TOKEN: process.env.YUK_BOT_TOKEN,
+    ERP_BOT_TOKEN: process.env.ERP_BOT_TOKEN,
+    TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
+    ADMIN_TELEGRAM_IDS: process.env.ADMIN_TELEGRAM_IDS,
+    YUK_WEBHOOK_SECRET: process.env.YUK_WEBHOOK_SECRET,
+    ADMIN_KEY: process.env.ADMIN_KEY,
+    NODE_ENV: process.env.NODE_ENV,
+  };
+  const YUK = 'yuk-bot-token';
+  const TG = 'customer-bot-token';
+  process.env.YUK_BOT_TOKEN = YUK;
+  process.env.ERP_BOT_TOKEN = '';
+  process.env.TELEGRAM_BOT_TOKEN = TG;
+  process.env.ADMIN_TELEGRAM_IDS = '1001,1002';
+  process.env.YUK_WEBHOOK_SECRET = 'hook-secret';
+  process.env.ADMIN_KEY = 'panel-key';
+  process.env.NODE_ENV = 'test';
+
+  const calls = [];
+  let seq = 1;
+  async function fetchImpl(url, opts) {
+    calls.push({ url: String(url), body: JSON.parse(opts.body) });
+    return { ok: true, json: async function () { return { ok: true, result: { message_id: seq++ } }; } };
+  }
+  let nowMs = Date.now();
+  const store = createMemoryStore();
+  await store.insertProduct({ id: 5, sku: 'Maxfiy mahsulot', price: 8000, is_active: true });
+  const access = createYukAccess({
+    store: store,
+    fetchImpl: fetchImpl,
+    now: function () { return new Date(nowMs); },
+  });
+  const app = express();
+  app.use(express.json());
+  registerAgentRoutes(app, null, helpers(), { store: store, access: access });
+  const server = await new Promise((resolve) => {
+    const s = app.listen(0, '127.0.0.1', () => resolve(s));
+  });
+  const base = 'http://127.0.0.1:' + server.address().port;
+  const now = Math.floor(Date.now() / 1000);
+  function initFor(token, user) {
+    return signTelegramInitData({
+      auth_date: String(now),
+      user: JSON.stringify(user),
+    }, token);
+  }
+  const stranger = initFor(YUK, { id: 2002, first_name: '<b>', last_name: 'Karimov', username: 'aka' });
+  const owner = initFor(YUK, { id: 1001, first_name: 'Ega' });
+  const headers = function (init) { return { 'x-telegram-init-data': init }; };
+  function notifies() {
+    return calls.filter(function (call) { return call.body && call.body.reply_markup; });
+  }
+
+  try {
+    const boot = await fetch(base + '/api/agent/yuk/bootstrap', { headers: headers(stranger) });
+    const bootBody = await boot.json();
+    assert.equal(boot.status, 403);
+    assert.equal(bootBody.code, 'LOCKED');
+    assert.equal(bootBody.data, undefined);
+    assert.equal(JSON.stringify(bootBody).includes('Maxfiy'), false);
+    const write = await fetch(base + '/api/agent/yuk/waybills', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, headers(stranger)),
+      body: JSON.stringify({ initData: stranger, items: [{ product_id: 5, quantity: 1 }] }),
+    });
+    assert.equal(write.status, 403);
+    const customerWrite = await fetch(base + '/api/agent/yuk/customers', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, headers(stranger)),
+      body: JSON.stringify({ name: 'Yopiq dokon', full_name: 'Hacker' }),
+    });
+    assert.equal(customerWrite.status, 403);
+
+    const asked = await fetch(base + '/api/agent/yuk/access-requests', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, headers(stranger)),
+      body: JSON.stringify({ full_name: 'Hacker', first_name: 'Hacker', username: 'hacker' }),
+    });
+    const askedBody = await asked.json();
+    assert.equal(asked.status, 403);
+    assert.equal(askedBody.code, 'PENDING_APPROVAL');
+    assert.equal(JSON.stringify(askedBody).includes(YUK), false);
+    assert.equal(notifies().length, 2);
+    notifies().forEach(function (call) {
+      assert.equal(call.url, 'https://api.telegram.org/bot' + YUK + '/sendMessage');
+      assert.equal(call.url.includes(TG), false);
+      assert.match(call.body.text, /🔐 Yangi kirish so'rovi/);
+      assert.match(call.body.text, /Ism: &lt;b&gt; Karimov/);
+      assert.match(call.body.text, /Username: @aka/);
+      assert.match(call.body.text, /id: <code>2002<\/code>/);
+      assert.match(call.body.text, /Vaqt: /);
+      assert.equal(call.body.text.includes('Hacker'), false);
+      assert.equal(call.body.parse_mode, 'HTML');
+      const buttons = call.body.reply_markup.inline_keyboard[0];
+      assert.equal(buttons[0].text, '✅ Tasdiqlash');
+      assert.equal(buttons[0].callback_data, 'access_approve:2002');
+      assert.equal(buttons[1].text, '❌ Rad etish');
+      assert.equal(buttons[1].callback_data, 'access_reject:2002');
+    });
+    assert.deepEqual(notifies().map(function (call) { return String(call.body.chat_id); }).sort(), ['1001', '1002']);
+
+    const again = await fetch(base + '/api/agent/yuk/access-requests', {
+      method: 'POST',
+      headers: headers(stranger),
+    });
+    const againBody = await again.json();
+    assert.equal(againBody.code, 'PENDING_APPROVAL');
+    assert.equal(notifies().length, 2);
+
+    nowMs += 61 * 60 * 1000;
+    await fetch(base + '/api/agent/yuk/access-requests', { method: 'POST', headers: headers(stranger) });
+    assert.equal(notifies().length, 4);
+    await fetch(base + '/api/agent/yuk/access-requests', { method: 'POST', headers: headers(stranger) });
+    assert.equal(notifies().length, 4);
+
+    delete process.env.YUK_WEBHOOK_SECRET;
+    const noSecret = await fetch(base + '/api/agent/yuk/telegram-webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ callback_query: { id: 'cq', from: { id: 1001 }, data: 'access_approve:2002' } }),
+    });
+    assert.equal(noSecret.status, 503);
+    process.env.YUK_WEBHOOK_SECRET = 'hook-secret';
+    const badSecret = await fetch(base + '/api/agent/yuk/telegram-webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Telegram-Bot-Api-Secret-Token': 'nope' },
+      body: JSON.stringify({ callback_query: { id: 'cq', from: { id: 1001 }, data: 'access_approve:2002' } }),
+    });
+    assert.equal(badSecret.status, 401);
+
+    const strangerTap = await fetch(base + '/api/agent/yuk/telegram-webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Telegram-Bot-Api-Secret-Token': 'hook-secret' },
+      body: JSON.stringify({
+        callback_query: {
+          id: 'cq-stranger',
+          from: { id: 2002 },
+          data: 'access_approve:2002',
+          message: { chat: { id: 1001 }, message_id: 1 },
+        },
+      }),
+    });
+    assert.equal(strangerTap.status, 200);
+    const deniedAlert = calls.filter(function (call) { return String(call.url).endsWith('/answerCallbackQuery'); }).pop();
+    assert.equal(deniedAlert.body.text, 'Sizda ruxsat yo\'q.');
+    assert.equal(deniedAlert.body.show_alert, true);
+    const still = await fetch(base + '/api/agent/yuk/access', { headers: headers(stranger) });
+    const stillBody = await still.json();
+    assert.equal(stillBody.code, 'PENDING_APPROVAL');
+
+    const approvedTap = await fetch(base + '/api/agent/yuk/telegram-webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Telegram-Bot-Api-Secret-Token': 'hook-secret' },
+      body: JSON.stringify({
+        callback_query: {
+          id: 'cq-owner',
+          from: { id: 1001 },
+          data: 'access_approve:2002',
+          message: { chat: { id: 1001 }, message_id: 1 },
+        },
+      }),
+    });
+    assert.equal(approvedTap.status, 200);
+    const dm = calls.filter(function (call) {
+      return String(call.url).endsWith('/sendMessage') && String(call.body.chat_id) === '2002';
+    }).pop();
+    assert.match(dm.body.text, /Kirish so'rovingiz tasdiqlandi/);
+    const edited = calls.filter(function (call) { return String(call.url).endsWith('/editMessageText'); }).pop();
+    assert.match(edited.body.text, /✅ Tasdiqlandi/);
+    assert.match(edited.body.text, /Admin: 1001/);
+    const opened = await fetch(base + '/api/agent/yuk/access', { headers: headers(stranger) });
+    const openedBody = await opened.json();
+    assert.equal(opened.status, 200);
+    assert.equal(openedBody.allowed, true);
+    assert.equal(openedBody.role, 'writer');
+    const created = await fetch(base + '/api/agent/yuk/customers', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, headers(stranger)),
+      body: JSON.stringify({ name: 'Ochilgan dokon' }),
+    });
+    const createdBody = await created.json();
+    assert.equal(created.status, 201);
+    assert.equal(createdBody.data.name, 'Ochilgan dokon');
+
+    const other = initFor(YUK, { id: 2004, first_name: 'Aka', username: 'aka2' });
+    await fetch(base + '/api/agent/yuk/access-requests', { method: 'POST', headers: headers(other) });
+    const writerTap = await fetch(base + '/api/agent/yuk/telegram-webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Telegram-Bot-Api-Secret-Token': 'hook-secret' },
+      body: JSON.stringify({
+        callback_query: { id: 'cq-writer', from: { id: 2002 }, data: 'access_approve:2004' },
+      }),
+    });
+    assert.equal(writerTap.status, 200);
+    const otherStill = await fetch(base + '/api/agent/yuk/access', { headers: headers(other) });
+    assert.equal((await otherStill.json()).code, 'PENDING_APPROVAL');
+    const writerAdmin = await fetch(base + '/api/agent/admin/yuk-access-requests/2004/approve', {
+      method: 'POST',
+      headers: headers(stranger),
+    });
+    assert.equal(writerAdmin.status, 401);
+
+    const panel = await fetch(base + '/api/agent/admin/yuk-access-requests/2004/approve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': 'panel-key', 'x-operator-name': 'panel' },
+      body: '{}',
+    });
+    const panelBody = await panel.json();
+    assert.equal(panel.status, 200);
+    assert.equal(panelBody.data.status, 'approved');
+    const otherOpen = await fetch(base + '/api/agent/yuk/access', { headers: headers(other) });
+    assert.equal((await otherOpen.json()).role, 'writer');
+    const panelDm = calls.filter(function (call) {
+      return String(call.url).endsWith('/sendMessage') && String(call.body.chat_id) === '2004';
+    }).pop();
+    assert.match(panelDm.body.text, /tasdiqlandi/);
+
+    const reject = await fetch(base + '/api/agent/yuk/telegram-webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Telegram-Bot-Api-Secret-Token': 'hook-secret' },
+      body: JSON.stringify({
+        callback_query: { id: 'cq-reject', from: { id: 1002 }, data: 'access_reject:2004' },
+      }),
+    });
+    assert.equal(reject.status, 200);
+    const rejected = await fetch(base + '/api/agent/yuk/access', { headers: headers(other) });
+    const rejectedBody = await rejected.json();
+    assert.equal(rejectedBody.code, 'REJECTED');
+    assert.match(rejectedBody.error, /rad etilgan/);
+    const blocked = await fetch(base + '/api/agent/yuk/customers', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, headers(other)),
+      body: JSON.stringify({ name: 'Qayta' }),
+    });
+    assert.equal(blocked.status, 403);
+    const renotify = notifies().length;
+    const reask = await fetch(base + '/api/agent/yuk/access-requests', { method: 'POST', headers: headers(other) });
+    assert.equal((await reask.json()).code, 'REJECTED');
+    assert.equal(notifies().length, renotify);
+
+    const ownerMe = await fetch(base + '/api/agent/yuk/me', { headers: headers(owner) });
+    const ownerBody = await ownerMe.json();
+    assert.equal(ownerMe.status, 200);
+    assert.equal(ownerBody.data.role, 'owner');
+    const list = await fetch(base + '/api/agent/admin/yuk-access-requests?status=pending', {
+      headers: { 'x-admin-key': 'panel-key' },
+    });
+    const listBody = await list.json();
+    assert.equal(list.status, 200);
+    assert.equal(listBody.data.some(function (row) { return row.telegram_id === '2004'; }), false);
+
+    const src = fs.readFileSync(path.join(root, 'lib/yuk-access.js'), 'utf8');
+    assert.doesNotMatch(src, /console\.(log|error|info|warn|debug)/);
+    const page = fs.readFileSync(path.join(root, 'public/yuk.html'), 'utf8');
+    assert.match(page, /Ruxsat so'rash/);
+    assert.match(page, /Tasdiq kutilmoqda/);
+    assert.match(page, /Kirish rad etilgan/);
+    assert.match(page, /Holatni qayta tekshirish/);
+    assert.match(page, /state\.gate !== "allowed"/);
+    assert.match(page, /return loadAccess\(\)/);
+    const waitInit = page.slice(page.indexOf('function waitInit') === -1 ? page.indexOf('waitInit') : page.indexOf('(function waitInit'));
+    assert.match(waitInit, /return loadAccess\(\)/);
+    assert.doesNotMatch(waitInit.slice(0, 400), /return loadBoot\(\)/);
+    const lockFn = page.slice(page.indexOf('function lockHtml'), page.indexOf('function loadBoot'));
+    assert.doesNotMatch(lockFn, /data-act="tab"/);
+    assert.doesNotMatch(lockFn, /Do'konlar/);
+    const admin = fs.readFileSync(path.join(root, 'public/admin-v2-components.jsx'), 'utf8');
+    assert.match(admin, /Kirish so'rovlari/);
+    assert.match(admin, /yuk-access-requests/);
+    const migration = fs.readFileSync(path.join(root, 'migrations/009_yuk_access.sql'), 'utf8');
+    assert.match(migration, /CREATE TABLE IF NOT EXISTS yuk_access_requests/);
+    assert.match(migration, /CREATE TABLE IF NOT EXISTS yuk_allowed_users/);
+    assert.match(migration, /'pending', 'approved', 'rejected'/);
+    const sqlOnly = migration.replace(/--[^\n]*/g, '');
+    assert.doesNotMatch(sqlOnly, /\bUPDATE\b/i);
+    assert.doesNotMatch(sqlOnly, /\bDELETE\b/i);
+    assert.doesNotMatch(sqlOnly, /\bDROP\b/i);
+  } finally {
+    server.close();
+    Object.keys(prev).forEach(function (name) {
+      if (prev[name] == null) delete process.env[name];
+      else process.env[name] = prev[name];
+    });
+  }
 });

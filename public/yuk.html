@@ -108,6 +108,13 @@
     .tag { font-size: 11px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; color: var(--muted); }
     .group h2 { font-size: 14px; margin: 14px 0 8px; }
     .hidden { display: none; }
+    .lock { min-height: 70dvh; display: flex; flex-direction: column; justify-content: center; }
+    .lock h1 { margin: 0; font-size: 28px; }
+    .lock .eyebrow { margin: 0 0 6px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+    .pending-box, .reject-box { border-radius: 14px; padding: 12px 14px; margin: 14px 0; }
+    .pending-box { background: #3a2a12; border: 1px solid #8a6a20; color: #ffe7b8; }
+    .reject-box { background: #3a1814; border: 1px solid #8a3a32; color: #ffd0c8; }
+    .lock a.btn-ghost { display: flex; justify-content: center; text-decoration: none; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -148,6 +155,9 @@
   }
 
   var state = {
+    gate: "checking",
+    accessError: "",
+    asking: false,
     tab: "sotuv",
     boot: null,
     error: "",
@@ -244,6 +254,8 @@
         if (!res.ok || data.ok === false) {
           var err = new Error((data && data.error) || "So'rov bajarilmadi");
           err.status = res.status;
+          err.code = data && data.code || "";
+          err.reason = data && data.reason || "";
           throw err;
         }
         return data;
@@ -266,6 +278,75 @@
     var paid = intOf(state.naqd) + intOf(state.karta);
     var debt = Math.max(0, jami - paid);
     return { jami: jami, paid: paid, debt: debt, extra: Math.max(0, paid - jami) };
+  }
+
+  function applyGate(e) {
+    state.asking = false;
+    state.accessError = e && e.message ? e.message : "";
+    if (e && e.code === "PENDING_APPROVAL") state.gate = "pending";
+    else if (e && e.code === "REJECTED") state.gate = "rejected";
+    else if (e && e.code === "LOCKED") {
+      state.gate = "locked";
+      state.accessError = "";
+    } else state.gate = "invalid";
+    state.loading = false;
+    render();
+  }
+
+  function loadAccess() {
+    state.gate = "checking";
+    state.accessError = "";
+    render();
+    return api("/api/agent/yuk/access").then(function (r) {
+      if (r.allowed) {
+        state.gate = "allowed";
+        return loadBoot();
+      }
+      state.gate = "locked";
+      state.loading = false;
+      render();
+    }).catch(applyGate);
+  }
+
+  function askAccess() {
+    if (state.asking) return;
+    state.asking = true;
+    state.accessError = "";
+    render();
+    return api("/api/agent/yuk/access-requests", { method: "POST", body: {} }).then(function (r) {
+      state.asking = false;
+      if (r.allowed) {
+        state.gate = "allowed";
+        return loadBoot();
+      }
+      state.gate = "locked";
+      render();
+    }).catch(applyGate);
+  }
+
+  function lockHtml() {
+    var pending = state.gate === "pending";
+    var rejected = state.gate === "rejected";
+    var body = "";
+    if (state.gate === "checking") {
+      body = '<p class="muted">Tekshirilmoqda...</p>';
+    } else if (state.gate === "invalid") {
+      body = '<div class="err">' + esc(state.accessError || "Telegram initData yaroqsiz") + "</div>";
+    } else if (pending) {
+      body = '<div class="pending-box"><p class="font"><b>⏳ Tasdiq kutilmoqda</b></p>' +
+        "<p>Kirish so'rovi yuborildi. Admin tasdiqlashini kuting. Tasdiqlangandan keyin Mini Appni qayta oching.</p></div>" +
+        '<button type="button" class="btn" data-act="recheck-access"' + (state.asking ? " disabled" : "") + ">Holatni qayta tekshirish</button>";
+    } else if (rejected) {
+      body = '<div class="reject-box"><p><b>❌ Kirish rad etilgan</b></p><p>Admin bilan bog\'laning.</p></div>';
+    } else {
+      body = "<p>Bu Telegram hisobi yuk xati yozolmaydi.</p>" +
+        '<button type="button" class="btn" data-act="ask-access"' + (state.asking ? " disabled" : "") + ">Ruxsat so'rash</button>";
+    }
+    var link = state.gate === "checking" ? "" :
+      '<a class="btn-ghost" href="https://t.me/Khoshimov_Adkham" target="_blank" rel="noreferrer">Admin bilan bog\'lanish (Telegram)</a>';
+    return '<div class="lock"><p class="eyebrow">B2B Field Sales</p><h1>Briket Savdo</h1>' +
+      body + (state.gate !== "invalid" && state.accessError && !pending && !rejected ? '<div class="err">' + esc(state.accessError) + "</div>" : "") +
+      link + "</div>";
   }
 
   function loadBoot() {
@@ -496,6 +577,8 @@
     var el = e.target.closest("[data-act]");
     if (!el) return;
     var act = el.getAttribute("data-act");
+    if (act === "ask-access") { askAccess(); return; }
+    if (act === "recheck-access") { loadAccess(); return; }
     var id = el.getAttribute("data-id");
     if (act === "tab") {
       state.tab = el.getAttribute("data-tab");
@@ -797,6 +880,10 @@ html += '<label class="lbl">Muddat</label><input class="field" data-in="due" dat
 
   function render() {
     var root = document.getElementById("app");
+    if (state.gate !== "allowed") {
+      root.innerHTML = lockHtml();
+      return;
+    }
     var body = state.tab === "dokon" ? storesView() : state.tab === "eslatma" ? remindView() : state.tab === "sozlama" ? settingsView() : saleView();
     var active = function (name) { return state.tab === name ? " on" : ""; };
     root.innerHTML =
@@ -817,7 +904,7 @@ html += '<label class="lbl">Muddat</label><input class="field" data-in="due" dat
   render();
   var bootTries = 0;
   (function waitInit() {
-    if (readInitData() || bootTries > 8) return loadBoot();
+    if (readInitData() || bootTries > 8) return loadAccess();
     bootTries += 1;
     setTimeout(waitInit, 120);
   })();
