@@ -9,6 +9,7 @@
   <title>Black Diamond — Operatsion tizim</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="theme.js"></script>
+  <script src="confirm-sheet.js"></script>
   <script>
     (function () {
       function readyTg() {
@@ -151,7 +152,12 @@
     .bottom-nav button .nav-label {
       display: block; max-width: 68px; white-space: normal;
     }
-    .bottom-nav button.active { color: var(--accent); }
+    .bottom-nav button.active {
+      color: var(--accent);
+      background: color-mix(in srgb, var(--accent-fill) 18%, transparent);
+      border-radius: 12px;
+      margin: 4px 3px;
+    }
     .bottom-nav button .nav-ico { width: 22px; height: 22px; }
     .bottom-nav button .nav-ico svg { width: 22px; height: 22px; display: block; stroke-width: 1.7; }
     .bottom-nav button.active .nav-ico svg { stroke-width: 2.2; stroke: var(--accent); }
@@ -193,36 +199,57 @@
     .kpi, .dash-kpi {
       position: relative;
       overflow: hidden;
-      background: var(--card);
-      border-radius: var(--radius);
-      padding: 10px 12px 10px 14px;
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 10px 12px 12px;
       border: 1px solid var(--border);
-      box-shadow: none;
+      box-shadow: var(--shadow);
+      overflow: visible;
     }
-    .kpi::before, .dash-kpi::before {
-      content: "";
-      position: absolute; top: 8px; bottom: 8px; left: 0; width: 3px;
-      background: var(--accent-fill);
-      border-radius: 0 2px 2px 0;
+    .kpi-top {
+      display: flex; align-items: center; gap: 8px; min-width: 0;
     }
+    .kpi-ico {
+      width: 28px; height: 28px; flex: 0 0 28px;
+      display: grid; place-items: center;
+      border-radius: 8px;
+      background: var(--accent-muted);
+      color: var(--accent);
+    }
+    .kpi-ico svg { width: 16px; height: 16px; display: block; }
     .kpi .label, .dash-kpi .label {
-      font-size: 0.75rem; color: var(--muted);
-      text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;
+      font-size: 0.75rem; color: var(--hint);
+      text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700;
+      line-height: 1.2;
     }
     .kpi .value, .dash-kpi .value {
-      font-size: var(--fs-kpi); font-weight: 700; margin-top: 4px;
-      line-height: 1.15; font-variant-numeric: tabular-nums;
+      font-size: 1.05rem; font-weight: 700; margin-top: 8px;
+      line-height: 1.1; font-variant-numeric: tabular-nums;
       letter-spacing: -0.03em; color: var(--text);
+      display: flex; flex-wrap: nowrap; align-items: baseline; gap: 4px;
+      white-space: nowrap;
     }
+    .kpi-unit { font-size: 0.75rem; font-weight: 650; color: var(--hint); letter-spacing: 0; flex: 0 0 auto; }
+    .dash-kpi .value > span { white-space: nowrap; flex-shrink: 0; }
+    .kpi-delta {
+      margin-top: 6px; font-size: 0.75rem; font-weight: 700;
+      font-variant-numeric: tabular-nums; line-height: 1.3;
+    }
+    .kpi-delta.up { color: var(--success); }
+    .kpi-delta.down { color: var(--danger); }
+    .kpi-delta.flat { color: var(--hint); }
+    .kpi-delta.bad-up { color: var(--danger); }
+    .kpi-delta.good-down { color: var(--success); }
+    .kpi-delta-vs { font-weight: 600; color: var(--hint); }
     .kpi .trend, .dash-kpi .trend {
-      margin-top: 4px; font-size: 0.75rem; color: var(--muted);
+      margin-top: 6px; font-size: 0.75rem; color: var(--hint);
       min-height: 1em;
     }
     .dash-kpis {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 8px;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
     .dash-kpis.cols-5 {
       grid-template-columns: 1fr 1fr;
@@ -230,11 +257,32 @@
     @media (min-width: 720px) {
       .dash-kpis { grid-template-columns: repeat(4, 1fr); gap: 10px; }
       .dash-kpis.cols-5 { grid-template-columns: repeat(5, 1fr); }
+      .dash-kpi .value { font-size: 1.28rem; }
     }
     @media (max-width: 380px) {
       .dash-kpis, .dash-kpis.cols-5 { grid-template-columns: 1fr 1fr; }
-      .dash-kpi .value { font-size: 0.98rem; }
+      .dash-kpi .value { font-size: 1.12rem; }
     }
+    .dash-charts {
+      display: grid; grid-template-columns: 1fr; gap: 8px; margin: 4px 0 10px;
+    }
+    @media (min-width: 960px) {
+      .dash-charts { grid-template-columns: 1fr 1fr; }
+      .chart-card.wide { grid-column: 1 / -1; }
+    }
+    .chart-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 12px; box-shadow: var(--shadow); min-width: 0;
+    }
+    .chart-card h2 { margin: 0 0 8px; font-size: 0.95rem; }
+    .chart-legend { display: flex; gap: 14px; font-size: 0.75rem; color: var(--hint); margin-bottom: 6px; }
+    .chart-swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 4px; vertical-align: -1px; }
+    .chart-svg { width: 100%; height: auto; display: block; }
+    .hbar { display: grid; grid-template-columns: minmax(72px, 34%) 1fr auto; gap: 8px; align-items: center; margin-top: 8px; }
+    .hbar-name, .hbar-val { font-size: 0.75rem; font-weight: 650; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hbar-val { font-variant-numeric: tabular-nums; color: var(--text); }
+    .hbar-track { height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--text) 8%, transparent); overflow: hidden; }
+    .hbar-fill { height: 100%; border-radius: 99px; background: var(--accent-fill); }
     .dash-kpi-danger {
       border-color: var(--danger-border);
       background: var(--danger-bg);
@@ -265,7 +313,7 @@
       .main { padding-left: 12px; padding-right: 12px; overflow-x: hidden; }
       .dash-kpi { padding: 10px 12px; min-width: 0; }
       .dash-kpi .value {
-        font-size: 1.05rem;
+        font-size: 1.15rem;
         overflow-wrap: anywhere;
         word-break: break-word;
       }
@@ -547,7 +595,7 @@
     }
     @media (max-width: 400px) {
       .dash-kpis, .dash-kpis.cols-5 { grid-template-columns: 1fr 1fr !important; }
-      .dash-kpi .value { font-size: 0.98rem; }
+      .dash-kpi .value { font-size: 1.08rem; }
     }
   
     th.sticky-actions, td.sticky-actions {
@@ -965,14 +1013,21 @@
       .quick-actions { grid-template-columns: repeat(4, 1fr); }
     }
     .quick-actions button {
-      min-height: 56px; border-radius: 10px; border: 1px solid var(--border);
-      background: var(--card); color: var(--text); font-weight: 700; font-size: 0.86rem;
-      padding: 10px 8px; cursor: pointer; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 4px; text-align: center;
+      min-height: 108px; border-radius: 14px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text); font-weight: 700; font-size: 1rem;
+      padding: 12px 14px; cursor: pointer; display: flex; flex-direction: column;
+      align-items: flex-start; justify-content: flex-start; gap: 2px; text-align: left;
+      box-shadow: var(--shadow);
     }
-    .quick-actions button:hover { border-color: var(--accent); background: var(--accent-muted); }
-    .quick-actions .qa-ico { width: 20px; height: 20px; color: var(--accent); }
+    .quick-actions button:hover { border-color: var(--accent-fill); background: var(--accent-muted); }
+    .quick-actions .qa-ico {
+      width: 36px; height: 36px; color: var(--accent);
+      display: grid; place-items: center; border-radius: 10px;
+      background: var(--accent-muted); margin-bottom: 8px;
+    }
     .quick-actions .qa-ico svg { width: 20px; height: 20px; display: block; }
+    .quick-actions .qa-title { font-size: 1rem; font-weight: 750; line-height: 1.2; }
+    .quick-actions .qa-sub { font-size: 0.75rem; font-weight: 600; color: var(--hint); }
     .form-focus { box-shadow: 0 0 0 3px var(--accent-muted); border-color: var(--accent); }
     .extra-toggle { margin: 4px 0 12px; }
     .chip-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -1040,20 +1095,28 @@
         letter-spacing: 0.06em; padding: 10px 8px 4px; font-weight: 600;
       }
       .sidebar button, .sidebar a {
-        display: flex; align-items: flex-start; gap: 8px;
+        display: flex; align-items: center; gap: 10px;
         width: 100%; text-align: left; border: 0; background: transparent;
-        color: var(--muted); padding: 8px 8px; border-radius: 8px;
-        cursor: pointer; font-size: 0.8rem; font-weight: 500;
+        color: var(--hint); padding: 8px 10px; border-radius: 12px;
+        cursor: pointer; font-size: 0.84rem; font-weight: 600;
         line-height: 1.3; white-space: normal; text-decoration: none;
+        min-height: 44px;
       }
-      .sidebar button.sub, .sidebar a.sub { padding-left: 32px; }
-      .sidebar button .nav-ico, .sidebar a .nav-ico { width: 16px; height: 16px; flex-shrink: 0; }
-      .sidebar button .nav-ico svg, .sidebar a .nav-ico svg { width: 16px; height: 16px; display: block; stroke-width: 1.75; }
-      .sidebar button:hover, .sidebar a:hover { background: var(--card-hover); color: var(--text); }
-      .sidebar button.active {
-        background: var(--accent-muted); color: var(--accent);
+      .sidebar button.sub, .sidebar a.sub { padding-left: 36px; }
+      .sidebar button .nav-ico, .sidebar a .nav-ico { width: 18px; height: 18px; flex-shrink: 0; color: var(--hint); }
+      .sidebar button .nav-ico svg, .sidebar a .nav-ico svg { width: 18px; height: 18px; display: block; stroke-width: 1.75; }
+      .sidebar button:hover, .sidebar a:hover {
+        background: color-mix(in srgb, var(--accent-fill) 12%, var(--surface));
+        color: var(--text);
       }
-      .sidebar button.active .nav-ico svg { stroke: var(--accent); stroke-width: 2; }
+      .sidebar button.active, .sidebar a.active {
+        background: color-mix(in srgb, var(--accent-fill) 22%, var(--surface));
+        color: var(--accent);
+        font-weight: 750;
+        box-shadow: inset 3px 0 0 var(--accent-fill);
+      }
+      .sidebar button.active .nav-ico, .sidebar a.active .nav-ico { color: var(--accent); }
+      .sidebar button.active .nav-ico svg { stroke: var(--accent); stroke-width: 2.2; }
     }
     @media (min-width: 860px) {
       .more-backdrop, .more-backdrop.open { display: none !important; }
@@ -1550,21 +1613,48 @@
 
     function ConfirmModal(props) {
       useEffect(function () {
-        if (!props.open) return;
+        if (!props.open) return undefined;
         function onKey(e) {
           if (e.key === "Escape") props.onCancel();
-          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) props.onConfirm();
         }
-        window.addEventListener("keydown", onKey);
-        return function () { window.removeEventListener("keydown", onKey); };
-      }, [props.open]);
+        if (props.money) {
+          window.addEventListener("keydown", onKey);
+          return function () { window.removeEventListener("keydown", onKey); };
+        }
+        var tg = window.Telegram && window.Telegram.WebApp;
+        var platform = tg ? String(tg.platform || "") : "";
+        var inside = !!(tg && (tg.initData || (platform && platform !== "unknown")));
+        if (!inside || typeof tg.showConfirm !== "function") {
+          window.addEventListener("keydown", onKey);
+          return function () { window.removeEventListener("keydown", onKey); };
+        }
+        var settled = false;
+        try {
+          tg.showConfirm(props.text || "", function (ok) {
+            if (settled) return;
+            settled = true;
+            if (ok) props.onConfirm();
+            else props.onCancel();
+          });
+        } catch (e) {
+          window.addEventListener("keydown", onKey);
+          return function () { window.removeEventListener("keydown", onKey); };
+        }
+        return function () { settled = true; };
+      }, [props.open, props.money, props.text]);
       if (!props.open) return null;
+      var tg = window.Telegram && window.Telegram.WebApp;
+      var platform = tg ? String(tg.platform || "") : "";
+      var inside = !!(tg && (tg.initData || (platform && platform !== "unknown")) && typeof tg.showConfirm === "function");
+      if (!props.money && inside) return null;
       return (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={props.onCancel}>
-          <div className="modal-card" onClick={function (e) { e.stopPropagation(); }}>
-            <p style={{ marginBottom: 14, fontSize: "0.9rem" }}>{props.text}</p>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button className="btn-ghost" type="button" onClick={props.onCancel}>Bekor</button>
+        <div className="bd-sheet-back" role="presentation" onClick={props.onCancel}>
+          <div className="bd-sheet" role="dialog" aria-modal="true" aria-labelledby="confirm-sheet-title" onClick={function (e) { e.stopPropagation(); }}>
+            <h2 id="confirm-sheet-title">{props.title || (props.money ? "Pul amali" : "Tasdiqlash")}</h2>
+            <p className="bd-sheet-text">{props.text}</p>
+            {props.detail ? <p className="bd-sheet-detail">{props.detail}</p> : null}
+            <div className="bd-sheet-actions">
+              <button className="btn btn-ghost" type="button" onClick={props.onCancel}>Bekor</button>
               <button className="btn" type="button" onClick={props.onConfirm}>Tasdiqlash</button>
             </div>
           </div>
@@ -1657,19 +1747,23 @@
             <div className="quick-actions">
               <button type="button" onClick={function () { if (onNavigate) onNavigate("orders", { focusForm: "order" }); }}>
                 <span className="qa-ico"><Ico name="cart" /></span>
-                Yangi sotuv
+                <span className="qa-title">Sotuv</span>
+                <span className="qa-sub">Yangi buyurtma</span>
               </button>
               <button type="button" onClick={function () { if (onNavigate) onNavigate("payments", { focusForm: "payment" }); }}>
                 <span className="qa-ico"><Ico name="coin" /></span>
-                To'lov olish
+                <span className="qa-title">To'lov</span>
+                <span className="qa-sub">Naqd yoki karta</span>
               </button>
               <button type="button" onClick={function () { if (onNavigate) onNavigate("expenses", { focusForm: "expense" }); }}>
                 <span className="qa-ico"><Ico name="coin" /></span>
-                Xarajat yozish
+                <span className="qa-title">Xarajat</span>
+                <span className="qa-sub">Press, qadoq, boshqa</span>
               </button>
               <button type="button" onClick={function () { if (onNavigate) onNavigate("batches", { focusForm: "batch" }); }}>
                 <span className="qa-ico"><Ico name="factory" /></span>
-                Yangi partiya
+                <span className="qa-title">Partiya</span>
+                <span className="qa-sub">Ishlab chiqarish</span>
               </button>
             </div>
           </div>
@@ -1708,7 +1802,6 @@
       const foyda = Number(isMonth ? data.oylik_foyda : data.bugungi_foyda || 0);
       const naqd = Number(isMonth ? data.oylik_naqd_tushum : data.bugungi_naqd_tushum || 0);
       const qadoqKg = Number(isMonth ? data.oylik_qadoq_kg : data.bugungi_qadoq_kg || 0);
-      const denom = Math.max(savdo, xarajat, 1);
 
       function shortCode(code) {
         if (!code) return "-";
@@ -1718,6 +1811,110 @@
       }
 
       const omborQiymat = skuStock.reduce(function (s, x) { return s + Number(x.value || 0); }, 0);
+      const kunlar = data.kunlar || [];
+      const topMahsulot = data.top_mahsulot || [];
+      const stockBars = skuStock.slice().sort(function (a, b) {
+        return Math.abs(Number(b.balance_qty) || 0) - Math.abs(Number(a.balance_qty) || 0);
+      }).slice(0, 6);
+
+      function deltaPct(cur, prev) {
+        if (prev === undefined || prev === null || cur === undefined || cur === null) return null;
+        var c = Number(cur) || 0;
+        var p = Number(prev) || 0;
+        if (p === 0 && c === 0) return { dir: "flat", label: "0%" };
+        if (p === 0) return { dir: c > 0 ? "up" : "down", label: "yangi" };
+        var pct = ((c - p) / Math.abs(p)) * 100;
+        var dir = pct > 0.5 ? "up" : pct < -0.5 ? "down" : "flat";
+        var sign = pct > 0 ? "+" : pct < 0 ? "−" : "";
+        return { dir: dir, label: sign + Math.abs(Math.round(pct)) + "%" };
+      }
+
+      function Delta(props2) {
+        var d = props2.delta;
+        if (!d) return null;
+        var cls = "kpi-delta " + d.dir;
+        if (props2.invert && d.dir === "up") cls += " bad-up";
+        if (props2.invert && d.dir === "down") cls += " good-down";
+        var arrow = d.dir === "up" ? "↑" : d.dir === "down" ? "↓" : "·";
+        return <div className={cls}>{arrow} {d.label} <span className="kpi-delta-vs">{props2.vs}</span></div>;
+      }
+
+      function grouped(n) {
+        var v = Math.round(Number(n || 0));
+        var body = String(Math.abs(v)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+        return (v < 0 ? "−" : "") + body;
+      }
+      function Amount(props2) {
+        return (
+          <div className="value">
+            <span className={props2.neg ? "neg" : ""}>{grouped(props2.n)}</span>
+            <span className="kpi-unit">so'm</span>
+          </div>
+        );
+      }
+
+      const vsLabel = isMonth ? "o'tgan oyga" : "kechaga";
+      const prevSavdo = isMonth ? data.oldingi_oy_savdo : data.kecha_savdo;
+      const prevXarajat = isMonth ? data.oldingi_oy_xarajat : data.kecha_xarajat;
+      const prevFoyda = isMonth ? data.oldingi_oy_foyda : data.kecha_foyda;
+      const prevNaqd = isMonth ? data.oldingi_oy_naqd : data.kecha_naqd;
+
+      function DualBars() {
+        var rows = kunlar;
+        var max = 1;
+        rows.forEach(function (r) {
+          max = Math.max(max, Math.abs(Number(r.savdo) || 0), Math.abs(Number(r.foyda) || 0));
+        });
+        var w = 640;
+        var h = 168;
+        var pad = 8;
+        var n = Math.max(rows.length, 1);
+        var gap = 10;
+        var bw = (w - pad * 2 - gap * (n - 1)) / n;
+        return (
+          <svg className="chart-svg" viewBox={"0 0 " + w + " " + h} role="img" aria-label="7 kunlik savdo va foyda">
+            {rows.map(function (r, i) {
+              var x = pad + i * (bw + gap);
+              var sh = Math.max(2, (Math.abs(Number(r.savdo) || 0) / max) * (h - 28));
+              var fh = (Math.abs(Number(r.foyda) || 0) / max) * (h - 28);
+              var base = h - 20;
+              var day = String(r.sana || "").slice(8);
+              return (
+                <g key={r.sana || i}>
+                  <rect x={x} y={base - sh} width={Math.max(4, bw * 0.42)} height={sh} rx="3" fill="var(--accent-fill)">
+                    <title>{"Savdo " + grouped(r.savdo) + " so'm"}</title>
+                  </rect>
+                  <rect x={x + bw * 0.5} y={base - Math.max(fh, Number(r.foyda) ? 2 : 0)} width={Math.max(4, bw * 0.42)} height={Math.max(fh, 0)} rx="3" fill={Number(r.foyda) < 0 ? "var(--danger)" : "var(--success)"}>
+                    <title>{"Foyda " + grouped(r.foyda) + " so'm"}</title>
+                  </rect>
+                  <text x={x + bw / 2} y={h - 4} textAnchor="middle" fontSize="12" fill="var(--hint)">{day}</text>
+                </g>
+              );
+            })}
+          </svg>
+        );
+      }
+
+      function HBars(props2) {
+        var rows = props2.rows || [];
+        if (!rows.length) return <div className="empty">Ma'lumot yo'q</div>;
+        var max = 1;
+        rows.forEach(function (r) { max = Math.max(max, Math.abs(Number(r.value) || 0)); });
+        return (
+          <div>
+            {rows.map(function (r) {
+              var pct = Math.max(4, (Math.abs(Number(r.value) || 0) / max) * 100);
+              return (
+                <div className="hbar" key={r.name}>
+                  <div className="hbar-name" title={r.name}>{r.name}</div>
+                  <div className="hbar-track"><div className="hbar-fill" style={{ width: pct + "%" }} /></div>
+                  <div className="hbar-val">{r.caption}</div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
 
       return (
         <div>
@@ -1755,30 +1952,57 @@
           <div className="dash-section-title">Asosiy ko'rsatkichlar</div>
           <div className="dash-kpis cols-5">
             <div className="dash-kpi kpi-hero">
-              <div className="label">{isMonth ? "Oylik foyda" : "Bugungi foyda"}</div>
-              <div className={"value" + (foyda < 0 ? " neg" : "")}>{money(foyda)}</div>
+              <div className="kpi-top"><span className="kpi-ico"><Ico name="coin" /></span><div className="label">{isMonth ? "Oylik foyda" : "Bugungi foyda"}</div></div>
+              <Amount n={foyda} neg={foyda < 0} />
+              <Delta delta={deltaPct(foyda, prevFoyda)} vs={vsLabel} />
               <div className="trend">savdo − xarajat</div>
-              <div className="bar-track"><div className={"bar-fill" + (foyda < 0 ? " neg" : "")} style={{ width: Math.min(100, Math.abs(foyda) / denom * 100) + "%" }} /></div>
             </div>
             <div className="dash-kpi kpi-click" role="button" tabIndex="0" onClick={function () { if (onNavigate) onNavigate("orders"); }}>
-              <div className="label">Savdo</div>
-              <div className="value">{money(savdo)}</div>
-              <div className="trend">{Number(isMonth ? data.yuk_tarqatish_oy : data.yuk_tarqatish_bugun) > 0 ? "shu jumladan yuk tarqatish " + money(isMonth ? data.yuk_tarqatish_oy : data.yuk_tarqatish_bugun) : "buyurtma va yuk tarqatish"}</div>
+              <div className="kpi-top"><span className="kpi-ico"><Ico name="cart" /></span><div className="label">Savdo</div></div>
+              <Amount n={savdo} />
+              <Delta delta={deltaPct(savdo, prevSavdo)} vs={vsLabel} />
             </div>
             <div className="dash-kpi kpi-click" role="button" tabIndex="0" onClick={function () { if (onNavigate) onNavigate("payments"); }}>
-              <div className="label">Naqd tushum</div>
-              <div className="value">{money(naqd)}</div>
-              <div className="trend">to'lovlar</div>
+              <div className="kpi-top"><span className="kpi-ico"><Ico name="coin" /></span><div className="label">Naqd tushum</div></div>
+              <Amount n={naqd} />
+              <Delta delta={deltaPct(naqd, prevNaqd)} vs={vsLabel} />
             </div>
             <div className="dash-kpi kpi-click" role="button" tabIndex="0" onClick={function () { if (onNavigate) onNavigate("expenses"); }}>
-              <div className="label">Xarajat</div>
-              <div className="value">{money(xarajat)}</div>
-              <div className="trend">press / qadoq / boshqa</div>
+              <div className="kpi-top"><span className="kpi-ico"><Ico name="box" /></span><div className="label">Xarajat</div></div>
+              <Amount n={xarajat} />
+              <Delta delta={deltaPct(xarajat, prevXarajat)} vs={vsLabel} invert />
             </div>
             <div className={"dash-kpi kpi-click" + (Number(data.jami_qarz) > 3000000 ? " dash-kpi-danger" : "")} role="button" tabIndex="0" onClick={function () { if (onNavigate) onNavigate("people-debt"); }}>
-              <div className="label">Qarz</div>
-              <div className={"value" + (Number(data.jami_qarz) > 3000000 ? " neg" : "")}>{money(data.jami_qarz)}</div>
-              <div className="trend">buyurtma va yuk xati</div>
+              <div className="kpi-top"><span className="kpi-ico"><Ico name="users" /></span><div className="label">Qarz</div></div>
+              <Amount n={data.jami_qarz} neg={Number(data.jami_qarz) > 3000000} />
+              <div className="trend">joriy balans</div>
+            </div>
+          </div>
+
+          <div className="dash-section-title">Grafiklar</div>
+          <div className="dash-charts">
+            <div className="chart-card wide">
+              <h2>7 kun — savdo va foyda</h2>
+              <div className="chart-legend">
+                <span><i className="chart-swatch" style={{ background: "var(--accent-fill)" }} /> Savdo</span>
+                <span><i className="chart-swatch" style={{ background: "var(--success)" }} /> Foyda</span>
+                <span><i className="chart-swatch" style={{ background: "var(--danger)" }} /> Zarar</span>
+              </div>
+              {kunlar.length ? <DualBars /> : <div className="empty">Ma'lumot yo'q</div>}
+            </div>
+            <div className="chart-card">
+              <h2>Top 5 mahsulot</h2>
+              <div className="trend">so'nggi 7 kun, summa</div>
+              <HBars rows={topMahsulot.map(function (p) {
+                return { name: p.name, value: p.summa, caption: grouped(p.summa) };
+              })} />
+            </div>
+            <div className="chart-card">
+              <h2>Ombor qoldig'i</h2>
+              <div className="trend">tayyor mahsulot, dona</div>
+              <HBars rows={stockBars.map(function (s) {
+                return { name: s.sku, value: s.balance_qty, caption: qtyText(s.balance_qty) };
+              })} />
             </div>
           </div>
 

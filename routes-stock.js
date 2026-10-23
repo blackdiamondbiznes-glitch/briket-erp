@@ -218,6 +218,226 @@ module.exports = function (app, pool, helpers) {
     }
   });
 
+  function shiftIso(iso, delta) {
+    const parts = String(iso).slice(0, 10).split('-').map(Number);
+    const dt = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+    dt.setUTCDate(dt.getUTCDate() + delta);
+    return dt.toISOString().slice(0, 10);
+  }
+
+  function sumBySana(rows) {
+    const map = {};
+    (rows || []).forEach(function (row) {
+      const key = String(row.sana || '').slice(0, 10);
+      if (!key) return;
+      map[key] = som(row.total);
+    });
+    return map;
+  }
+
+  function mergeTopProducts(orderRows, fieldRows) {
+    const map = {};
+    function add(rows) {
+      (rows || []).forEach(function (row) {
+        const name = String(row.name || 'Mahsulot');
+        if (!map[name]) map[name] = { name: name, qty: 0, summa: 0 };
+        map[name].qty += num(row.qty);
+        map[name].summa += som(row.total);
+      });
+    }
+    add(orderRows);
+    add(fieldRows);
+    return Object.keys(map)
+      .map(function (key) { return map[key]; })
+      .sort(function (a, b) { return b.summa - a.summa || b.qty - a.qty; })
+      .slice(0, 5)
+      .map(function (row) {
+        return { name: row.name, qty: row.qty, summa: som(row.summa) };
+      });
+  }
+
+  async function loadDashboardTrends(dayStr) {
+    const blank = {
+      kunlar: [],
+      top_mahsulot: [],
+      kecha_savdo: 0,
+      kecha_xarajat: 0,
+      kecha_foyda: 0,
+      kecha_naqd: 0,
+      oldingi_oy_savdo: 0,
+      oldingi_oy_xarajat: 0,
+      oldingi_oy_foyda: 0,
+      oldingi_oy_naqd: 0
+    };
+    try {
+      const dayStart = `(($1::date - interval '6 days')::timestamp AT TIME ZONE '${TZ}')`;
+      const dayEnd = `(($1::date + interval '1 day')::timestamp AT TIME ZONE '${TZ}')`;
+      const prevStart = `((date_trunc('month', $1::date) - interval '1 month')::timestamp AT TIME ZONE '${TZ}')`;
+      const monthStart = `(date_trunc('month', $1::date)::timestamp AT TIME ZONE '${TZ}')`;
+      const [
+        orderDays,
+        expenseDays,
+        cashDays,
+        fieldDays,
+        prevOrders,
+        prevExpenses,
+        prevCash,
+        prevField,
+        topOrders,
+        topField
+      ] = await Promise.all([
+        pool.query(
+          `SELECT to_char((COALESCE(ordered_at, created_at) AT TIME ZONE '${TZ}')::date, 'YYYY-MM-DD') AS sana,
+                  COALESCE(SUM(total_amount), 0) AS total
+           FROM orders
+           WHERE status = ANY($2::text[])
+             AND COALESCE(ordered_at, created_at) >= ${dayStart}
+             AND COALESCE(ordered_at, created_at) < ${dayEnd}
+           GROUP BY 1`,
+          [dayStr, soldList]
+        ),
+        pool.query(
+          `SELECT to_char((expense_date AT TIME ZONE '${TZ}')::date, 'YYYY-MM-DD') AS sana,
+                  COALESCE(SUM(amount), 0) AS total
+           FROM expenses
+           WHERE expense_date >= ${dayStart}
+             AND expense_date < ${dayEnd}
+           GROUP BY 1`,
+          [dayStr]
+        ),
+        pool.query(
+          `SELECT to_char((paid_at AT TIME ZONE '${TZ}')::date, 'YYYY-MM-DD') AS sana,
+                  COALESCE(SUM(amount), 0) AS total
+           FROM payments
+           WHERE paid_at >= ${dayStart}
+             AND paid_at < ${dayEnd}
+           GROUP BY 1`,
+          [dayStr]
+        ),
+        fieldQueryTiered(
+          `SELECT to_char(COALESCE(sale_date, (created_at AT TIME ZONE '${TZ}')::date), 'YYYY-MM-DD') AS sana,
+                  COALESCE(SUM(total_amount), 0) AS total
+           FROM waybills
+           WHERE (stock_posted = true OR reys_id IS NOT NULL)
+             AND COALESCE(sale_date, (created_at AT TIME ZONE '${TZ}')::date) >= ($1::date - interval '6 days')
+             AND COALESCE(sale_date, (created_at AT TIME ZONE '${TZ}')::date) <= $1::date
+           GROUP BY 1`,
+          `SELECT to_char((created_at AT TIME ZONE '${TZ}')::date, 'YYYY-MM-DD') AS sana,
+                  COALESCE(SUM(total_amount), 0) AS total
+           FROM waybills
+           WHERE stock_posted = true
+             AND created_at >= ${dayStart}
+             AND created_at < ${dayEnd}
+           GROUP BY 1`,
+          [dayStr],
+          null
+        ),
+        pool.query(
+          `SELECT COALESCE(SUM(total_amount), 0) AS total FROM orders
+           WHERE status = ANY($2::text[])
+             AND COALESCE(ordered_at, created_at) >= ${prevStart}
+             AND COALESCE(ordered_at, created_at) < ${monthStart}`,
+          [dayStr, soldList]
+        ),
+        pool.query(
+          `SELECT COALESCE(SUM(amount), 0) AS total FROM expenses
+           WHERE expense_date >= ${prevStart}
+             AND expense_date < ${monthStart}`,
+          [dayStr]
+        ),
+        pool.query(
+          `SELECT COALESCE(SUM(amount), 0) AS total FROM payments
+           WHERE paid_at >= ${prevStart}
+             AND paid_at < ${monthStart}`,
+          [dayStr]
+        ),
+        fieldQueryTiered(
+          `SELECT COALESCE(SUM(total_amount), 0) AS total FROM waybills
+           WHERE (stock_posted = true OR reys_id IS NOT NULL)
+             AND COALESCE(sale_date, (created_at AT TIME ZONE '${TZ}')::date) >= (date_trunc('month', $1::date) - interval '1 month')::date
+             AND COALESCE(sale_date, (created_at AT TIME ZONE '${TZ}')::date) < date_trunc('month', $1::date)::date`,
+          `SELECT COALESCE(SUM(total_amount), 0) AS total FROM waybills
+           WHERE stock_posted = true
+             AND created_at >= ${prevStart}
+             AND created_at < ${monthStart}`,
+          [dayStr],
+          { total: 0 }
+        ),
+        pool.query(
+          `SELECT COALESCE(NULLIF(oi.sku, ''), 'Mahsulot') AS name,
+                  COALESCE(SUM(oi.qty), 0) AS qty,
+                  COALESCE(SUM(oi.line_total), 0) AS total
+           FROM order_items oi
+           JOIN orders o ON o.id = oi.order_id
+           WHERE o.status = ANY($2::text[])
+             AND COALESCE(o.ordered_at, o.created_at) >= ${dayStart}
+             AND COALESCE(o.ordered_at, o.created_at) < ${dayEnd}
+           GROUP BY 1`,
+          [dayStr, soldList]
+        ),
+        fieldQueryTiered(
+          `SELECT COALESCE(NULLIF(wi.product_name, ''), 'Mahsulot') AS name,
+                  COALESCE(SUM(wi.quantity), 0) AS qty,
+                  COALESCE(SUM(wi.subtotal), 0) AS total
+           FROM waybill_items wi
+           JOIN waybills w ON w.id = wi.waybill_id
+           WHERE (w.stock_posted = true OR w.reys_id IS NOT NULL)
+             AND COALESCE(w.sale_date, (w.created_at AT TIME ZONE '${TZ}')::date) >= ($1::date - interval '6 days')
+             AND COALESCE(w.sale_date, (w.created_at AT TIME ZONE '${TZ}')::date) <= $1::date
+           GROUP BY 1`,
+          `SELECT COALESCE(NULLIF(wi.product_name, ''), 'Mahsulot') AS name,
+                  COALESCE(SUM(wi.quantity), 0) AS qty,
+                  COALESCE(SUM(wi.subtotal), 0) AS total
+           FROM waybill_items wi
+           JOIN waybills w ON w.id = wi.waybill_id
+           WHERE w.stock_posted = true
+             AND w.created_at >= ${dayStart}
+             AND w.created_at < ${dayEnd}
+           GROUP BY 1`,
+          [dayStr],
+          null
+        )
+      ]);
+
+      const ordersMap = sumBySana(orderDays.rows);
+      const expenseMap = sumBySana(expenseDays.rows);
+      const cashMap = sumBySana(cashDays.rows);
+      const fieldMap = sumBySana(fieldDays.rows);
+      const kunlar = [];
+      for (let i = 6; i >= 0; i--) {
+        const sana = shiftIso(dayStr, -i);
+        const savdo = som((ordersMap[sana] || 0) + (fieldMap[sana] || 0));
+        const xarajat = som(expenseMap[sana] || 0);
+        kunlar.push({
+          sana: sana,
+          savdo: savdo,
+          xarajat: xarajat,
+          foyda: som(savdo - xarajat),
+          naqd: som(cashMap[sana] || 0)
+        });
+      }
+      const kecha = kunlar.length > 1 ? kunlar[kunlar.length - 2] : { savdo: 0, xarajat: 0, foyda: 0, naqd: 0 };
+      const prevFieldSum = som(prevField.rows[0] && prevField.rows[0].total);
+      const prevSavdo = som(prevOrders.rows[0].total) + prevFieldSum;
+      const prevXarajat = som(prevExpenses.rows[0].total);
+      return {
+        kunlar: kunlar,
+        top_mahsulot: mergeTopProducts(topOrders.rows, topField.rows),
+        kecha_savdo: kecha.savdo,
+        kecha_xarajat: kecha.xarajat,
+        kecha_foyda: kecha.foyda,
+        kecha_naqd: kecha.naqd,
+        oldingi_oy_savdo: prevSavdo,
+        oldingi_oy_xarajat: prevXarajat,
+        oldingi_oy_foyda: som(prevSavdo - prevXarajat),
+        oldingi_oy_naqd: som(prevCash.rows[0].total)
+      };
+    } catch (err) {
+      console.error('dashboard trends', err && err.message);
+      return blank;
+    }
+  }
+
   app.get('/api/dashboard', async (req, res) => {
     try {
       const settingsR = await pool.query(
@@ -231,6 +451,7 @@ module.exports = function (app, pool, helpers) {
       const highDebtThreshold = cfg.high_debt_threshold || 3000000;
 
       const dayStr = tashkentDateStr();
+      const trendsP = loadDashboardTrends(dayStr);
 
       const [
         salesToday,
@@ -437,6 +658,8 @@ module.exports = function (app, pool, helpers) {
         return (a.type === 'danger' ? 0 : 1) - (b.type === 'danger' ? 0 : 1);
       });
 
+      const trends = await trendsP;
+
       res.json({
         ok: true,
         data: {
@@ -466,6 +689,16 @@ module.exports = function (app, pool, helpers) {
           recent_orders: recentOrders.rows,
           recent_field_sales: recentField.rows,
           alerts,
+          kunlar: trends.kunlar,
+          top_mahsulot: trends.top_mahsulot,
+          kecha_savdo: trends.kecha_savdo,
+          kecha_xarajat: trends.kecha_xarajat,
+          kecha_foyda: trends.kecha_foyda,
+          kecha_naqd: trends.kecha_naqd,
+          oldingi_oy_savdo: trends.oldingi_oy_savdo,
+          oldingi_oy_xarajat: trends.oldingi_oy_xarajat,
+          oldingi_oy_foyda: trends.oldingi_oy_foyda,
+          oldingi_oy_naqd: trends.oldingi_oy_naqd,
         },
       });
     } catch (err) {

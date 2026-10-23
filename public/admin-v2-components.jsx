@@ -35,21 +35,37 @@
 
   function V2ConfirmModal(props) {
     useEffect(function () {
-      if (!props.open) return;
-      function onKey(e) {
-        if (e.key === "Escape") props.onCancel();
-        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) props.onConfirm();
+      if (!props.open || props.money) return undefined;
+      var tg = window.Telegram && window.Telegram.WebApp;
+      var platform = tg ? String(tg.platform || "") : "";
+      var inside = !!(tg && (tg.initData || (platform && platform !== "unknown")));
+      if (!inside || typeof tg.showConfirm !== "function") return undefined;
+      var settled = false;
+      try {
+        tg.showConfirm(props.text || "", function (ok) {
+          if (settled) return;
+          settled = true;
+          if (ok) props.onConfirm();
+          else props.onCancel();
+        });
+      } catch (e) {
+        return undefined;
       }
-      window.addEventListener("keydown", onKey);
-      return function () { window.removeEventListener("keydown", onKey); };
-    }, [props.open, props.onCancel, props.onConfirm]);
+      return function () { settled = true; };
+    }, [props.open, props.money, props.text, props.onConfirm, props.onCancel]);
     if (!props.open) return null;
+    var tg = window.Telegram && window.Telegram.WebApp;
+    var platform = tg ? String(tg.platform || "") : "";
+    var inside = !!(tg && (tg.initData || (platform && platform !== "unknown")) && typeof tg.showConfirm === "function");
+    if (!props.money && inside) return null;
     return (
-      <div className="modal-backdrop" role="dialog" aria-modal="true">
-        <div className="modal-card">
-          <p style={{ marginBottom: 14, fontSize: "0.9rem" }}>{props.text}</p>
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <button className="btn-ghost" type="button" onClick={props.onCancel}>Bekor</button>
+      <div className="bd-sheet-back" role="presentation" onClick={props.onCancel}>
+        <div className="bd-sheet" role="dialog" aria-modal="true" aria-labelledby="v2-confirm-title" onClick={function (e) { e.stopPropagation(); }}>
+          <h2 id="v2-confirm-title">{props.title || (props.money ? "Pul amali" : "Tasdiqlash")}</h2>
+          <p className="bd-sheet-text">{props.text}</p>
+          {props.detail ? <p className="bd-sheet-detail">{props.detail}</p> : null}
+          <div className="bd-sheet-actions">
+            <button className="btn btn-ghost" type="button" onClick={props.onCancel}>Bekor</button>
             <button className="btn" type="button" onClick={props.onConfirm}>Tasdiqlash</button>
           </div>
         </div>
@@ -1121,7 +1137,13 @@
 
     async function closeTrip(trip) {
       if (busy || !trip) return;
-      if (!window.confirm("Qolgan yuk omborga qaytadi. Reysni yopasizmi?")) return;
+      var ask = window.bdConfirm || function (msg) { return Promise.resolve(window.confirm(msg)); };
+      var ok = await ask("Reysni yopasizmi?", {
+        money: true,
+        title: "Reysni yopish",
+        detail: "Qolgan yuk omborga qaytadi."
+      });
+      if (!ok) return;
       setBusy(true);
       try {
         await api("/api/agent/admin/reyslar/" + trip.id + "/close", { method: "POST", body: "{}" });
