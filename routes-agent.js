@@ -527,5 +527,17 @@ module.exports = function registerAgentRoutes(app, pool, helpers, options) {
     }
   });
 
-  require('./routes-yuk')(app, pool, helpers, Object.assign({}, options, { store: store }));
+  const { createYukAccess } = require('./lib/yuk-access');
+  const yukAccess = (options && options.access) || createYukAccess({
+    pool: pool,
+    store: store,
+    fetchImpl: options && options.fetchImpl,
+    now: options && options.accessNow,
+  });
+  require('./routes-yuk')(app, pool, helpers, Object.assign({}, options, {
+    store: store,
+    access: yukAccess,
+    adminAllowed: adminAllowed,
+    telegramAdminUser: telegramAdminUser,
+  }));
 };
