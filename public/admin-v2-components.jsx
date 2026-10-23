@@ -4,7 +4,9 @@
   /* Admin v2: Hamkorlar, Yuk, Biznes sozlama */
   const { useState, useEffect, useCallback, useRef } = React;
   function money(n) {
-    return Number(n || 0).toLocaleString("uz-UZ");
+    var v = Math.round(Number(n || 0));
+    var body = Math.abs(v).toLocaleString("uz-UZ");
+    return (v < 0 ? "−" : "") + body;
   }
   function Msg(props) {
     useEffect(function () {
