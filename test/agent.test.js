@@ -523,9 +523,13 @@ test('HTTP auth, admin key, and server-side total', async () => {
   const app = express();
   app.use(express.json());
   const prevToken = process.env.TELEGRAM_BOT_TOKEN;
+  const prevYuk = process.env.YUK_BOT_TOKEN;
+  const prevErp = process.env.ERP_BOT_TOKEN;
   const prevKey = process.env.ADMIN_KEY;
   const prevNode = process.env.NODE_ENV;
   process.env.TELEGRAM_BOT_TOKEN = '';
+  delete process.env.YUK_BOT_TOKEN;
+  delete process.env.ERP_BOT_TOKEN;
   process.env.ADMIN_KEY = 'secret-admin';
   process.env.NODE_ENV = 'test';
   registerAgentRoutes(app, null, helpers(), { store: seeded });
@@ -608,6 +612,10 @@ test('HTTP auth, admin key, and server-side total', async () => {
     server.close();
     if (prevToken == null) delete process.env.TELEGRAM_BOT_TOKEN;
     else process.env.TELEGRAM_BOT_TOKEN = prevToken;
+    if (prevYuk == null) delete process.env.YUK_BOT_TOKEN;
+    else process.env.YUK_BOT_TOKEN = prevYuk;
+    if (prevErp == null) delete process.env.ERP_BOT_TOKEN;
+    else process.env.ERP_BOT_TOKEN = prevErp;
     if (prevKey == null) delete process.env.ADMIN_KEY;
     else process.env.ADMIN_KEY = prevKey;
     if (prevNode == null) delete process.env.NODE_ENV;

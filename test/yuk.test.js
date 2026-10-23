@@ -7,10 +7,10 @@ const express = require('express');
 const money = require('../lib/agent-money');
 const { createYukService } = require('../lib/yuk-service');
 const { createMemoryStore } = require('./memory-agent-store');
-const { signTelegramInitData } = require('../lib/telegram-webapp');
-const { authenticateOwner, ownerInitDataMaxAge } = require('../lib/admin-auth');
-const { checkTelegramInitData } = require('../lib/telegram-webapp');
+const { signTelegramInitData, checkTelegramInitData, checkTelegramInitDataAny, configuredInitDataTokens } = require('../lib/telegram-webapp');
+const { authenticateOwner, ownerInitDataMaxAge, telegramAdminUser } = require('../lib/admin-auth');
 const registerAgentRoutes = require('../routes-agent');
+const registerCustomerApp = require('../routes-customer-app');
 
 const TOKEN = 'test-bot-token';
 const root = path.join(__dirname, '..');
@@ -411,6 +411,155 @@ test('initData keeps signature in the check string and names the failure', () =>
   const src = fs.readFileSync(path.join(root, 'lib/telegram-webapp.js'), 'utf8');
   assert.doesNotMatch(src, /delete\(['"]signature['"]\)/);
   assert.match(src, /HMAC_SHA256|createHmac\('sha256', 'WebAppData'\)/);
+});
+
+test('initData matches YUK_BOT_TOKEN, then ERP_BOT_TOKEN, then TELEGRAM_BOT_TOKEN', async () => {
+  const prevYuk = process.env.YUK_BOT_TOKEN;
+  const prevErp = process.env.ERP_BOT_TOKEN;
+  const prevToken = process.env.TELEGRAM_BOT_TOKEN;
+  const prevIds = process.env.ADMIN_TELEGRAM_IDS;
+  const prevDemo = process.env.ALLOW_DEMO_CUSTOMER;
+  const YUK = 'yuk-bot-token';
+  const ERP = 'erp-bot-token';
+  const TG = 'mijoz-bot-token';
+  function signedWith(token, id, authDate) {
+    return signTelegramInitData(
+      {
+        auth_date: String(authDate == null ? Math.floor(Date.now() / 1000) : authDate),
+        user: JSON.stringify({ id: id, first_name: 'Ega' }),
+      },
+      token
+    );
+  }
+  function putEnv(name, value) {
+    if (value == null) delete process.env[name];
+    else process.env[name] = value;
+  }
+  delete process.env.YUK_BOT_TOKEN;
+  delete process.env.ERP_BOT_TOKEN;
+  delete process.env.TELEGRAM_BOT_TOKEN;
+  delete process.env.ALLOW_DEMO_CUSTOMER;
+  process.env.ADMIN_TELEGRAM_IDS = '1001';
+  const now = Math.floor(Date.now() / 1000);
+  const store = createMemoryStore();
+  const app = express();
+  app.use(express.json());
+  registerAgentRoutes(app, null, helpers(), { store: store });
+  registerCustomerApp(app, {
+    query: async () => ({ rows: [{ id: 3, name: 'Ega', phone: '', telegram_id: '1001' }] }),
+  }, helpers());
+  const server = await new Promise((resolve) => {
+    const s = app.listen(0, '127.0.0.1', () => resolve(s));
+  });
+  const base = 'http://127.0.0.1:' + server.address().port;
+  try {
+    const none = authenticateOwner(signedWith(YUK, 1001, now), now);
+    assert.equal(none.status, 503);
+    assert.equal(none.reason, 'missing_token');
+
+    process.env.YUK_BOT_TOKEN = '  ' + YUK + '\n';
+    process.env.ERP_BOT_TOKEN = '   ';
+    process.env.TELEGRAM_BOT_TOKEN = TG;
+    assert.deepEqual(configuredInitDataTokens(), [YUK, TG]);
+
+    process.env.ERP_BOT_TOKEN = ERP;
+    process.env.TELEGRAM_BOT_TOKEN = ERP;
+    assert.deepEqual(configuredInitDataTokens(), [YUK, ERP]);
+    process.env.TELEGRAM_BOT_TOKEN = TG;
+    assert.deepEqual(configuredInitDataTokens(), [YUK, ERP, TG]);
+
+    const byYuk = authenticateOwner(signedWith(YUK, 1001, now), now);
+    assert.equal(byYuk.ok, true);
+    assert.equal(byYuk.role, 'owner');
+
+    process.env.YUK_BOT_TOKEN = 'wrong-yuk';
+    const byErp = authenticateOwner(signedWith(ERP, 1001, now), now);
+    assert.equal(byErp.ok, true);
+
+    process.env.ERP_BOT_TOKEN = '';
+    const byTg = authenticateOwner(signedWith(TG, 1001, now), now);
+    assert.equal(byTg.ok, true);
+
+    const mismatch = authenticateOwner(signedWith('other-bot', 1001, now), now);
+    assert.equal(mismatch.status, 401);
+    assert.equal(mismatch.reason, 'hash_mismatch');
+    const stranger = authenticateOwner(signedWith(TG, 999, now), now);
+    assert.equal(stranger.status, 403);
+
+    const matchedThenExpired = checkTelegramInitDataAny(
+      signedWith(YUK, 1001, now - 5000),
+      [YUK, ERP],
+      { nowSec: now, maxAgeSec: 3600 }
+    );
+    assert.equal(matchedThenExpired.reason, 'expired');
+    const secondToken = checkTelegramInitDataAny(
+      signedWith(ERP, 7, now),
+      ['wrong', ERP],
+      { nowSec: now, maxAgeSec: 3600 }
+    );
+    assert.equal(secondToken.reason, 'ok');
+    assert.equal(secondToken.user.id, 7);
+
+    process.env.YUK_BOT_TOKEN = 'wrong-yuk';
+    process.env.ERP_BOT_TOKEN = ERP;
+    process.env.TELEGRAM_BOT_TOKEN = TG;
+    const erpInit = signedWith(ERP, 1001, now);
+    const me = await fetch(base + '/api/agent/me', {
+      headers: { 'x-telegram-init-data': erpInit },
+    });
+    const meBody = await me.json();
+    assert.equal(me.status, 200);
+    assert.equal(meBody.ok, true);
+    const admin = telegramAdminUser({ headers: { 'x-telegram-init-data': erpInit } });
+    assert.equal(admin.id, 1001);
+    const badAgent = await fetch(base + '/api/agent/me', {
+      headers: { 'x-telegram-init-data': signedWith('other-bot', 1001, now) },
+    });
+    const badAgentBody = await badAgent.json();
+    assert.equal(badAgent.status, 401);
+    assert.equal(badAgentBody.reason, 'hash_mismatch');
+
+    process.env.YUK_BOT_TOKEN = YUK;
+    const yukInit = signedWith(YUK, 1001, now);
+    const yukMe = await fetch(base + '/api/agent/yuk/me', {
+      headers: { 'x-telegram-init-data': yukInit },
+    });
+    const yukBody = await yukMe.json();
+    assert.equal(yukMe.status, 200);
+    assert.equal(yukBody.data.role, 'owner');
+    assert.equal(yukBody.data.telegram_id, '1001');
+
+    const cust = await fetch(base + '/api/customer/auth/telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData: yukInit }),
+    });
+    const custBody = await cust.json();
+    assert.equal(cust.status, 200);
+    assert.equal(custBody.data.source, 'telegram');
+    assert.equal(String(custBody.data.telegram_id), '1001');
+    const badCust = await fetch(base + '/api/customer/auth/telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData: signedWith('other-bot', 1001, now) }),
+    });
+    assert.equal(badCust.status, 401);
+
+    const yukService = fs.readFileSync(path.join(root, 'lib/yuk-service.js'), 'utf8');
+    const sender = fs.readFileSync(path.join(root, 'lib/send-nakladnoy.js'), 'utf8');
+    const agentRoutes = fs.readFileSync(path.join(root, 'routes-agent.js'), 'utf8');
+    assert.match(yukService, /TELEGRAM_BOT_TOKEN/);
+    assert.doesNotMatch(yukService, /YUK_BOT_TOKEN|ERP_BOT_TOKEN/);
+    assert.doesNotMatch(sender, /YUK_BOT_TOKEN|ERP_BOT_TOKEN/);
+    assert.match(agentRoutes, /token: process\.env\.TELEGRAM_BOT_TOKEN/);
+  } finally {
+    server.close();
+    putEnv('YUK_BOT_TOKEN', prevYuk);
+    putEnv('ERP_BOT_TOKEN', prevErp);
+    putEnv('TELEGRAM_BOT_TOKEN', prevToken);
+    putEnv('ADMIN_TELEGRAM_IDS', prevIds);
+    putEnv('ALLOW_DEMO_CUSTOMER', prevDemo);
+  }
 });
 
 test('yuk accepts initData from the query string or JSON body, not only the header', async () => {
