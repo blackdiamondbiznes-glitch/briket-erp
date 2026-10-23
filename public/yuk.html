@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="theme.js"></script>
+  <script src="confirm-sheet.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     :root {
@@ -625,9 +626,6 @@
     var items = products().filter(function (p) { return lineQty(p.id) > 0; }).map(function (p) {
       return { product_id: p.id, quantity: lineQty(p.id), price: linePrice(p) };
     });
-    state.saving = true;
-    state.error = "";
-    render();
     var body = {
       request_id: state.requestId,
       customer_id: state.customer.id,
@@ -640,21 +638,31 @@
       reys_id: state.reys === "auto" ? null : state.reys,
       confirm_zero_price: zero
     };
-    if (zero && !window.confirm("Narx 0 so'm. Tasdiqlaysizmi?")) {
-      state.saving = false;
+    function postSale() {
+      state.saving = true;
+      state.error = "";
       render();
+      api("/api/agent/yuk/waybills", { method: "POST", body: body }).then(function (r) {
+        state.success = { bill: r.data, telegram: r.telegram || null };
+        try { tg.HapticFeedback.notificationOccurred("success"); } catch (e) {}
+        resetSale();
+        render();
+      }).catch(function (e) {
+        state.saving = false;
+        state.error = e.message;
+        render();
+      });
+    }
+    if (zero) {
+      var askZero = window.bdConfirm || function (msg) { return Promise.resolve(window.confirm(msg)); };
+      askZero("Narx 0 so'm. Tasdiqlaysizmi?", {
+        money: true,
+        title: "Narx 0 so'm",
+        detail: "Narxi 0 so'm bo'lgan qator shu savdoga yoziladi."
+      }).then(function (ok) { if (ok) postSale(); });
       return;
     }
-    api("/api/agent/yuk/waybills", { method: "POST", body: body }).then(function (r) {
-      state.success = { bill: r.data, telegram: r.telegram || null };
-      try { tg.HapticFeedback.notificationOccurred("success"); } catch (e) {}
-      resetSale();
-      render();
-    }).catch(function (e) {
-      state.saving = false;
-      state.error = e.message;
-      render();
-    });
+    postSale();
   }
 
   function resend(id) {
@@ -672,8 +680,12 @@
   function copyText(text) {
     var done = function () { state.error = ""; };
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done).catch(function () { window.prompt("Nusxa", text); });
-    } else window.prompt("Nusxa", text);
+      navigator.clipboard.writeText(text).then(done).catch(function () {
+        if (window.bdPrompt) window.bdPrompt("Nusxa", text);
+        else window.prompt("Nusxa", text);
+      });
+    } else if (window.bdPrompt) window.bdPrompt("Nusxa", text);
+    else window.prompt("Nusxa", text);
   }
 
   function shareText(text) {
@@ -1132,7 +1144,12 @@
       render();
     } else if (act === "save-edit") saveEdit();
     else if (act === "reverse") {
-      if (window.confirm("Bu to'lov tuzatilsinmi? Qator o'chmaydi.")) reversePay(id);
+      var askPay = window.bdConfirm || function (msg) { return Promise.resolve(window.confirm(msg)); };
+      askPay("Bu to'lov tuzatilsinmi?", {
+        money: true,
+        title: "To'lovni tuzatish",
+        detail: "Qator o'chmaydi."
+      }).then(function (ok) { if (ok) reversePay(id); });
     }     else if (act === "copy-bill") {
       api("/api/agent/yuk/waybills/" + id).then(function (r) { copyText(r.data.text || ""); });
     } else if (act === "share-bill") {

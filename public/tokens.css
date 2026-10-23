@@ -150,3 +150,67 @@ textarea:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+.bd-sheet-back {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(20, 16, 8, 0.5);
+  padding: 0;
+}
+
+.bd-sheet {
+  width: min(560px, 100%);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 16px 16px 0 0;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  box-shadow: var(--shadow);
+}
+
+.bd-sheet h2 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.bd-sheet-text {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.bd-sheet-detail {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.bd-sheet-copy {
+  width: 100%;
+  min-height: 96px;
+  margin: 0 0 12px;
+  resize: vertical;
+}
+
+.bd-sheet-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.bd-sheet .btn,
+.bd-sheet .btn-ghost,
+.bd-sheet .btn-danger {
+  width: auto;
+  flex: 1;
+}
