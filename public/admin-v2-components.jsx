@@ -907,6 +907,7 @@
     const [busy, setBusy] = useState(false);
     const [payFor, setPayFor] = useState(null);
     const [payAmount, setPayAmount] = useState("");
+    const [openId, setOpenId] = useState(null);
     const [trips, setTrips] = useState([]);
     const [reysId, setReysId] = useState("");
     const [reysTouched, setReysTouched] = useState(false);
@@ -1293,7 +1294,7 @@
           {rows.length === 0 ? <V2Empty title="Yuk xati yo'q" sub="Yuqoridagi formadan boshlang." /> : (
             <div className="table-wrap list-dense"><table>
               <thead>
-                <tr><th>Kod</th><th>Mijoz</th><th>Reys</th><th>Jami</th><th>To'langan</th><th>Qarz</th><th>Holat</th><th></th></tr>
+                <tr><th>Kod</th><th>Mijoz</th><th>Yozgan</th><th>Reys</th><th>Jami</th><th>To'langan</th><th>Qarz</th><th>Holat</th><th></th></tr>
               </thead>
               <tbody>
                 {rows.map(function (w) {
@@ -1301,12 +1302,16 @@
                     <tr key={w.id}>
                       <td data-label="Kod">{w.waybill_code}</td>
                       <td data-label="Mijoz">{w.customer_name || "—"}</td>
+                      <td data-label="Yozgan">{w.created_by_name || "Eski yozuv"}</td>
                       <td data-label="Reys">{(trips.filter(function (t) { return String(t.id) === String(w.reys_id); })[0] || {}).reys_code || "—"}</td>
                       <td data-label="Jami">{money(w.total_amount)}</td>
                       <td data-label="To'langan">{money(w.paid_amount)}</td>
                       <td data-label="Qarz">{money(w.debt_amount)}</td>
                       <td data-label="Holat">{w.status === "paid" ? "To'langan" : (w.status === "partial" ? "Qisman" : "Qarz")}</td>
                       <td className="sticky-actions" data-label="Amallar">
+                        <button type="button" className="btn-ghost btn-sm" onClick={function () {
+                          setOpenId(function (cur) { return String(cur) === String(w.id) ? null : w.id; });
+                        }}>{String(openId) === String(w.id) ? "Yopish" : "Batafsil"}</button>
                         <button type="button" className="btn-ghost btn-sm" onClick={function () {
                           openDoc(w.id, "html").catch(function (e) { setMsg({ text: e.message, type: "err" }); });
                         }}>Chop etish</button>
@@ -1324,9 +1329,27 @@
               </tbody>
             </table></div>
           )}
+          {rows.filter(function (w) { return String(w.id) === String(openId); }).slice(0, 1).map(function (open) {
+            return (
+              <div key={"open-" + open.id} style={{ marginTop: 12 }}>
+                <h3 style={{ fontSize: "0.95rem" }}>{open.waybill_code}</h3>
+                <p className="muted">Mijoz: {open.customer_name || "—"}</p>
+                <p>Yozgan: {open.created_by_name || "Eski yozuv"}</p>
+                <p>Jami {money(open.total_amount)} · To'langan {money(open.paid_amount)} · Qarz {money(open.debt_amount)}</p>
+                {(open.items || []).length ? (
+                  <ul>
+                    {open.items.map(function (it) {
+                      return <li key={it.id}>{it.product_name} · {it.quantity} · {money(it.subtotal || it.price)}</li>;
+                    })}
+                  </ul>
+                ) : null}
+              </div>
+            );
+          })}
           {payFor ? (
             <form onSubmit={recordPay} style={{ marginTop: 12 }}>
               <h3 style={{ fontSize: "0.9rem" }}>{payFor.waybill_code} · qarz to'lovi</h3>
+              <p className="muted">Yozgan: {payFor.created_by_name || "Eski yozuv"}</p>
               <div className="form-row">
                 <div>
                   <label>Summa</label>

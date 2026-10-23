@@ -12,7 +12,7 @@ function registerYukRoutes(app, service, helpers, options) {
   function fail(res, err) {
     if (err && (err.code === '42P01' || err.code === '42703' || err.code === '42P01')) {
       err.status = 503;
-      err.message = 'Yuk xati jadvallari yo\'q. migrations/007_yuk_xati.sql ni qo\'llang.';
+      err.message = 'Yuk xati jadvallari yo\'q. migrations/007_yuk_xati.sql va migrations/008_yuk_creator.sql ni qo\'llang.';
     }
     sendError(res, err);
   }
@@ -107,7 +107,7 @@ function registerYukRoutes(app, service, helpers, options) {
     const id = idParam(req, res);
     if (!id) return;
     try {
-      const data = await service.collectPayment(id, req.body || {});
+      const data = await service.collectPayment(id, req.body || {}, auth.user);
       res.status(data && data.replay ? 200 : 201).json({ ok: true, data: data });
     } catch (err) {
       fail(res, err);
@@ -118,7 +118,7 @@ function registerYukRoutes(app, service, helpers, options) {
     const auth = owner(req, res);
     if (!auth) return;
     try {
-      const data = await service.createSale(req.body || {});
+      const data = await service.createSale(req.body || {}, auth.user);
       let telegram = null;
       if (!data.replay) {
         try {
@@ -139,7 +139,7 @@ function registerYukRoutes(app, service, helpers, options) {
     const id = idParam(req, res);
     if (!id) return;
     try {
-      res.json({ ok: true, data: await service.editSale(id, req.body || {}) });
+      res.json({ ok: true, data: await service.editSale(id, req.body || {}, auth.user) });
     } catch (err) {
       fail(res, err);
     }
@@ -176,7 +176,7 @@ function registerYukRoutes(app, service, helpers, options) {
     const id = idParam(req, res);
     if (!id) return;
     try {
-      const data = await service.reversePayment(id, req.body || {});
+      const data = await service.reversePayment(id, req.body || {}, auth.user);
       res.status(data && data.replay ? 200 : 201).json({ ok: true, data: data });
     } catch (err) {
       fail(res, err);

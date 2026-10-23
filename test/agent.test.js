@@ -198,7 +198,16 @@ test('nakladnoy escapes HTML and emits a PDF', () => {
   });
   const adminHtml = nakladnoy.renderNakladnoyHtml(adminDoc);
   assert.equal(adminHtml.includes('Komissiya'), false);
-  assert.match(adminHtml, /Yozgan: admin/);
+  assert.match(adminHtml, /Yozgan: Eski yozuv/);
+  const named = nakladnoy.renderNakladnoyHtml(Object.assign({}, adminDoc, {
+    created_by_first_name: 'Aka',
+    created_by_last_name: 'Karimov',
+    created_by_telegram_id: '1001',
+  }));
+  assert.match(named, /Yozgan: Aka Karimov/);
+  assert.match(nakladnoy.renderNakladnoyPdf(Object.assign({}, adminDoc, {
+    created_by_username: 'ota',
+  })).toString('latin1'), /Yozgan: @ota/);
   const pdf = nakladnoy.renderNakladnoyPdf(doc);
   assert.equal(pdf.slice(0, 5).toString(), '%PDF-');
   assert.equal(pdf.includes('YX-1\\)'), true);

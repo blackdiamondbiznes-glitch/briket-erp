@@ -623,6 +623,7 @@
       var tgFail = state.success.telegram && state.success.telegram.ok === false;
       html += '<div class="okbox"><strong>Yuk xati ' + esc(bill.waybill_code) + ' tayyor</strong>' +
         '<p class="muted">' + esc(dmy(bill.sale_date)) + " · " + money(bill.total_amount) + " so'm</p>" +
+        '<p class="faint">Yozgan: ' + esc(bill.created_by_name || "Eski yozuv") + '</p>' +
         '<div class="row" style="flex-wrap:wrap"><button type="button" class="btn-ghost" data-act="copy">Nusxa olish</button>' +
         '<button type="button" class="btn-ghost" data-act="share">Telegram\'ga yuborish</button>' +
         '<button type="button" class="btn-ghost" data-act="copy-card"' + (company.card ? "" : " disabled") + '>Karta raqami</button></div>' +
@@ -681,7 +682,7 @@ html += '<label class="lbl">Muddat</label><input class="field" data-in="due" dat
       return '<div class="card"><div class="row"><strong class="grow">' + esc(w.waybill_code) + '</strong>' +
         (w.legacy_source ? '<span class="tag">Tarix</span>' : '') +
         (w.stock_posted === false && w.legacy_source ? '<span class="tag">Ombor tegilmagan</span>' : '') +
-        '</div><div class="faint">' + esc(dmy(w.sale_date || w.created_at)) + '</div>' +
+        '</div><div class="faint">' + esc(dmy(w.sale_date || w.created_at)) + ' · Yozgan: ' + esc(w.created_by_name || "Eski yozuv") + '</div>' +
         '<div>Jami ' + money(w.total_amount) + ' · To\'langan ' + money(w.paid_amount) + ' · Qarz ' + money(w.debt_amount) + '</div>' +
         '<div class="row" style="margin-top:8px"><button type="button" class="btn-ghost" data-act="share-bill" data-id="' + w.id + '">Ulashish</button>' +
         '<button type="button" class="btn-ghost" data-act="edit" data-id="' + w.id + '">Tahrir</button></div></div>';
@@ -689,6 +690,7 @@ html += '<label class="lbl">Muddat</label><input class="field" data-in="due" dat
     var pays = (d.payments || []).map(function (p) {
       var label = p.kind === "reversal" ? "Tuzatish" : (p.kind === "backfill" ? "Tarixiy taqsim" : (p.method === "card" ? "Karta" : "Naqd"));
       return '<div class="card"><div class="row"><span class="grow">' + label + ' ' + money(p.amount) + " so'm</span>" +
+        '<span class="faint">Yozgan: ' + esc(p.created_by_name || "Eski yozuv") + '</span>' +
         (p.reversed ? '<span class="tag">Tuzatilgan</span>' : '') +
         (!p.reversed && p.kind !== "reversal" && p.kind !== "reallocation"
           ? '<button type="button" class="btn-danger" data-act="reverse" data-id="' + p.id + '">Tuzatish</button>' : '') +
@@ -710,7 +712,7 @@ html += '<label class="lbl">Muddat</label><input class="field" data-in="due" dat
       var body = rows.map(function (w) {
         return '<button type="button" class="hit" data-act="open-customer" data-id="' + w.customer_id + '"><strong>' + esc(w.customer_name) + '</strong>' +
           '<div>' + esc(w.waybill_code) + ' · ' + money(w.debt_amount) + " so'm</div>" +
-          '<div class="faint">Muddat ' + esc(dmy(w.due_date)) + '</div></button>';
+          '<div class="faint">Muddat ' + esc(dmy(w.due_date)) + ' · Yozgan: ' + esc(w.created_by_name || "Eski yozuv") + '</div></button>';
       }).join("") || '<p class="faint">Yo\'q</p>';
       return '<div class="group"><h2>' + title + '</h2>' + body + '</div>';
     }
