@@ -514,8 +514,6 @@
     var copy = (list || []).slice();
     if (state.sort === "name") {
       copy.sort(function (a, b) { return String(a.name || "").localeCompare(String(b.name || ""), "uz"); });
-    } else if (state.sort === "recent") {
-      copy.sort(function (a, b) { return Number(b.id) - Number(a.id); });
     } else {
       copy.sort(function (a, b) {
         var d = Number(b.outstanding || 0) - Number(a.outstanding || 0);
