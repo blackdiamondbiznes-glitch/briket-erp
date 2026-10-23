@@ -1,8 +1,9 @@
 /**
- * /api/agent/yuk — egasi telefon ilovasi.
- * Telegram initData + ADMIN_TELEGRAM_IDS. Bo'sh ro'yxat rad etiladi.
- * initData umri 1 soat. Kalit bu yo'lda ishlamaydi.
+ * /api/agent/yuk — egasi telefon ilovasi yoki ERP admin sessiyasi.
+ * initData bo'lsa faqat Telegram tekshiruvi. Bo'sh bo'lsa X-Admin-Key sarlavhasi.
+ * Kalit query va body dan o'qilmaydi.
  */
+const { authenticateAdminSession } = require('./lib/admin-auth');
 const { createYukService } = require('./lib/yuk-service');
 const { createYukAccess } = require('./lib/yuk-access');
 
@@ -34,15 +35,38 @@ function registerYukRoutes(app, service, helpers, options) {
   }
 
   async function owner(req, res) {
-    const auth = await access.authorize(readInitData(req));
-    if (!auth.ok) {
-      const payload = { ok: false, error: auth.error };
-      if (auth.reason) payload.reason = auth.reason;
-      if (auth.code) payload.code = auth.code;
-      res.status(auth.status).json(payload);
-      return null;
+    const initData = readInitData(req);
+    if (initData) {
+      const auth = await access.authorize(initData);
+      if (!auth.ok) {
+        const payload = { ok: false, error: auth.error };
+        if (auth.reason) payload.reason = auth.reason;
+        if (auth.code) payload.code = auth.code;
+        res.status(auth.status).json(payload);
+        return null;
+      }
+      return auth;
     }
-    return auth;
+    const adminHeader = req.headers && req.headers['x-admin-key'];
+    if (adminHeader != null && !Array.isArray(adminHeader) && String(adminHeader) !== '') {
+      const admin = authenticateAdminSession(req);
+      if (!admin.ok) {
+        res.status(admin.status).json({ ok: false, error: admin.error });
+        return null;
+      }
+      return admin;
+    }
+    const missing = await access.authorize('');
+    const payload = { ok: false, error: missing.error };
+    if (missing.reason) payload.reason = missing.reason;
+    if (missing.code) payload.code = missing.code;
+    res.status(missing.status).json(payload);
+    return null;
+  }
+
+  function chatIdOf(auth) {
+    if (!auth || !auth.user || auth.user.id == null || auth.user.id === '') return '';
+    return String(auth.user.id);
   }
 
   function presentMe(auth, data) {
@@ -133,9 +157,10 @@ function registerYukRoutes(app, service, helpers, options) {
     try {
       const data = await service.createSale(req.body || {}, auth.user);
       let telegram = null;
-      if (!data.replay) {
+      const chatId = chatIdOf(auth);
+      if (!data.replay && chatId) {
         try {
-          telegram = await service.sendToOwner(data.id, auth.user.id, options);
+          telegram = await service.sendToOwner(data.id, chatId, options);
         } catch (err) {
           telegram = { ok: false, error: err && err.message ? err.message : 'Yuborilmadi' };
         }

@@ -35,6 +35,10 @@
     button, input, select { font: inherit; color: inherit; }
     button { cursor: pointer; }
     .app { max-width: 520px; margin: 0 auto; padding: 12px 14px 24px; }
+    @media (min-width: 900px) {
+      .app { max-width: 960px; }
+      .nav { left: 50%; right: auto; width: min(960px, 100%); transform: translateX(-50%); }
+    }
     header.top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 12px; }
     header.top h1 { margin: 0; font-size: 22px; letter-spacing: -.03em; }
     header.top p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
@@ -144,6 +148,29 @@
     }
     return "";
   }
+  var SESSION_MS = 12 * 60 * 60 * 1000;
+  var SESSION_LONG_MS = 7 * 24 * 60 * 60 * 1000;
+  function readStoreSession(store, maxAge) {
+    try {
+      var key = store.getItem("erp_key") || "";
+      var at = Number(store.getItem("erp_key_at") || 0);
+      if (!key || !at || Date.now() - at > maxAge) return null;
+      return { key: key, operator: store.getItem("erp_operator") || "Admin" };
+    } catch (e) {
+      return null;
+    }
+  }
+  function readAdminSession() {
+    var ss = null;
+    try { ss = readStoreSession(window.sessionStorage, SESSION_MS); } catch (e) {}
+    if (ss) return ss;
+    try {
+      if (window.localStorage.getItem("erp_persist") === "1") {
+        return readStoreSession(window.localStorage, SESSION_LONG_MS);
+      }
+    } catch (e2) {}
+    return null;
+  }
   function tashkentToday() {
     try {
       return new Intl.DateTimeFormat("en-CA", {
@@ -162,6 +189,7 @@
     boot: null,
     error: "",
     loading: true,
+    gate: "checking",
     saleDate: tashkentToday(),
     customer: null,
     qty: {},
@@ -231,18 +259,22 @@
   function api(path, opts) {
     opts = opts || {};
     var initData = readInitData();
+    var session = initData ? null : readAdminSession();
     var method = opts.method || "GET";
     var headers = { "Content-Type": "application/json" };
     if (initData) {
       headers["X-Telegram-Init-Data"] = initData;
       headers.Authorization = "tma " + initData;
+    } else if (session) {
+      headers["x-admin-key"] = session.key;
+      headers["x-operator-name"] = session.operator || "Admin";
     }
     var url = path;
     if (method === "GET" && initData) {
       url += (path.indexOf("?") >= 0 ? "&" : "?") + "init_data=" + encodeURIComponent(initData);
     }
     var payload = opts.body ? Object.assign({}, opts.body) : null;
-    if (method !== "GET") {
+    if (method !== "GET" && initData) {
       payload = Object.assign({}, payload || {}, { initData: initData });
     }
     return fetch(url, {
@@ -352,8 +384,10 @@
   function loadBoot() {
     state.loading = true;
     state.error = "";
+    if (readInitData()) state.gate = "allowed";
     render();
     return api("/api/agent/yuk/bootstrap").then(function (r) {
+      state.gate = "allowed";
       state.boot = r.data;
       state.saleDate = r.data.today;
       if (r.data.open_reys) state.reys = String(r.data.open_reys.id);
@@ -362,6 +396,7 @@
     }).catch(function (e) {
       state.loading = false;
       state.error = e.message;
+      if (!readInitData()) state.gate = "need-auth";
       render();
     });
   }
@@ -880,14 +915,26 @@ html += '<label class="lbl">Muddat</label><input class="field" data-in="due" dat
 
   function render() {
     var root = document.getElementById("app");
+    if (state.gate === "need-auth") {
+      root.innerHTML =
+        '<div class="card"><h1>Yuk xati</h1><p class="err">' + esc(state.error) + '</p>' +
+        '<a class="btn" href="/admin">Admin panel</a></div>';
+      return;
+    }
     if (state.gate !== "allowed") {
       root.innerHTML = lockHtml();
       return;
     }
+    var who = "";
+    if (!readInitData()) {
+      var session = readAdminSession();
+      if (session) who = session.operator || "Admin";
+    }
     var body = state.tab === "dokon" ? storesView() : state.tab === "eslatma" ? remindView() : state.tab === "sozlama" ? settingsView() : saleView();
     var active = function (name) { return state.tab === name ? " on" : ""; };
     root.innerHTML =
-      '<header class="top"><div><h1>Yuk xati</h1><p>' + esc(state.boot && state.boot.today ? dmy(state.boot.today) : "") + '</p></div></header>' +
+      '<header class="top"><div><h1>Yuk xati</h1><p>' + esc(state.boot && state.boot.today ? dmy(state.boot.today) : "") +
+      (who ? " · " + esc(who) : "") + '</p></div></header>' +
       (state.error ? '<div class="err">' + esc(state.error) + '</div>' : '') +
       body +
       '<nav class="nav"><button type="button" class="' + active("sotuv") + '" data-act="tab" data-tab="sotuv">Sotuv</button>' +
@@ -904,7 +951,15 @@ html += '<label class="lbl">Muddat</label><input class="field" data-in="due" dat
   render();
   var bootTries = 0;
   (function waitInit() {
-    if (readInitData() || bootTries > 8) return loadAccess();
+    if (readInitData()) return loadAccess();
+    if (readAdminSession()) return loadBoot();
+    if (bootTries > 8) {
+      state.loading = false;
+      state.gate = "need-auth";
+      state.error = "Kirish kerak. Admin panelga kiring yoki Telegram orqali oching.";
+      render();
+      return;
+    }
     bootTries += 1;
     setTimeout(waitInit, 120);
   })();

@@ -794,3 +794,4 @@ CREATE TABLE IF NOT EXISTS yuk_allowed_users (
   approved_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   approved_by    TEXT
 );
+

@@ -1344,9 +1344,14 @@
               </thead>
               <tbody>
                 {rows.map(function (w) {
+                  var writer = [w.created_by_first_name, w.created_by_last_name].map(function (part) {
+                    return part == null ? "" : String(part).trim();
+                  }).filter(Boolean).join(" ");
+                  if (!writer && w.created_by_username) writer = "@" + String(w.created_by_username).replace(/^@+/, "");
+                  if (!writer && w.created_by_telegram_id) writer = String(w.created_by_telegram_id);
                   return (
                     <tr key={w.id}>
-                      <td data-label="Kod">{w.waybill_code}</td>
+                      <td data-label="Kod">{w.waybill_code}{writer ? <div className="muted">{writer}</div> : null}</td>
                       <td data-label="Mijoz">{w.customer_name || "—"}</td>
                       <td data-label="Yozgan">{w.created_by_name || "Eski yozuv"}</td>
                       <td data-label="Reys">{(trips.filter(function (t) { return String(t.id) === String(w.reys_id); })[0] || {}).reys_code || "—"}</td>

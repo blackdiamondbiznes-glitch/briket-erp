@@ -1099,8 +1099,9 @@ test('yuk access request notifies owners, dedups for an hour, and only env owner
     assert.match(page, /state\.gate !== "allowed"/);
     assert.match(page, /return loadAccess\(\)/);
     const waitInit = page.slice(page.indexOf('function waitInit') === -1 ? page.indexOf('waitInit') : page.indexOf('(function waitInit'));
-    assert.match(waitInit, /return loadAccess\(\)/);
-    assert.doesNotMatch(waitInit.slice(0, 400), /return loadBoot\(\)/);
+    assert.match(waitInit, /if \(readInitData\(\)\) return loadAccess\(\)/);
+    const beforeAdmin = waitInit.slice(0, waitInit.indexOf('readAdminSession'));
+    assert.doesNotMatch(beforeAdmin, /return loadBoot\(\)/);
     const lockFn = page.slice(page.indexOf('function lockHtml'), page.indexOf('function loadBoot'));
     assert.doesNotMatch(lockFn, /data-act="tab"/);
     assert.doesNotMatch(lockFn, /Do'konlar/);
@@ -1121,5 +1122,201 @@ test('yuk access request notifies owners, dedups for an hour, and only env owner
       if (prev[name] == null) delete process.env[name];
       else process.env[name] = prev[name];
     });
+  }
+});
+
+test('erp admin session opens /yuk without initData and records that operator', async () => {
+  const prevKey = process.env.ADMIN_KEY;
+  const prevIds = process.env.ADMIN_TELEGRAM_IDS;
+  const prevToken = process.env.TELEGRAM_BOT_TOKEN;
+  process.env.ADMIN_KEY = 'panel-key';
+  process.env.ADMIN_TELEGRAM_IDS = '1001';
+  process.env.TELEGRAM_BOT_TOKEN = TOKEN;
+  const store = createMemoryStore();
+  await store.insertProduct({ id: 5, sku: '1kg Oddiy', price: 1000, is_active: true });
+  let fetches = 0;
+  const app = express();
+  app.use(express.json());
+  registerAgentRoutes(app, null, helpers(), {
+    store: store,
+    fetchImpl: async function () {
+      fetches += 1;
+      return { ok: true, json: async function () { return { ok: true, result: { message_id: 1 } }; } };
+    },
+  });
+  const server = await new Promise((resolve) => {
+    const s = app.listen(0, '127.0.0.1', () => resolve(s));
+  });
+  const base = 'http://127.0.0.1:' + server.address().port;
+  const adminHeaders = {
+    'Content-Type': 'application/json',
+    'x-admin-key': 'panel-key',
+    'x-operator-name': 'Karim',
+  };
+  try {
+    const bare = await fetch(base + '/api/agent/yuk/me');
+    const bareBody = await bare.json();
+    assert.equal(bare.status, 401);
+    assert.equal(bareBody.reason, 'missing');
+
+    const queryKey = await fetch(base + '/api/agent/yuk/bootstrap?x-admin-key=panel-key');
+    assert.equal(queryKey.status, 401);
+    const bodyKey = await fetch(base + '/api/agent/yuk/customers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: 'panel-key', name: 'Yopiq', operator: 'Hacker' }),
+    });
+    assert.equal(bodyKey.status, 401);
+
+    const wrong = await fetch(base + '/api/agent/yuk/me', { headers: { 'x-admin-key': 'nope' } });
+    const wrongBody = await wrong.json();
+    assert.equal(wrong.status, 401);
+    assert.match(wrongBody.error, /kaliti/);
+    assert.equal(JSON.stringify(wrongBody).includes('panel-key'), false);
+    assert.equal(JSON.stringify(wrongBody).includes('nope'), false);
+
+    const now = Math.floor(Date.now() / 1000);
+    const badInit = signTelegramInitData(
+      { auth_date: String(now), user: JSON.stringify({ id: 1001, first_name: 'Ega' }) },
+      'other-token'
+    );
+    const mixed = await fetch(base + '/api/agent/yuk/me', {
+      headers: {
+        'x-admin-key': 'panel-key',
+        'x-operator-name': 'Karim',
+        'x-telegram-init-data': badInit,
+      },
+    });
+    const mixedBody = await mixed.json();
+    assert.equal(mixed.status, 401);
+    assert.equal(mixedBody.reason, 'hash_mismatch');
+
+    const me = await fetch(base + '/api/agent/yuk/me', { headers: adminHeaders });
+    const meBody = await me.json();
+    assert.equal(me.status, 200);
+    assert.equal(meBody.data.role, 'erp-admin');
+    assert.equal(meBody.data.full_name, 'Karim');
+    assert.equal(meBody.data.telegram_id, null);
+    assert.equal(JSON.stringify(meBody).includes('panel-key'), false);
+
+    const bootRes = await fetch(base + '/api/agent/yuk/bootstrap', { headers: adminHeaders });
+    assert.equal(bootRes.status, 200);
+
+    const customer = await fetch(base + '/api/agent/yuk/customers', {
+      method: 'POST',
+      headers: adminHeaders,
+      body: JSON.stringify({ name: 'Admin dokon', created_by_first_name: 'Hacker' }),
+    });
+    const customerBody = await customer.json();
+    assert.equal(customer.status, 201);
+
+    const sale = await fetch(base + '/api/agent/yuk/waybills', {
+      method: 'POST',
+      headers: adminHeaders,
+      body: JSON.stringify({
+        request_id: 'req-admin-sale',
+        customer_id: customerBody.data.id,
+        sale_date: '2026-10-21',
+        naqd: 0,
+        karta: 0,
+        due_date: '2026-10-25',
+        items: [{ product_id: 5, quantity: 1, price: 1000 }],
+        created_by_first_name: 'Hacker',
+        created_by_telegram_id: '999',
+        note: 'oddiy izoh',
+      }),
+    });
+    const saleBody = await sale.json();
+    assert.equal(sale.status, 201, saleBody.error);
+    assert.equal(saleBody.data.created_by_name, 'Karim');
+    assert.equal(saleBody.data.created_by_first_name, 'Karim');
+    assert.equal(saleBody.data.created_by_telegram_id, null);
+    assert.equal(saleBody.telegram, null);
+    assert.equal(fetches, 0);
+    assert.match(saleBody.data.text, /Yozgan: Karim/);
+    assert.equal(saleBody.data.note, 'oddiy izoh');
+    const stored = store.waybills.find((w) => w.request_id === 'req-admin-sale');
+    assert.equal(stored.created_by_first_name, 'Karim');
+    assert.equal(stored.created_by_telegram_id, null);
+
+    const pay = await fetch(base + '/api/agent/yuk/customers/' + customerBody.data.id + '/payments', {
+      method: 'POST',
+      headers: adminHeaders,
+      body: JSON.stringify({
+        request_id: 'req-admin-pay',
+        amount: 100,
+        method: 'cash',
+        created_by_first_name: 'Hacker',
+      }),
+    });
+    const payBody = await pay.json();
+    assert.equal(pay.status, 201, payBody.error);
+    assert.equal(payBody.data.payment.created_by_name, 'Karim');
+    assert.equal(payBody.data.payment.created_by_telegram_id, null);
+
+    const init = signTelegramInitData(
+      {
+        auth_date: String(now),
+        user: JSON.stringify({ id: 1001, first_name: 'Ega', last_name: 'Karimov', username: 'ega' }),
+      },
+      TOKEN
+    );
+    const tgSale = await fetch(base + '/api/agent/yuk/waybills', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-telegram-init-data': init,
+        'x-admin-key': 'panel-key',
+        'x-operator-name': 'Karim',
+      },
+      body: JSON.stringify({
+        request_id: 'req-tg-sale',
+        customer_id: customerBody.data.id,
+        sale_date: '2026-10-21',
+        naqd: 1000,
+        karta: 0,
+        items: [{ product_id: 5, quantity: 1, price: 1000 }],
+        created_by_first_name: 'Hacker',
+      }),
+    });
+    const tgBody = await tgSale.json();
+    assert.equal(tgSale.status, 201, tgBody.error);
+    assert.equal(tgBody.data.created_by_telegram_id, '1001');
+    assert.equal(tgBody.data.created_by_name, 'Ega Karimov');
+    assert.equal(fetches, 1);
+
+    const page = fs.readFileSync(path.join(root, 'public/yuk.html'), 'utf8');
+    assert.match(page, /x-admin-key/);
+    assert.match(page, /readAdminSession/);
+    assert.match(page, /max-width: 960px/);
+    assert.match(page, /need-auth/);
+    assert.doesNotMatch(page, /erp_key=/);
+    assert.doesNotMatch(page, /[?&]admin_key=/);
+    const admin = fs.readFileSync(path.join(root, 'public/admin.html'), 'utf8');
+    assert.match(admin, /href: "\/yuk"/);
+    assert.match(admin, /label: "Tarix"/);
+    assert.match(admin, /YukXatiPanel/);
+    const sqlRaw = fs.readFileSync(path.join(root, 'migrations/010_yuk_admin_creator.sql'), 'utf8');
+    const sql = sqlRaw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--.*$/gm, '');
+    assert.match(sql, /ADD COLUMN IF NOT EXISTS created_by_first_name/);
+    assert.doesNotMatch(sql, /\bUPDATE\b/i);
+    assert.doesNotMatch(sql, /\bDELETE\s+FROM\b/i);
+    assert.doesNotMatch(sql, /\bDROP\b/i);
+    const routeSrc = fs.readFileSync(path.join(root, 'routes-yuk.js'), 'utf8');
+    assert.doesNotMatch(routeSrc, /req\.query[^;\n]*admin/);
+    assert.doesNotMatch(routeSrc, /req\.body[^;\n]*admin_key/);
+    assert.doesNotMatch(routeSrc, /console\./);
+    const authSrc = fs.readFileSync(path.join(root, 'lib/admin-auth.js'), 'utf8');
+    assert.match(authSrc, /timingSafeEqual/);
+    assert.doesNotMatch(authSrc, /req\.query/);
+    assert.doesNotMatch(authSrc, /req\.body/);
+  } finally {
+    server.close();
+    if (prevKey == null) delete process.env.ADMIN_KEY;
+    else process.env.ADMIN_KEY = prevKey;
+    if (prevIds == null) delete process.env.ADMIN_TELEGRAM_IDS;
+    else process.env.ADMIN_TELEGRAM_IDS = prevIds;
+    if (prevToken == null) delete process.env.TELEGRAM_BOT_TOKEN;
+    else process.env.TELEGRAM_BOT_TOKEN = prevToken;
   }
 });
