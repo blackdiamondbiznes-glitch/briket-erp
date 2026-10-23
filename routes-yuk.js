@@ -19,7 +19,7 @@ function registerYukRoutes(app, service, helpers, options) {
   function fail(res, err) {
     if (err && (err.code === '42P01' || err.code === '42703' || err.code === '42P01')) {
       err.status = 503;
-      err.message = 'Yuk xati jadvallari yo\'q. migrations/007_yuk_xati.sql, migrations/008_yuk_creator.sql va migrations/009_yuk_access.sql ni qo\'llang.';
+      err.message = 'Yuk xati jadvallari yo\'q. migrations/007_yuk_xati.sql, migrations/008_yuk_creator.sql, migrations/009_yuk_access.sql va migrations/011_yuk_ulush.sql ni qo\'llang.';
     }
     sendError(res, err);
   }
@@ -69,6 +69,13 @@ function registerYukRoutes(app, service, helpers, options) {
     return String(auth.user.id);
   }
 
+  function actorRole(auth) {
+    if (!auth) return '';
+    if (auth.role === 'writer') return 'writer';
+    if (auth.role === 'erp-admin' || (auth.user && auth.user.kind === 'erp-admin')) return 'erp-admin';
+    return 'owner';
+  }
+
   function presentMe(auth, data) {
     const copy = Object.assign({}, data);
     if (auth.role === 'writer') copy.role = 'writer';
@@ -97,7 +104,10 @@ function registerYukRoutes(app, service, helpers, options) {
     const auth = await owner(req, res);
     if (!auth) return;
     try {
-      res.json({ ok: true, data: await service.bootstrap() });
+      const data = await service.bootstrap();
+      data.role = actorRole(auth);
+      data.can_edit_prices = data.role !== 'writer';
+      res.json({ ok: true, data: data });
     } catch (err) {
       fail(res, err);
     }
@@ -120,6 +130,61 @@ function registerYukRoutes(app, service, helpers, options) {
     if (!auth) return;
     try {
       const data = await service.createCustomer(req.body || {});
+      res.status(201).json({ ok: true, data: data });
+    } catch (err) {
+      fail(res, err);
+    }
+  });
+
+  app.put('/api/agent/yuk/customers/:id', async (req, res) => {
+    const auth = await owner(req, res);
+    if (!auth) return;
+    const id = idParam(req, res);
+    if (!id) return;
+    try {
+      res.json({ ok: true, data: await service.updateCustomer(id, req.body || {}) });
+    } catch (err) {
+      fail(res, err);
+    }
+  });
+
+  app.put('/api/agent/yuk/products/:id', async (req, res) => {
+    const auth = await owner(req, res);
+    if (!auth) return;
+    const id = idParam(req, res);
+    if (!id) return;
+    try {
+      res.json({ ok: true, data: await service.updateStandardPrice(id, req.body || {}, actorRole(auth)) });
+    } catch (err) {
+      fail(res, err);
+    }
+  });
+
+  app.get('/api/agent/yuk/daily', async (req, res) => {
+    const auth = await owner(req, res);
+    if (!auth) return;
+    try {
+      res.json({ ok: true, data: await service.dailyReport(req.query.date) });
+    } catch (err) {
+      fail(res, err);
+    }
+  });
+
+  app.get('/api/agent/yuk/ulush', async (req, res) => {
+    const auth = await owner(req, res);
+    if (!auth) return;
+    try {
+      res.json({ ok: true, data: await service.ulush(req.query.date, actorRole(auth)) });
+    } catch (err) {
+      fail(res, err);
+    }
+  });
+
+  app.post('/api/agent/yuk/ulush/withdrawals', async (req, res) => {
+    const auth = await owner(req, res);
+    if (!auth) return;
+    try {
+      const data = await service.withdrawUlush(req.body || {}, auth.user, actorRole(auth));
       res.status(201).json({ ok: true, data: data });
     } catch (err) {
       fail(res, err);
