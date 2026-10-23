@@ -1,18 +1,25 @@
 /**
- * /api/agent/yuk — egasi telefon ilovasi.
- * Telegram initData + ADMIN_TELEGRAM_IDS. Bo'sh ro'yxat rad etiladi.
- * initData umri 1 soat. Kalit bu yo'lda ishlamaydi.
+ * /api/agent/yuk — egasi telefon ilovasi yoki ERP admin sessiyasi.
+ * initData bo'lsa faqat Telegram tekshiruvi. Bo'sh bo'lsa X-Admin-Key sarlavhasi.
+ * Kalit query va body dan o'qilmaydi.
  */
-const { authenticateOwner } = require('./lib/admin-auth');
+const { authenticateAdminSession } = require('./lib/admin-auth');
 const { createYukService } = require('./lib/yuk-service');
+const { createYukAccess } = require('./lib/yuk-access');
 
 function registerYukRoutes(app, service, helpers, options) {
   const sendError = helpers.sendError;
+  const access = (options && options.access) || createYukAccess({
+    pool: options && options.pool,
+    store: options && options.store,
+    fetchImpl: options && options.fetchImpl,
+    now: options && options.accessNow,
+  });
 
   function fail(res, err) {
     if (err && (err.code === '42P01' || err.code === '42703' || err.code === '42P01')) {
       err.status = 503;
-      err.message = 'Yuk xati jadvallari yo\'q. migrations/007_yuk_xati.sql ni qo\'llang.';
+      err.message = 'Yuk xati jadvallari yo\'q. migrations/007_yuk_xati.sql, migrations/008_yuk_creator.sql va migrations/009_yuk_access.sql ni qo\'llang.';
     }
     sendError(res, err);
   }
@@ -27,15 +34,45 @@ function registerYukRoutes(app, service, helpers, options) {
     return body || tma || (headerValue ? String(headerValue) : '') || query;
   }
 
-  function owner(req, res) {
-    const auth = authenticateOwner(readInitData(req));
-    if (!auth.ok) {
-      const payload = { ok: false, error: auth.error };
-      if (auth.reason) payload.reason = auth.reason;
-      res.status(auth.status).json(payload);
-      return null;
+  async function owner(req, res) {
+    const initData = readInitData(req);
+    if (initData) {
+      const auth = await access.authorize(initData);
+      if (!auth.ok) {
+        const payload = { ok: false, error: auth.error };
+        if (auth.reason) payload.reason = auth.reason;
+        if (auth.code) payload.code = auth.code;
+        res.status(auth.status).json(payload);
+        return null;
+      }
+      return auth;
     }
-    return auth;
+    const adminHeader = req.headers && req.headers['x-admin-key'];
+    if (adminHeader != null && !Array.isArray(adminHeader) && String(adminHeader) !== '') {
+      const admin = authenticateAdminSession(req);
+      if (!admin.ok) {
+        res.status(admin.status).json({ ok: false, error: admin.error });
+        return null;
+      }
+      return admin;
+    }
+    const missing = await access.authorize('');
+    const payload = { ok: false, error: missing.error };
+    if (missing.reason) payload.reason = missing.reason;
+    if (missing.code) payload.code = missing.code;
+    res.status(missing.status).json(payload);
+    return null;
+  }
+
+  function chatIdOf(auth) {
+    if (!auth || !auth.user || auth.user.id == null || auth.user.id === '') return '';
+    return String(auth.user.id);
+  }
+
+  function presentMe(auth, data) {
+    const copy = Object.assign({}, data);
+    if (auth.role === 'writer') copy.role = 'writer';
+    return copy;
   }
 
   function idParam(req, res) {
@@ -47,17 +84,17 @@ function registerYukRoutes(app, service, helpers, options) {
   }
 
   app.get('/api/agent/yuk/me', async (req, res) => {
-    const auth = owner(req, res);
+    const auth = await owner(req, res);
     if (!auth) return;
     try {
-      res.json({ ok: true, data: await service.me(auth.user) });
+      res.json({ ok: true, data: presentMe(auth, await service.me(auth.user)) });
     } catch (err) {
       fail(res, err);
     }
   });
 
   app.get('/api/agent/yuk/bootstrap', async (req, res) => {
-    const auth = owner(req, res);
+    const auth = await owner(req, res);
     if (!auth) return;
     try {
       res.json({ ok: true, data: await service.bootstrap() });
@@ -67,7 +104,7 @@ function registerYukRoutes(app, service, helpers, options) {
   });
 
   app.get('/api/agent/yuk/customers', async (req, res) => {
-    const auth = owner(req, res);
+    const auth = await owner(req, res);
     if (!auth) return;
     try {
       const q = req.query.q != null ? String(req.query.q).slice(0, 80) : '';
@@ -79,7 +116,7 @@ function registerYukRoutes(app, service, helpers, options) {
   });
 
   app.post('/api/agent/yuk/customers', async (req, res) => {
-    const auth = owner(req, res);
+    const auth = await owner(req, res);
     if (!auth) return;
     try {
       const data = await service.createCustomer(req.body || {});
@@ -90,7 +127,7 @@ function registerYukRoutes(app, service, helpers, options) {
   });
 
   app.get('/api/agent/yuk/customers/:id', async (req, res) => {
-    const auth = owner(req, res);
+    const auth = await owner(req, res);
     if (!auth) return;
     const id = idParam(req, res);
     if (!id) return;
@@ -102,12 +139,12 @@ function registerYukRoutes(app, service, helpers, options) {
   });
 
   app.post('/api/agent/yuk/customers/:id/payments', async (req, res) => {
-    const auth = owner(req, res);
+    const auth = await owner(req, res);
     if (!auth) return;
     const id = idParam(req, res);
     if (!id) return;
     try {
-      const data = await service.collectPayment(id, req.body || {});
+      const data = await service.collectPayment(id, req.body || {}, auth.user);
       res.status(data && data.replay ? 200 : 201).json({ ok: true, data: data });
     } catch (err) {
       fail(res, err);
@@ -115,14 +152,15 @@ function registerYukRoutes(app, service, helpers, options) {
   });
 
   app.post('/api/agent/yuk/waybills', async (req, res) => {
-    const auth = owner(req, res);
+    const auth = await owner(req, res);
     if (!auth) return;
     try {
-      const data = await service.createSale(req.body || {});
+      const data = await service.createSale(req.body || {}, auth.user);
       let telegram = null;
-      if (!data.replay) {
+      const chatId = chatIdOf(auth);
+      if (!data.replay && chatId) {
         try {
-          telegram = await service.sendToOwner(data.id, auth.user.id, options);
+          telegram = await service.sendToOwner(data.id, chatId, options);
         } catch (err) {
           telegram = { ok: false, error: err && err.message ? err.message : 'Yuborilmadi' };
         }
@@ -134,19 +172,19 @@ function registerYukRoutes(app, service, helpers, options) {
   });
 
   app.put('/api/agent/yuk/waybills/:id', async (req, res) => {
-    const auth = owner(req, res);
+    const auth = await owner(req, res);
     if (!auth) return;
     const id = idParam(req, res);
     if (!id) return;
     try {
-      res.json({ ok: true, data: await service.editSale(id, req.body || {}) });
+      res.json({ ok: true, data: await service.editSale(id, req.body || {}, auth.user) });
     } catch (err) {
       fail(res, err);
     }
   });
 
   app.get('/api/agent/yuk/waybills/:id', async (req, res) => {
-    const auth = owner(req, res);
+    const auth = await owner(req, res);
     if (!auth) return;
     const id = idParam(req, res);
     if (!id) return;
@@ -158,7 +196,7 @@ function registerYukRoutes(app, service, helpers, options) {
   });
 
   app.post('/api/agent/yuk/waybills/:id/send', async (req, res) => {
-    const auth = owner(req, res);
+    const auth = await owner(req, res);
     if (!auth) return;
     const id = idParam(req, res);
     if (!id) return;
@@ -171,20 +209,86 @@ function registerYukRoutes(app, service, helpers, options) {
   });
 
   app.post('/api/agent/yuk/payments/:id/reverse', async (req, res) => {
-    const auth = owner(req, res);
+    const auth = await owner(req, res);
     if (!auth) return;
     const id = idParam(req, res);
     if (!id) return;
     try {
-      const data = await service.reversePayment(id, req.body || {});
+      const data = await service.reversePayment(id, req.body || {}, auth.user);
       res.status(data && data.replay ? 200 : 201).json({ ok: true, data: data });
     } catch (err) {
       fail(res, err);
     }
   });
 
+  app.get('/api/agent/yuk/access', async (req, res) => {
+    const auth = await access.authorize(readInitData(req));
+    if (auth.ok) {
+      res.json({ ok: true, allowed: true, role: auth.role });
+      return;
+    }
+    const payload = { ok: false, error: auth.error };
+    if (auth.reason) payload.reason = auth.reason;
+    if (auth.code) payload.code = auth.code;
+    res.status(auth.status).json(payload);
+  });
+
+  app.post('/api/agent/yuk/access-requests', async (req, res) => {
+    try {
+      const result = await access.requestAccess(readInitData(req));
+      res.status(result.status).json(result.body);
+    } catch (err) {
+      fail(res, err);
+    }
+  });
+
+  app.post('/api/agent/yuk/telegram-webhook', async (req, res) => {
+    try {
+      const result = await access.handleWebhook(req);
+      res.status(result.status).json(result.body);
+    } catch (err) {
+      fail(res, err);
+    }
+  });
+
+  if (options && typeof options.adminAllowed === 'function') {
+    app.get('/api/agent/admin/yuk-access-requests', async (req, res) => {
+      if (!options.adminAllowed(req, res)) return;
+      const status = req.query.status ? String(req.query.status) : 'pending';
+      if (status !== 'all' && status !== 'pending' && status !== 'approved' && status !== 'rejected') {
+        res.status(400).json({ ok: false, error: 'status noto\'g\'ri' });
+        return;
+      }
+      try {
+        const data = await access.list(status === 'all' ? '' : status);
+        res.json({ ok: true, data: data });
+      } catch (err) {
+        fail(res, err);
+      }
+    });
+
+    app.post('/api/agent/admin/yuk-access-requests/:telegramId/:action', async (req, res) => {
+      if (!options.adminAllowed(req, res)) return;
+      const action = req.params.action === 'approve' ? 'approved' : req.params.action === 'reject' ? 'rejected' : '';
+      if (!action) {
+        res.status(400).json({ ok: false, error: 'amal noto\'g\'ri' });
+        return;
+      }
+      const tgAdmin = options.telegramAdminUser ? options.telegramAdminUser(req) : null;
+      const by = tgAdmin && tgAdmin.id != null
+        ? String(tgAdmin.id)
+        : String(req.headers['x-operator-name'] || 'admin');
+      try {
+        const data = await access.decide(req.params.telegramId, action, by);
+        res.json({ ok: true, data: data });
+      } catch (err) {
+        fail(res, err);
+      }
+    });
+  }
+
   app.get('/api/agent/yuk/reminders', async (req, res) => {
-    const auth = owner(req, res);
+    const auth = await owner(req, res);
     if (!auth) return;
     try {
       res.json({ ok: true, data: await service.reminders() });
@@ -197,7 +301,13 @@ function registerYukRoutes(app, service, helpers, options) {
 module.exports = function registerFromAgent(app, pool, helpers, options) {
   const store = (options && options.store) || require('./lib/agent-repo').createSqlStore(pool);
   const service = (options && options.yukService) || createYukService(store, helpers);
-  registerYukRoutes(app, service, helpers, options);
+  const access = (options && options.access) || createYukAccess({
+    pool: pool,
+    store: store,
+    fetchImpl: options && options.fetchImpl,
+    now: options && options.accessNow,
+  });
+  registerYukRoutes(app, service, helpers, Object.assign({}, options, { store: store, pool: pool, access: access }));
   return service;
 };
 

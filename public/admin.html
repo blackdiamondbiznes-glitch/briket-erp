@@ -155,19 +155,19 @@
       scrollbar-width: none;
     }
     .segment::-webkit-scrollbar { display: none; }
-    .segment button {
+    .segment button, .segment a {
       flex: 1; min-width: 72px; border: none; background: transparent;
       color: var(--muted); padding: 10px 12px; border-radius: 6px;
       min-height: 44px;
       cursor: pointer; font-size: 13px; font-weight: 600;
-      white-space: nowrap;
+      white-space: nowrap; text-decoration: none; text-align: center;
     }
     .segment button.active {
       background: linear-gradient(180deg, #d4b03a 0%, #c9a227 100%);
       color: #1a1408; box-shadow: 0 2px 8px rgba(201,162,39,0.3);
     }
-    .segment button:hover:not(.active) { color: var(--text); }
-    .segment button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+    .segment button:hover:not(.active), .segment a:hover { color: var(--text); }
+    .segment button:focus-visible, .segment a:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
     .bottom-nav {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
@@ -563,7 +563,7 @@
       scrollbar-width: none;
     }
     .segment::-webkit-scrollbar { display: none; }
-    .segment button { flex: 0 0 auto; white-space: nowrap; }
+    .segment button, .segment a { flex: 0 0 auto; white-space: nowrap; }
 
     @media (max-width: 860px) {
       .main {
@@ -1079,16 +1079,17 @@
         font-size: 0.62rem; color: var(--muted); text-transform: uppercase;
         letter-spacing: 0.06em; padding: 10px 8px 4px; font-weight: 600;
       }
-      .sidebar button {
+      .sidebar button, .sidebar a {
         display: flex; align-items: flex-start; gap: 8px;
         width: 100%; text-align: left; border: 0; background: transparent;
         color: var(--muted); padding: 8px 8px; border-radius: 8px;
         cursor: pointer; font-size: 0.8rem; font-weight: 500;
-        line-height: 1.3; white-space: normal;
+        line-height: 1.3; white-space: normal; text-decoration: none;
       }
-      .sidebar button .nav-ico { width: 16px; height: 16px; flex-shrink: 0; }
-      .sidebar button .nav-ico svg { width: 16px; height: 16px; display: block; stroke-width: 1.75; }
-      .sidebar button:hover { background: var(--card-hover); color: var(--text); }
+      .sidebar button.sub, .sidebar a.sub { padding-left: 32px; }
+      .sidebar button .nav-ico, .sidebar a .nav-ico { width: 16px; height: 16px; flex-shrink: 0; }
+      .sidebar button .nav-ico svg, .sidebar a .nav-ico svg { width: 16px; height: 16px; display: block; stroke-width: 1.75; }
+      .sidebar button:hover, .sidebar a:hover { background: var(--card-hover); color: var(--text); }
       .sidebar button.active {
         background: var(--accent-muted); color: var(--accent);
       }
@@ -4931,7 +4932,8 @@
           bottom: true,
           tabs: [
             { id: "orders", label: "Buyurtmalar" },
-            { id: "yukxati", label: "Yuk tarqatish" },
+            { id: "yuk-open", label: "Yuk tarqatish", href: "/yuk" },
+            { id: "yukxati", label: "Tarix", sub: true },
             { id: "shipments", label: "Dilerlarga berilgan tovar" }
           ]
         },
@@ -5044,7 +5046,7 @@
         "stock-ready": "box", "stock-raw": "catalog",
         orders: "cart", payments: "coin", shipments: "truck",
         materials: "catalog", expenses: "coin", products: "box",
-        people: "users", "people-debt": "users", agents: "users", yukxati: "box", reports: "coin",
+        people: "users", "people-debt": "users", agents: "users", yukxati: "box", "yuk-open": "box", reports: "coin",
         limits: "catalog", settings: "catalog"
       };
 
@@ -5097,11 +5099,20 @@
                 <div key={m.id}>
                   <div className="sidebar-group">{m.short}</div>
                   {m.tabs.map(function (t) {
+                    var cls = (tab === t.id ? "active" : "") + (t.sub ? " sub" : "");
+                    if (t.href) {
+                      return (
+                        <a key={t.id} href={t.href} className={cls}>
+                          <span className="nav-ico"><NavIcon name={TAB_ICO[t.id] || m.ico} /></span>
+                          {t.label}
+                        </a>
+                      );
+                    }
                     return (
                       <button
                         key={t.id}
                         type="button"
-                        className={tab === t.id ? "active" : ""}
+                        className={cls}
                         onClick={function () { setModuleId(m.id); setTab(t.id); setPageFilter({}); }}
                       >
                         <span className="nav-ico"><NavIcon name={TAB_ICO[t.id] || m.ico} /></span>
@@ -5133,6 +5144,11 @@
             {currentModule && currentModule.tabs.length > 1 ? (
               <div className="segment mobile-only">
                 {currentModule.tabs.map(function (t) {
+                  if (t.href) {
+                    return (
+                      <a key={t.id} href={t.href}>{t.label}</a>
+                    );
+                  }
                   return (
                     <button
                       key={t.id}
