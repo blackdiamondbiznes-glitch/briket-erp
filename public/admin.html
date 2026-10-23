@@ -4,10 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="robots" content="noindex, nofollow" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#f7f4ec" />
-  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#0a0a0b" />
+  <meta name="color-scheme" content="dark" />
   <title>Black Diamond — Operatsion tizim</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="theme.js"></script>
   <script>
     (function () {
       function readyTg() {
@@ -27,6 +28,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="tokens.css" />
   <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7.26.0/babel.min.js"></script>
@@ -34,50 +36,8 @@
   <style>
     /* ========== Design tokens - Black Diamond ERP ========== */
     :root {
-      /* OPS light — high contrast for sunlight (inventory dashboard pattern) */
-      --bg: #f7f4ec;
-      --bg-mid: #eee6d6;
-      --bg-elevated: #ffffff;
-      --card: #ffffff;
-      --card-hover: #f3ecdc;
-      --border: #c4b89a;
-      --border-subtle: #ddd3bc;
-      --text: #111111;
-      --muted: #4a453a;
-      --accent: #8a6a00;
-      --accent-hover: #6e5500;
-      --accent-muted: rgba(138, 106, 0, 0.16);
-      --accent-text: #fffdf6;
-      --danger: #b30000;
-      --danger-bg: #ffe5e5;
-      --warning: #7a4a00;
-      --warning-bg: #fff1cc;
-      --success: #146c2e;
-      --success-bg: #e3f6e8;
-      --info: #004a99;
-      --info-bg: #e5f0ff;
-      --radius-sm: 6px;
-      --radius: 8px;
-      --radius-lg: 10px;
-      --shadow: 0 8px 24px rgba(40, 32, 12, 0.08);
-      --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
-      --fs-label: 0.75rem;
-      --fs-body: 0.875rem;
-      --fs-body-lg: 0.9375rem;
-      --fs-title: 1.05rem;
-      --fs-kpi: 1.5rem;
-      --tap-min: 44px;
-      --space-1: 4px;
-      --space-2: 8px;
-      --space-3: 12px;
-      --space-4: 16px;
-      --space-5: 20px;
-      --space-6: 24px;
-      --row-h: 40px;
       --nav-h: 76px;
-      --sidebar-w: 268px;
-      --focus-ring: 0 0 0 3px var(--accent-muted);
+      --row-h: 44px;
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
@@ -106,7 +66,7 @@
 
     /* Eski Index.html qobig'i: sticky header + 4 pastki menyu */
     .header {
-      background: rgba(255,253,248,0.96);
+      background: color-mix(in srgb, var(--header-bg) 94%, transparent);
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
       border-bottom: 1px solid var(--border);
@@ -118,7 +78,7 @@
       max-width: 640px; margin: 0 auto;
     }
     .header-role {
-      font-size: 10px; color: var(--accent); font-weight: 600;
+      font-size: 12px; color: var(--accent); font-weight: 600;
       text-transform: uppercase; letter-spacing: 0.04em;
     }
     .header-mark {
@@ -134,7 +94,7 @@
       color: var(--text); line-height: 1.2;
     }
     .header p {
-      font-size: 11px; color: var(--muted); margin-top: 2px; font-weight: 500;
+      font-size: 12px; color: var(--muted); margin-top: 2px; font-weight: 500;
     }
     .header-right {
       margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
@@ -174,7 +134,7 @@
       display: flex;
       min-height: var(--nav-h);
       height: auto;
-      background: rgba(255,253,248,0.96);
+      background: color-mix(in srgb, var(--header-bg) 94%, transparent);
       backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       border-top: 1px solid var(--border);
       padding-top: 4px;
@@ -182,7 +142,7 @@
       box-shadow: 0 -4px 20px rgba(40, 32, 12, 0.1);
     }
     .bottom-nav button {
-      flex: 1; text-align: center; font-size: 10px; padding: 6px 2px;
+      flex: 1; text-align: center; font-size: 12px; padding: 6px 2px;
       min-height: 48px;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
       background: transparent; border: none; color: var(--muted);
@@ -242,11 +202,11 @@
     .kpi::before, .dash-kpi::before {
       content: "";
       position: absolute; top: 8px; bottom: 8px; left: 0; width: 3px;
-      background: var(--accent);
+      background: var(--accent-fill);
       border-radius: 0 2px 2px 0;
     }
     .kpi .label, .dash-kpi .label {
-      font-size: 0.68rem; color: var(--muted);
+      font-size: 0.75rem; color: var(--muted);
       text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;
     }
     .kpi .value, .dash-kpi .value {
@@ -255,7 +215,7 @@
       letter-spacing: -0.03em; color: var(--text);
     }
     .kpi .trend, .dash-kpi .trend {
-      margin-top: 4px; font-size: 0.68rem; color: var(--muted);
+      margin-top: 4px; font-size: 0.75rem; color: var(--muted);
       min-height: 1em;
     }
     .dash-kpis {
@@ -276,7 +236,7 @@
       .dash-kpi .value { font-size: 0.98rem; }
     }
     .dash-kpi-danger {
-      border-color: rgba(229, 72, 77, 0.45);
+      border-color: var(--danger-border);
       background: var(--danger-bg);
     }
     .dash-meta {
@@ -291,8 +251,8 @@
       font-size: 0.78rem; padding: 8px 12px; border-radius: var(--radius-sm); margin-bottom: 6px;
       border: 1px solid transparent;
     }
-    .dash-alert.danger { background: var(--danger-bg); color: var(--danger); border-color: rgba(229,72,77,0.25); }
-    .dash-alert.warn { background: var(--warning-bg); color: var(--warning); border-color: rgba(245,166,35,0.25); }
+    .dash-alert.danger { background: var(--danger-bg); color: var(--danger); border-color: var(--danger-border); }
+    .dash-alert.warn { background: var(--warning-bg); color: var(--warning); border-color: var(--warning-border); }
     .dash-grid {
       display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;
     }
@@ -300,7 +260,6 @@
       color: var(--danger); font-weight: 700;
       font-variant-numeric: tabular-nums;
     }
-    .neg::before { content: ""; font-weight: 600; opacity: 0.9; }
     @media (max-width: 700px) {
       .dash-grid { grid-template-columns: 1fr; }
       .main { padding-left: 12px; padding-right: 12px; overflow-x: hidden; }
@@ -312,7 +271,7 @@
       }
       .dash-meta {
         gap: 6px 10px;
-        font-size: 0.7rem;
+        font-size: 0.75rem;
       }
       .table-wrap { margin: 0 -4px; }
     }
@@ -338,7 +297,7 @@
       font-variant-numeric: tabular-nums;
     }
     th {
-      color: var(--muted); font-weight: 650; font-size: 0.68rem;
+      color: var(--muted); font-weight: 650; font-size: 0.75rem;
       text-transform: uppercase; letter-spacing: 0.04em;
       background: var(--bg-mid);
       position: sticky; top: 0; z-index: 1;
@@ -361,12 +320,12 @@
     /* Forms */
     input, select, textarea {
       width: 100%;
-      background: var(--bg);
+      background: var(--surface-2);
       border: 1px solid var(--border);
       color: var(--text);
       padding: 9px 11px;
       border-radius: var(--radius-sm);
-      font-size: var(--fs-body-lg);
+      font-size: 16px;
       margin-bottom: 8px;
       transition: border-color 0.12s ease, box-shadow 0.12s ease;
     }
@@ -386,37 +345,37 @@
       .form-row, .form-row-3 { grid-template-columns: 1fr; }
     }
     .field-error {
-      font-size: 0.72rem; color: var(--danger); margin: -4px 0 8px;
+      font-size: 0.75rem; color: var(--danger); margin: -4px 0 8px;
     }
 
     /* Buttons */
     .btn {
-      background: var(--accent); color: var(--accent-text); border: none;
+      background: var(--accent-fill); color: var(--accent-text); border: none;
       padding: 8px 14px; border-radius: var(--radius-sm);
       font-weight: 600; cursor: pointer; font-size: 0.84rem;
-      letter-spacing: 0.01em;
+      letter-spacing: 0.01em; min-height: var(--tap);
       transition: background 0.12s ease, transform 0.08s ease;
     }
-    .btn:hover { background: var(--accent-hover); }
+    .btn:hover { background: var(--accent-fill-hover); }
     .btn:active { transform: translateY(1px); }
     .btn:disabled { opacity: 0.45; cursor: not-allowed; }
     .btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
     .btn-ghost {
       background: var(--card); border: 1px solid var(--border); color: var(--text);
-      padding: 5px 10px; border-radius: var(--radius-sm); cursor: pointer;
-      font-size: 0.75rem; font-weight: 600;
+      padding: 0 12px; border-radius: var(--radius-sm); cursor: pointer;
+      font-size: 0.75rem; font-weight: 600; min-height: var(--tap);
       transition: border-color 0.12s ease, background 0.12s ease;
     }
     .btn-ghost:hover { border-color: var(--accent); background: var(--accent-muted); color: var(--accent-hover); }
-    .btn-sm { padding: 3px 8px; font-size: 0.72rem; border-radius: 5px; }
+    .btn-sm { padding: 0 10px; font-size: 0.75rem; border-radius: 8px; min-height: var(--tap); }
     .btn-danger {
       background: var(--danger-bg); color: var(--danger);
-      border: 1px solid rgba(239, 68, 68, 0.35);
-      padding: 5px 10px; border-radius: var(--radius-sm); cursor: pointer;
-      font-size: 0.75rem; font-weight: 600;
+      border: 1px solid var(--danger-border);
+      padding: 0 12px; border-radius: var(--radius-sm); cursor: pointer;
+      font-size: 0.75rem; font-weight: 600; min-height: var(--tap);
     }
-    .btn-danger:hover { background: rgba(239, 68, 68, 0.18); }
-    .btn-danger.btn-sm { padding: 3px 8px; font-size: 0.72rem; border-radius: 5px; }
+    .btn-danger:hover { background: var(--danger-bg); filter: brightness(0.97); }
+    .btn-danger.btn-sm { padding: 0 10px; font-size: 0.75rem; border-radius: 8px; min-height: var(--tap); }
 
     /* Messages — toast */
     .msg {
@@ -424,8 +383,8 @@
       margin-bottom: 10px; font-size: 0.84rem;
       border: 1px solid transparent;
     }
-    .msg.ok { background: var(--success-bg); color: var(--success); border-color: rgba(63,185,80,0.25); }
-    .msg.err { background: var(--danger-bg); color: var(--danger); border-color: rgba(229,72,77,0.25); }
+    .msg.ok { background: var(--success-bg); color: var(--success); border-color: var(--success-border); }
+    .msg.err { background: var(--danger-bg); color: var(--danger); border-color: var(--danger-border); }
     .msg.toast {
       position: fixed; top: 16px; right: 16px; z-index: 240;
       margin: 0; min-width: 220px; max-width: min(360px, calc(100vw - 32px));
@@ -437,26 +396,26 @@
     .badge {
       display: inline-flex; align-items: center; gap: 4px;
       padding: 2px 8px; border-radius: 99px;
-      font-size: 0.68rem; font-weight: 550; letter-spacing: 0.01em;
+      font-size: 0.75rem; font-weight: 550; letter-spacing: 0.01em;
       background: var(--bg-mid); color: var(--muted);
       border: 1px solid transparent;
     }
-    .badge .mark { font-size: 0.72rem; line-height: 1; }
+    .badge .mark { font-size: 0.75rem; line-height: 1; }
     .badge.active, .badge.paid, .badge.success,
     .badge.confirmed {
-      background: var(--success-bg); color: var(--success); border-color: rgba(63,185,80,0.2);
+      background: var(--success-bg); color: var(--success); border-color: var(--success-border);
     }
     .badge.closed, .badge.neutral {
       background: var(--bg-mid); color: var(--muted);
     }
     .badge.partial, .badge.pending, .badge.warning {
-      background: var(--warning-bg); color: var(--warning); border-color: rgba(245,166,35,0.2);
+      background: var(--warning-bg); color: var(--warning); border-color: var(--warning-border);
     }
     .badge.rejected, .badge.cancelled, .badge.danger {
-      background: var(--danger-bg); color: var(--danger); border-color: rgba(229,72,77,0.2);
+      background: var(--danger-bg); color: var(--danger); border-color: var(--danger-border);
     }
     .badge.info {
-      background: var(--info-bg); color: var(--info); border-color: rgba(88,166,255,0.2);
+      background: var(--info-bg); color: var(--info); border-color: var(--info-border);
     }
 
     .empty {
@@ -506,21 +465,21 @@
     .login-card input {
       width: 100%; padding: 12px 14px; border-radius: var(--radius-sm);
       border: 1px solid var(--border); background: var(--bg); color: var(--text);
-      font-size: 0.95rem; margin-bottom: 14px;
+      font-size: 16px; margin-bottom: 14px;
     }
     .login-card input:focus {
       outline: none; border-color: var(--accent); box-shadow: var(--focus-ring);
     }
     .login-card .btn {
       width: 100%; padding: 12px; border: none; border-radius: var(--radius-sm);
-      font-weight: 700; background: var(--accent); color: var(--accent-text); cursor: pointer;
+      font-weight: 700; background: var(--accent-fill); color: var(--accent-text); cursor: pointer; min-height: var(--tap);
     }
-    .login-card .btn:hover { background: var(--accent-hover); }
+    .login-card .btn:hover { background: var(--accent-fill-hover); }
     .login-card .err { color: var(--danger); font-size: 0.85rem; margin-bottom: 10px; }
     .logout-btn {
       margin-top: 8px; width: 100%; padding: 8px; border-radius: var(--radius-sm);
       border: 1px solid var(--border-subtle); background: transparent; color: var(--muted);
-      font-size: 0.75rem; cursor: pointer;
+      font-size: 0.75rem; cursor: pointer; min-height: var(--tap);
     }
     .logout-btn:hover { color: var(--text); border-color: var(--border); }
 
@@ -641,7 +600,7 @@
         height: auto !important;
         white-space: normal !important;
         border-bottom: none !important;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         color: var(--muted);
         text-align: left;
         font-variant-numeric: tabular-nums;
@@ -656,7 +615,7 @@
         content: attr(data-label) ":";
         display: inline;
         color: var(--muted);
-        font-size: 0.65rem;
+        font-size: 0.75rem;
         font-weight: 600;
         text-transform: none;
         letter-spacing: 0;
@@ -716,7 +675,7 @@
       /* Last metric: keep as labeled chip (not orphan money on the right) */
       .table-wrap tbody tr:not(:has(td.sticky-actions)) td:last-child {
         order: 3;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         font-weight: 600;
         color: var(--text);
       }
@@ -833,14 +792,14 @@
         font-variant-numeric: tabular-nums;
         letter-spacing: 0.01em;
       }
-      .table-wrap tbody td .order-trail { font-size: 0.68rem; }
+      .table-wrap tbody td .order-trail { font-size: 0.75rem; }
       .table-wrap tbody td .order-summa {
         font-weight: 700;
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
       }
       .table-wrap tbody td .order-debt {
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         white-space: nowrap;
         font-variant-numeric: tabular-nums;
       }
@@ -907,7 +866,7 @@
       .table-wrap tbody td.sticky-actions .btn-danger {
         width: auto !important;
         min-width: 44px;
-        min-height: 40px !important;
+        min-height: 44px !important;
         padding: 8px 14px !important;
         margin: 0 !important;
         flex: 0 0 auto !important;
@@ -950,11 +909,11 @@
     }
     @media (max-width: 860px) {
       input, select, textarea {
-        background: #ffffff !important;
-        border-color: rgba(40, 32, 12, 0.28) !important;
+        background: var(--surface-2) !important;
+        border-color: var(--border) !important;
         color: var(--text);
       }
-      input::placeholder, textarea::placeholder { color: #8a8378; }
+      input::placeholder, textarea::placeholder { color: var(--hint); }
       .card h2 { margin-bottom: 10px; }
       .form-row, .form-row-3 { gap: 10px; }
       label { margin-bottom: 4px; }
@@ -971,7 +930,7 @@
     .page-head .sub { color: var(--muted); font-size: 0.78rem; margin-top: 3px; }
     .page-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .tz-chip {
-      font-family: var(--font-mono); font-size: 0.72rem; color: var(--accent);
+      font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent);
       background: var(--accent-muted); border: 1px solid rgba(201,162,39,0.25);
       padding: 6px 10px; border-radius: 99px; letter-spacing: 0.02em;
     }
@@ -980,14 +939,15 @@
       border: 0; background: transparent; color: var(--muted); padding: 6px 12px;
       border-radius: 8px; cursor: pointer; font-size: 0.78rem; font-weight: 600;
     }
-    .period-toggle button.on { background: var(--accent); color: var(--accent-text); }
+    .period-toggle button.on { background: var(--accent-fill); color: var(--accent-text); }
+    .period-toggle button { min-height: var(--tap); }
     .kpi-hero { grid-column: span 2; }
     @media (min-width: 720px) {
       .dash-kpis.cols-5 .kpi-hero { grid-column: span 1; }
     }
     .bar-track { height: 6px; background: rgba(28,25,20,0.08); border-radius: 99px; overflow: hidden; margin-top: 8px; }
     .bar-fill { height: 100%; background: linear-gradient(90deg, #8a7018, var(--accent)); }
-    .bar-fill.neg { background: #ef4444; }
+    .bar-fill.neg { background: var(--danger); }
     .split-2 { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 12px; }
     @media (max-width: 900px) { .split-2 { grid-template-columns: 1fr; } }
     .toolbar {
@@ -995,7 +955,7 @@
     }
     .toolbar input[type="search"] { margin: 0; max-width: 280px; }
     .toolbar input[type="date"] { margin: 0; max-width: 150px; }
-    .stat-mini { font-size: 0.72rem; color: var(--muted); }
+    .stat-mini { font-size: 0.75rem; color: var(--muted); }
     .kpi-click { cursor: pointer; }
     .kpi-click:hover { border-color: var(--accent); background: var(--card-hover); }
     .quick-actions {
@@ -1018,9 +978,9 @@
     .chip-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
     .chip-row button {
       border: 1px solid var(--border); background: var(--card); color: var(--muted);
-      border-radius: 99px; padding: 8px 12px; min-height: 40px; cursor: pointer; font-weight: 600; font-size: 0.8rem;
+      border-radius: 99px; padding: 8px 12px; min-height: var(--tap); cursor: pointer; font-weight: 600; font-size: 0.8rem;
     }
-    .chip-row button.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+    .chip-row button.on { background: var(--accent-fill); color: var(--accent-text); border-color: var(--accent-fill); }
     .person-card { border-left: 4px solid var(--accent); }
     .more-backdrop {
       display: none; position: fixed; inset: 0; z-index: 140;
@@ -1043,7 +1003,7 @@
       cursor: pointer; font-weight: 700; color: var(--accent); margin: 8px 0 12px; min-height: 44px;
     }
     .inline-edit {
-      width: 110px; margin: 0; padding: 4px 6px; font-size: 0.78rem; height: 26px;
+      width: 110px; margin: 0; padding: 4px 6px; font-size: 16px; min-height: var(--tap); height: auto;
     }
     .price-cell { cursor: pointer; border-bottom: 1px dashed var(--border); }
     .bulk-bar {
@@ -1066,17 +1026,17 @@
       .sidebar {
         display: flex; flex-direction: column;
         position: fixed; left: 0; top: 0; bottom: 0; width: var(--sidebar-w);
-        background: #fffdf8; border-right: 1px solid var(--border);
+        background: var(--surface); border-right: 1px solid var(--border);
         z-index: 80; padding: 14px 10px 16px;
         overflow-y: auto;
       }
       .sidebar-brand {
-        font-size: 0.72rem; font-weight: 700; color: var(--accent);
+        font-size: 0.75rem; font-weight: 700; color: var(--accent);
         letter-spacing: 0.08em; text-transform: uppercase;
         padding: 4px 8px 12px;
       }
       .sidebar-group {
-        font-size: 0.62rem; color: var(--muted); text-transform: uppercase;
+        font-size: 0.75rem; color: var(--muted); text-transform: uppercase;
         letter-spacing: 0.06em; padding: 10px 8px 4px; font-weight: 600;
       }
       .sidebar button, .sidebar a {
@@ -1108,14 +1068,16 @@
     .msg.toast .msg-x {
       margin-left: auto; border: 0; background: transparent; color: inherit;
       cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 2px;
+      min-width: var(--tap); min-height: var(--tap);
     }
     .empty-state { text-align: center; padding: 28px 16px; color: var(--muted); }
-    .crumb { font-size: 0.72rem; color: var(--muted); font-weight: 500; }
+    .crumb { font-size: 0.75rem; color: var(--muted); font-weight: 500; }
     .crumb b { color: var(--text); font-weight: 650; }
     .price-edit { display: inline-flex; align-items: center; gap: 6px; }
     .price-edit button {
       border: 0; background: transparent; color: var(--accent); cursor: pointer;
       padding: 2px; font-size: 0.85rem; line-height: 1;
+      min-width: var(--tap); min-height: var(--tap);
     }
     .login-card input.invalid { border-color: var(--danger); }
     .hint-box {
@@ -1162,12 +1124,12 @@
         width: auto !important;
         flex: 0 0 auto !important;
         min-width: 0 !important;
-        min-height: 36px !important;
+        min-height: 44px !important;
         height: auto !important;
         padding: 6px 12px !important;
         margin: 0 !important;
         border-radius: 999px !important;
-        font-size: 0.72rem !important;
+        font-size: 0.75rem !important;
         font-weight: 650 !important;
         line-height: 1.15 !important;
         white-space: nowrap !important;
@@ -1177,13 +1139,13 @@
         box-shadow: none !important;
       }
       .table-wrap tbody td.sticky-actions .btn-ghost {
-        background: #fff !important;
+        background: var(--surface) !important;
         border: 1px solid var(--border) !important;
         color: var(--text) !important;
       }
       .table-wrap tbody td.sticky-actions .btn-danger {
-        background: rgba(239, 68, 68, 0.1) !important;
-        border: 1px solid rgba(239, 68, 68, 0.35) !important;
+        background: var(--danger-bg) !important;
+        border: 1px solid var(--danger-border) !important;
         color: var(--danger) !important;
       }
       .table-wrap tbody td.sticky-actions .btn:not(.btn-ghost):not(.btn-danger) {
@@ -1210,7 +1172,13 @@
     const DEFAULT_API = window.location.origin;
 
     function money(n) {
-      return Math.round(Number(n || 0)).toLocaleString("uz-UZ");
+      var v = Math.round(Number(n || 0));
+      var body = Math.abs(v).toLocaleString("uz-UZ");
+      return (v < 0 ? "−" : "") + body;
+    }
+    function qtyText(n) {
+      var v = Number(n) || 0;
+      return (v < 0 ? "−" : "") + String(Math.abs(v));
     }
     // Tannarx = bir dona xarajat. Foyda = sotish − tannarx. Jami = × qoldiq.
     function stockLine(p) {
@@ -1859,7 +1827,7 @@
                           <td data-label="Sotuv">{Number(s.sold_qty)}</td>
                           <td data-label="Diler">{Number(s.shipped_qty || 0)}</td>
                           <td data-label="Yo'lda">{Number(s.yolda_qty || 0)}</td>
-                          <td data-label="Qoldiq" className={bal <= 0 ? "neg" : ""}><strong>{bal}</strong></td>
+                          <td data-label="Qoldiq" className={bal <= 0 ? "neg" : ""}><strong>{qtyText(bal)}</strong></td>
                           <td data-label="Qiymat">{money(s.value)}</td>
                         </tr>
                       );
@@ -1892,7 +1860,7 @@
                         <tr key={m.id} className={bal <= 0 ? "row-zero" : ""}>
                           <td data-label="Nomi">{m.name}</td>
                           <td data-label="Birlik">{m.unit}</td>
-                          <td data-label="Qoldiq" className={bal < 0 ? "neg" : ""}><strong>{bal}</strong></td>
+                          <td data-label="Qoldiq" className={bal < 0 ? "neg" : ""}><strong>{qtyText(bal)}</strong></td>
                           <td data-label="Qiymat">{money(m.value)}</td>
                         </tr>
                       );
@@ -2098,7 +2066,7 @@
                           {p.sku}
                           {p.cost_override ? <div className="muted" style={{ fontSize: "0.7rem" }}>qo'lda</div> : null}
                         </td>
-                        <td data-label="Qoldiq" className={Number(p.balance_qty) < 0 ? "neg" : ""}><strong>{Number(p.balance_qty)}</strong></td>
+                        <td data-label="Qoldiq" className={Number(p.balance_qty) < 0 ? "neg" : ""}><strong>{qtyText(p.balance_qty)}</strong></td>
                         <td data-label="Yo'lda">{Number(p.yolda_qty || 0)}</td>
                         <td data-label="Tannarx">{money(cost)}</td>
                         <td data-label="Sotish">{money(line.sale)}</td>

@@ -1,0 +1,152 @@
+/* Black Diamond — shared tokens.
+   Brand: black + gold (#c9a227). Surfaces and text follow Telegram themeParams
+   when the WebApp sets --tg-theme-*; otherwise the dark gold palette is used.
+   theme.js sets data-theme so light Telegram clients do not keep dark-on-dark pairs. */
+
+:root {
+  color-scheme: dark;
+
+  --gold: #c9a227;
+  --gold-bright: #d4b03a;
+  --gold-deep: #a8841a;
+  --gold-ink: #1a1408;
+  --gold-soft: rgba(201, 162, 39, 0.16);
+
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+
+  --radius-sm: 10px;
+  --radius: 12px;
+  --radius-lg: 16px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  --tap: 44px;
+  --tap-min: 44px;
+  --bottom-nav-h: 64px;
+  --nav-h: 64px;
+  --fs-min: 12px;
+  --fs-label: 0.75rem;
+  --fs-body: 1rem;
+  --fs-body-lg: 1rem;
+  --fs-title: 1.05rem;
+  --fs-kpi: 1.5rem;
+
+  --bg: var(--tg-theme-bg-color, #0a0a0b);
+  --text: var(--tg-theme-text-color, #f5f0e6);
+  --hint: var(--tg-theme-hint-color, #c9bfae);
+  --surface: var(--tg-theme-secondary-bg-color, #141210);
+  --surface-2: var(--tg-theme-section-bg-color, #1c1914);
+  --header-bg: var(--tg-theme-header-bg-color, var(--surface));
+  --nav-bg: var(--tg-theme-bottom-bar-bg-color, var(--surface));
+  --border: var(--tg-theme-section-separator-color, #3a3428);
+  --link: var(--tg-theme-link-color, var(--gold-bright));
+
+  --accent-fill: var(--gold);
+  --accent-fill-hover: var(--gold-deep);
+  --accent-text: var(--gold-ink);
+  --accent: var(--gold-bright);
+  --accent-hover: #f0e2b0;
+  --accent-muted: var(--gold-soft);
+  --accent-soft: var(--gold-soft);
+
+  --danger: var(--tg-theme-destructive-text-color, #ff8a8a);
+  --danger-bg: color-mix(in srgb, var(--danger) 16%, transparent);
+  --danger-border: color-mix(in srgb, var(--danger) 40%, transparent);
+  --success: #3dd68c;
+  --success-bg: color-mix(in srgb, var(--success) 16%, transparent);
+  --success-border: color-mix(in srgb, var(--success) 40%, transparent);
+  --warning: #f5d061;
+  --warning-bg: color-mix(in srgb, var(--warning) 16%, transparent);
+  --warning-border: color-mix(in srgb, var(--warning) 40%, transparent);
+  --info: #9ec5ff;
+  --info-bg: color-mix(in srgb, var(--info) 16%, transparent);
+  --info-border: color-mix(in srgb, var(--info) 35%, transparent);
+
+  --muted: var(--hint);
+  --text-secondary: var(--hint);
+  --text-muted: var(--hint);
+  --faint: var(--hint);
+  --ok: var(--success);
+  --ok-soft: var(--success-bg);
+  --warn: var(--warning);
+  --warn-soft: var(--warning-bg);
+
+  --card: var(--surface);
+  --card-hover: color-mix(in srgb, var(--text) 6%, var(--surface));
+  --bg-elevated: var(--surface);
+  --bg-mid: color-mix(in srgb, var(--text) 6%, var(--bg));
+  --border-subtle: color-mix(in srgb, var(--border) 70%, transparent);
+  --border-hover: color-mix(in srgb, var(--text) 28%, var(--border));
+
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  --focus-ring: 0 0 0 3px var(--gold-soft);
+
+  --row-h: 44px;
+  --sidebar-w: 268px;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+  --hint: var(--tg-theme-hint-color, #5c5648);
+  --accent: #6e5500;
+  --accent-hover: #4a3b00;
+  --danger: var(--tg-theme-destructive-text-color, #b30000);
+  --success: #146c2e;
+  --warning: #7a4a00;
+  --info: #004a99;
+  --shadow: 0 8px 24px rgba(40, 32, 12, 0.08);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font);
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+}
+
+input, select, textarea {
+  font-size: 16px;
+}
+
+.btn,
+.btn-ghost,
+.btn-danger,
+.btn-secondary,
+.btn-warn,
+.btn-sm,
+button.qbtn,
+.qty-row button,
+.gallery-ctrl,
+.lightbox-close,
+.lightbox-nav,
+.tip-close,
+.stepper button,
+.chip,
+.pay-side {
+  min-height: var(--tap);
+  box-sizing: border-box;
+}
+
+button:focus-visible,
+.btn:focus-visible,
+.btn-ghost:focus-visible,
+.btn-danger:focus-visible,
+.btn-secondary:focus-visible,
+select:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
