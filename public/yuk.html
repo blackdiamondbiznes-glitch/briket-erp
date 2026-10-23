@@ -807,10 +807,10 @@
   function goBack() {
     if (state.dateOpen) { state.dateOpen = false; render(); return; }
     if (state.sheet === "map") { state.sheet = state.mapBack || "new"; render(); return; }
-    if (state.pay || state.edit || (state.sheet && state.sheet !== "detail")) {
+    if (state.pay || state.edit || state.sheet === "new" || state.sheet === "edit-store") {
       state.pay = null;
       state.edit = null;
-      if (state.sheet !== "detail") state.sheet = null;
+      state.sheet = state.detail ? "detail" : null;
       render();
       return;
     }
@@ -1046,11 +1046,11 @@
       else render();
     } else if (act === "close") {
       if (state.sheet === "map") { state.sheet = state.mapBack || "new"; state.dateOpen = false; render(); return; }
-      state.sheet = null;
       state.dateOpen = false;
       state.pay = null;
       state.edit = null;
       state.picker = false;
+      state.sheet = state.detail ? "detail" : null;
       render();
     } else if (act === "pick-store") {
       var c = state.customers.filter(function (x) { return String(x.id) === String(id); })[0];
