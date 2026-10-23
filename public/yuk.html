@@ -3,25 +3,40 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#14110e" />
+  <meta name="theme-color" content="#12141A" />
   <meta name="color-scheme" content="dark" />
   <title>Yuk xati</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     :root {
-      --bg: #14110e;
-      --surface: #1e1a16;
-      --surface-2: #2a241e;
-      --line: #3d342c;
-      --text: #f6f1ea;
-      --muted: #b3a89c;
-      --faint: #8c8278;
-      --accent: #ff8a1e;
-      --accent-2: #ffb15a;
-      --ink: #1a1008;
-      --danger: #ff5d4a;
-      --ok: #3dd68c;
-      --shadow: 0 12px 40px rgba(0,0,0,.45);
+      --bg: var(--tg-theme-bg-color, #12141A);
+      --text: var(--tg-theme-text-color, #F4F4F2);
+      --hint: var(--tg-theme-hint-color, #8B8F9A);
+      --btn: var(--tg-theme-button-color, #E85D04);
+      --btn-text: var(--tg-theme-button-text-color, #ffffff);
+      --sec: var(--tg-theme-secondary-bg-color, #1A1D24);
+      --link: var(--tg-theme-link-color, #E85D04);
+      --coal-950: #0B0C0F;
+      --coal-900: #12141A;
+      --coal-800: #1A1D24;
+      --coal-700: #262A33;
+      --coal-600: #3A3F4B;
+      --coal-400: #8B8F9A;
+      --coal-200: #D4D6DB;
+      --coal-50: #F4F4F2;
+      --ember: #E85D04;
+      --ember-dark: #C44A00;
+      --surface: var(--sec);
+      --surface-2: var(--coal-700);
+      --line: var(--coal-600);
+      --muted: var(--hint);
+      --faint: var(--coal-400);
+      --accent: var(--ember);
+      --accent-2: #FF7A1A;
+      --ink: #ffffff;
+      --danger: #f87171;
+      --ok: #34d399;
+      --shadow: 0 -4px 24px rgba(0,0,0,.35);
       --vv-h: 100dvh;
       --vv-top: 0px;
     }
@@ -34,83 +49,174 @@
     }
     button, input, select { font: inherit; color: inherit; }
     button { cursor: pointer; }
-    .app { max-width: 520px; margin: 0 auto; padding: 12px 14px 24px; }
+    .app { max-width: 32rem; margin: 0 auto; padding: 16px 16px 32px; }
     @media (min-width: 900px) {
       .app { max-width: 960px; }
       .nav { left: 50%; right: auto; width: min(960px, 100%); transform: translateX(-50%); }
     }
-    header.top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 12px; }
-    header.top h1 { margin: 0; font-size: 22px; letter-spacing: -.03em; }
-    header.top p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+    .pagehead { margin-bottom: 16px; }
+    .pagehead h1, header.top h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0; }
+    .pagehead p, header.top p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+    .eyebrow { margin: 0 0 2px; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--ember); }
+    .who { margin: 0 0 8px; color: var(--faint); font-size: 12px; }
     .card {
-      background: var(--surface);
-      border: 1px solid var(--line);
+      background: var(--coal-800);
+      border: 1px solid var(--coal-700);
       border-radius: 16px;
       padding: 12px;
-      margin-bottom: 10px;
+      margin-bottom: 16px;
     }
     .row { display: flex; gap: 8px; align-items: center; }
     .grow { flex: 1; min-width: 0; }
     .muted { color: var(--muted); }
     .faint { color: var(--faint); font-size: 12px; }
     .btn, .btn-ghost, .btn-danger {
-      border: 0; border-radius: 12px; padding: 12px 14px; font-weight: 700;
+      border: 0; border-radius: 12px; min-height: 48px; padding: 12px 14px; font-weight: 600;
     }
-    .btn { background: var(--accent); color: var(--ink); width: 100%; }
-    .btn:disabled { opacity: .45; }
-    .btn-ghost { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); }
+    .btn { background: var(--ember); color: var(--btn-text); width: 100%; }
+    .btn:disabled { opacity: .6; }
+    .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--coal-600); }
+    .btn-ghost.on { background: var(--ember); color: #fff; border-color: var(--ember); }
     .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
-    .pick {
-      width: 100%; text-align: left; background: var(--surface-2);
-      border: 1px solid var(--line); border-radius: 14px; padding: 12px;
-    }
-    .pick strong { display: block; }
-    .banner {
-      background: #3a2412; border: 1px solid #8a4b12; color: #ffd7ad;
-      border-radius: 14px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;
-      margin-bottom: 10px;
-    }
-    .banner button { background: var(--accent); color: var(--ink); border: 0; border-radius: 10px; padding: 8px 10px; font-weight: 700; }
-    .product { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
-    .stepper { display: flex; align-items: center; gap: 6px; }
-    .stepper button {
-      width: 36px; height: 36px; border-radius: 10px; border: 0; background: var(--surface-2); color: var(--text); font-size: 20px;
-    }
-    .qty, .money, .field {
-      background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; width: 100%;
+    a.btn { display: flex; align-items: center; justify-content: center; text-decoration: none; }
+    .pick, .field, .money, .qty {
+      background: var(--coal-900); border: 1px solid var(--coal-600); border-radius: 12px;
+      min-height: 48px; padding: 10px 12px; width: 100%;
       outline: none; box-shadow: none; -webkit-appearance: none; appearance: none;
     }
-    .qty:focus, .money:focus, .field:focus { border: 1px solid var(--accent); }
-    .qty { width: 64px; text-align: center; }
-    .sub { text-align: right; color: var(--accent-2); font-variant-numeric: tabular-nums; font-weight: 700; }
-    label.lbl { display: block; font-size: 12px; color: var(--faint); margin-bottom: 4px; }
+    .pick { text-align: left; background: var(--coal-800); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .pick strong { display: block; font-weight: 500; }
+    .pick .ph { color: var(--coal-400); }
+    .qty:focus, .money:focus, .field:focus { border: 1px solid var(--ember); }
+    .banner {
+      background: rgba(232, 93, 4, .1); border: 1px solid rgba(232, 93, 4, .4); color: var(--text);
+      border-radius: 12px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;
+      margin: 0 0 16px; font-size: 14px;
+    }
+    .banner button { background: transparent; color: var(--ember); border: 0; min-height: 44px; font-weight: 600; }
+    .section-title { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--coal-200); display: flex; align-items: center; gap: 8px; }
+    .block { display: block; }
+    .product { display: block; }
+    .product-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .product-top p { margin: 0; }
+    .product-grid { display: grid; grid-template-columns: auto 1fr; align-items: end; gap: 8px; }
+    .stepper { display: flex; align-items: center; gap: 4px; }
+    .stepper button {
+      width: 44px; height: 44px; border-radius: 8px; border: 1px solid var(--coal-600);
+      background: transparent; color: var(--text); display: flex; align-items: center; justify-content: center;
+    }
+    .qty { width: 56px; text-align: center; padding-left: 4px; padding-right: 4px; }
+    .sub { text-align: right; color: var(--coal-400); font-variant-numeric: tabular-nums; font-size: 14px; }
+    .num { font-variant-numeric: tabular-nums; }
+    label.lbl { display: block; font-size: 12px; color: var(--coal-400); margin: 0 0 4px; }
+    .hint { margin: 4px 0 0; font-size: 11px; color: #6b7080; }
     .totals b { font-variant-numeric: tabular-nums; }
-    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .debt-num { color: var(--ember); font-weight: 600; }
+    .debt-ok { color: #34d399; font-weight: 600; }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+    .search {
+      display: flex; align-items: center; gap: 8px; min-height: 48px; flex: 1; min-width: 0;
+      border: 1px solid var(--coal-600); border-radius: 12px; background: var(--coal-800); padding: 0 12px;
+    }
+    .search svg { flex: 0 0 auto; color: var(--coal-400); }
+    .search input {
+      flex: 1; min-width: 0; width: 100%; border: 0; outline: none; background: transparent;
+      min-height: 44px; padding: 0; box-shadow: none; border-radius: 0;
+    }
+    .search:focus-within { border-color: var(--ember); }
+    .menu-search {
+      display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--coal-700); padding: 0 12px;
+    }
+    .menu-search svg { flex: 0 0 auto; color: var(--coal-400); }
+    .menu-search input {
+      flex: 1; min-width: 0; width: 100%; border: 0; outline: none; background: transparent;
+      min-height: 44px; padding: 0; box-shadow: none;
+    }
     .nav {
-      position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
       display: grid; grid-template-columns: repeat(4, 1fr);
-      background: #1a1613; border-top: 1px solid var(--line);
-      padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+      background: rgba(18, 20, 26, .95); border-top: 1px solid var(--coal-600);
+      box-shadow: var(--shadow); backdrop-filter: blur(8px);
+      padding-bottom: env(safe-area-inset-bottom);
     }
-    .nav button { background: transparent; border: 0; color: var(--faint); padding: 8px 2px; font-size: 12px; font-weight: 700; }
-    .nav button.on { color: var(--accent); }
+    .nav button {
+      position: relative; background: transparent; border: 0; color: var(--coal-400);
+      min-height: 56px; padding: 6px 2px 8px; font-size: 10px; font-weight: 500;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    }
+    .nav button.on { color: #fff; font-weight: 600; }
+    .nav .bar { display: none; }
+    .nav button.on .bar { display: block; position: absolute; top: 0; left: 8px; right: 8px; height: 2px; border-radius: 2px; background: var(--ember); }
+    .btn.fit { width: auto; }
+    .btn.sq { width: 48px; min-width: 48px; padding: 0; }
+    .card.product { margin-bottom: 8px; }
+    .row.mb { margin-bottom: 12px; }
+    .nav .ico-wrap { position: relative; display: flex; }
+    .badge {
+      position: absolute; right: -8px; top: -4px; min-width: 16px; border-radius: 999px;
+      background: #dc2626; color: #fff; font-size: 9px; font-weight: 700; padding: 0 4px; line-height: 16px;
+    }
+    .ico { width: 20px; height: 20px; display: block; }
+    .ico.sm { width: 16px; height: 16px; }
+    .overlay {
+      position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.6);
+      display: flex; align-items: flex-end; justify-content: center;
+    }
     .sheet {
-      position: fixed; left: 0; right: 0; z-index: 40;
-      top: var(--vv-top); height: var(--vv-h);
-      background: var(--bg); display: flex; flex-direction: column;
+      position: relative; z-index: 41; width: 100%; max-width: 28rem;
+      background: var(--coal-800); border: 1px solid var(--coal-600);
+      border-radius: 16px 16px 0 0; max-height: 92vh; overflow: auto;
+      padding: 16px 16px max(16px, env(safe-area-inset-bottom));
     }
-    .sheet header, .sheet .pad { padding: 12px 14px; }
-    .sheet header { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); }
-    .sheet .list { overflow: auto; flex: 1; padding: 8px 14px 24px; }
+    .sheet header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .sheet header strong { font-size: 16px; }
+    .sheet .list { display: flex; flex-direction: column; gap: 12px; }
+    .drop {
+      position: absolute; z-index: 20; left: 0; right: 0; margin-top: 4px;
+      overflow: hidden; border-radius: 12px; border: 1px solid var(--coal-600);
+      background: var(--coal-800); box-shadow: 0 16px 40px rgba(0,0,0,.45);
+    }
+    .drop ul { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow: auto; }
+    .drop li button {
+      width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      background: transparent; border: 0; text-align: left; padding: 12px; 
+    }
+    .store-row { display: flex; align-items: stretch; gap: 4px; border-bottom: 1px solid var(--coal-700); }
+    .store-row .open {
+      flex: 1; min-height: 64px; background: transparent; border: 0; text-align: left;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0;
+    }
+    .pay-side {
+      min-width: 48px; background: transparent; border: 0; color: var(--coal-200);
+      font-size: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .pay-side:disabled { opacity: .3; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .chip {
+      min-height: 40px; border-radius: 999px; padding: 0 12px; font-size: 12px; font-weight: 500;
+      background: transparent; color: var(--coal-200); border: 1px solid var(--coal-600);
+    }
+    .chip.on { background: var(--ember); color: #fff; border-color: var(--ember); }
     .hit {
-      width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--line);
-      border-radius: 14px; padding: 12px; margin-bottom: 8px;
+      width: 100%; text-align: left; background: transparent; border: 1px solid var(--coal-700);
+      border-radius: 16px; padding: 12px; margin-bottom: 8px; color: inherit;
     }
-    .hit .debt { color: var(--accent-2); font-weight: 700; }
-    .okbox { background: #143024; border: 1px solid #1f6b45; border-radius: 16px; padding: 12px; margin-bottom: 10px; }
-    .err { color: #ffb4ab; background: #3a1814; border-radius: 12px; padding: 10px; margin-bottom: 10px; }
-    .tag { font-size: 11px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; color: var(--muted); }
-    .group h2 { font-size: 14px; margin: 14px 0 8px; }
+    .hit .debt { color: var(--ember); font-weight: 700; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .actions .btn-ghost { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; font-size: 14px; font-weight: 500; }
+    .actions .share { background: rgba(232, 93, 4, .2); border-color: rgba(232, 93, 4, .4); }
+    .okbox { background: rgba(6, 78, 59, .3); border: 1px solid #065f46; border-radius: 16px; padding: 12px; margin-bottom: 16px; }
+    .okbox strong { color: #6ee7b7; font-size: 14px; }
+    .err { color: #fecaca; background: #3a1814; border-radius: 12px; padding: 10px; margin-bottom: 12px; }
+    .tag { font-size: 10px; border-radius: 4px; padding: 2px 6px; font-weight: 700; }
+    .tag.red { background: #dc2626; color: #fff; }
+    .tag.amber { background: #eab308; color: #0B0C0F; }
+    .tag.muted { border: 1px solid var(--coal-600); color: var(--muted); font-weight: 500; }
+    .remind { border-radius: 16px; padding: 12px; width: 100%; text-align: left; display: flex; justify-content: space-between; gap: 8px; color: inherit; }
+    .remind.red { border: 1px solid #991b1b; background: rgba(69, 10, 10, .3); }
+    .remind.amber { border: 1px solid #a16207; background: rgba(66, 32, 6, .2); }
+    .empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 64px 0; text-align: center; color: var(--coal-400); }
+    .rel { position: relative; }
     .hidden { display: none; }
     .lock { min-height: 70dvh; display: flex; flex-direction: column; justify-content: center; }
     .lock h1 { margin: 0; font-size: 28px; }
@@ -210,7 +316,9 @@
     pay: null,
     edit: null,
     newStore: { name: "", phone: "", address: "", latitude: "", longitude: "" },
-    dateOpen: false
+    dateOpen: false,
+    sort: "debt",
+    picker: false
   };
 
   function rid() {
@@ -393,6 +501,7 @@
       if (r.data.open_reys) state.reys = String(r.data.open_reys.id);
       state.loading = false;
       render();
+      loadReminders(true);
     }).catch(function (e) {
       state.loading = false;
       state.error = e.message;
@@ -401,9 +510,24 @@
     });
   }
 
+  function sortCustomers(list) {
+    var copy = (list || []).slice();
+    if (state.sort === "name") {
+      copy.sort(function (a, b) { return String(a.name || "").localeCompare(String(b.name || ""), "uz"); });
+    } else if (state.sort === "recent") {
+      copy.sort(function (a, b) { return Number(b.id) - Number(a.id); });
+    } else {
+      copy.sort(function (a, b) {
+        var d = Number(b.outstanding || 0) - Number(a.outstanding || 0);
+        if (d) return d;
+        return String(a.name || "").localeCompare(String(b.name || ""), "uz");
+      });
+    }
+    return copy;
+  }
   function loadCustomers() {
     return api("/api/agent/yuk/customers?q=" + encodeURIComponent(state.q || "")).then(function (r) {
-      state.customers = r.data || [];
+      state.customers = sortCustomers(r.data || []);
       render();
     }).catch(function (e) { state.error = e.message; render(); });
   }
@@ -419,11 +543,39 @@
     }).catch(function (e) { state.error = e.message; render(); });
   }
 
-  function loadReminders() {
+  function loadReminders(quiet) {
     return api("/api/agent/yuk/reminders").then(function (r) {
       state.reminders = r.data;
       render();
-    }).catch(function (e) { state.error = e.message; render(); });
+    }).catch(function (e) {
+      if (quiet) return;
+      state.error = e.message;
+      render();
+    });
+  }
+  function reminderCount() {
+    var g = state.reminders && state.reminders.groups;
+    if (!g) return 0;
+    return (g.overdue || []).length + (g.today || []).length + (g.tomorrow || []).length;
+  }
+  function icon(name, cls) {
+    var p = {
+      cart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+      store: '<path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M2 7h20"/>',
+      bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+      gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+      search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+      plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+      minus: '<path d="M5 12h14"/>',
+      chev: '<path d="m6 9 6 6 6-6"/>',
+      right: '<path d="m9 18 6-6-6-6"/>',
+      wallet: '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+      copy: '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+      send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+      card: '<rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/>',
+      warn: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>'
+    };
+    return '<svg class="ico' + (cls ? " " + cls : "") + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (p[name] || "") + "</svg>";
   }
 
   function resetSale() {
@@ -610,31 +762,50 @@
 
   function onClick(e) {
     var el = e.target.closest("[data-act]");
-    if (!el) return;
+    if (!el) {
+      if (state.picker && !e.target.closest(".drop")) {
+        state.picker = false;
+        render();
+      }
+      return;
+    }
     var act = el.getAttribute("data-act");
     if (act === "ask-access") { askAccess(); return; }
     if (act === "recheck-access") { loadAccess(); return; }
     var id = el.getAttribute("data-id");
+    if (state.picker && act !== "open-stores" && act !== "pick-store" && !e.target.closest(".drop")) {
+      state.picker = false;
+    }
     if (act === "tab") {
       state.tab = el.getAttribute("data-tab");
       state.sheet = null;
-      if (state.tab === "dokon") loadCustomers();
+      state.picker = false;
+      if (state.tab !== "dokon") state.detail = null;
+      if (state.tab === "dokon") { state.q = ""; loadCustomers(); }
       if (state.tab === "eslatma") loadReminders();
       render();
+    } else if (act === "sort") {
+      state.sort = el.getAttribute("data-sort") || "debt";
+      state.customers = sortCustomers(state.customers);
+      render();
     } else if (act === "open-stores") {
-      state.sheet = "stores";
+      state.picker = !state.picker;
       state.q = "";
-      loadCustomers();
+      if (state.picker) loadCustomers();
+      else render();
     } else if (act === "close") {
       state.sheet = null;
       state.dateOpen = false;
       state.pay = null;
       state.edit = null;
+      state.picker = false;
       render();
     } else if (act === "pick-store") {
       var c = state.customers.filter(function (x) { return String(x.id) === String(id); })[0];
       state.customer = c || null;
       state.sheet = null;
+      state.picker = false;
+      state.q = "";
       state.tab = "sotuv";
       render();
     } else if (act === "new-store") {
@@ -690,6 +861,8 @@
     } else if (act === "save-edit") saveEdit();
     else if (act === "reverse") {
       if (window.confirm("Bu to'lov tuzatilsinmi? Qator o'chmaydi.")) reversePay(id);
+    } else if (act === "copy-bill") {
+      api("/api/agent/yuk/waybills/" + id).then(function (r) { copyText(r.data.text || ""); });
     } else if (act === "share-bill") {
       api("/api/agent/yuk/waybills/" + id).then(function (r) { shareText(r.data.text || ""); });
     }
@@ -716,139 +889,193 @@
   }
 
   function productCards() {
-    if (state.loading && !state.boot) return '<div class="card muted">Mahsulotlar yuklanmoqda...</div>';
-    if (!products().length) return '<div class="card muted">Mahsulot yo\'q</div>';
+    if (state.loading && !state.boot) return '<p class="muted">Mahsulotlar yuklanmoqda…</p>';
+    if (!products().length) return '<p class="muted">Mahsulot yo\'q. Sozlamalardan qo\'shing.</p>';
     return products().map(function (p) {
       var q = lineQty(p.id);
       var price = state.price[p.id] != null ? state.price[p.id] : String(Math.round(Number(p.price) || 0));
       var sub = q * intOf(price);
-      return '<div class="card product"><div><strong>' + esc(p.sku) + '</strong>' +
-        '<div class="faint">Narx</div><input class="money" inputmode="numeric" data-in="price" data-focus="price-' + p.id + '" data-id="' + p.id + '" value="' + esc(price) + '" /></div>' +
-        '<div><div class="stepper"><button type="button" data-act="qty" data-id="' + p.id + '" data-d="-1">−</button>' +
-        '<input class="qty" inputmode="numeric" data-in="qty" data-focus="qty-' + p.id + '" data-id="' + p.id + '" value="' + esc(state.qty[p.id] || "0") + '" />' +
-        '<button type="button" data-act="qty" data-id="' + p.id + '" data-d="1">+</button></div>' +
-        '<div class="sub">' + (q > 0 ? money(sub) : "") + '</div></div></div>';
+      return '<div class="card product"><div class="product-top"><p><strong>' + esc(p.sku) + '</strong></p>' +
+        '<p class="sub num">' + money(sub) + " so'm</p></div>" +
+        '<div class="product-grid"><div><label class="lbl">Miqdor</label><div class="stepper">' +
+        '<button type="button" data-act="qty" data-id="' + p.id + '" data-d="-1" aria-label="Kamaytirish">' + icon("minus", "sm") + '</button>' +
+        '<input class="qty num" inputmode="numeric" data-in="qty" data-focus="qty-' + p.id + '" data-id="' + p.id + '" value="' + esc(state.qty[p.id] || "0") + '" />' +
+        '<button type="button" data-act="qty" data-id="' + p.id + '" data-d="1" aria-label="Ko\'paytirish">' + icon("plus", "sm") + '</button></div></div>' +
+        '<div><label class="lbl">Narx (so\'m)</label>' +
+        '<input class="money num" inputmode="numeric" data-in="price" data-focus="price-' + p.id + '" data-id="' + p.id + '" value="' + esc(price) + '" /></div></div></div>';
     }).join("");
+  }
+
+  function storeMenu() {
+    var rows = state.customers.map(function (c) {
+      var debt = Number(c.outstanding) > 0 ? money(c.outstanding) : "0";
+      var tone = Number(c.outstanding) > 0 ? "debt-num" : "faint";
+      return '<li><button type="button" data-act="pick-store" data-id="' + c.id + '"><span><span class="block"><strong>' + esc(c.name) + '</strong></span>' +
+        (c.phone ? '<span class="faint">' + esc(c.phone) + '</span>' : '') + '</span>' +
+        '<span class="num ' + tone + '">' + debt + '</span></button></li>';
+    }).join("") || '<li class="muted" style="padding:12px">Mos do\'kon yo\'q.</li>';
+    return '<div class="drop"><div class="menu-search">' + icon("search", "sm") +
+      '<input data-in="q" data-focus="q" placeholder="Qidirish..." value="' + esc(state.q) + '" /></div><ul>' + rows + '</ul></div>';
   }
 
   function saleView() {
     var t = totals();
     var c = state.customer;
     var company = (state.boot && state.boot.company) || {};
-    var html = "";
+    var html = '<header class="pagehead"><p class="eyebrow">Yangi sotuv</p><h1>Sotuv oynasi</h1></header>';
     if (state.success && state.success.bill) {
       var bill = state.success.bill;
       var tgFail = state.success.telegram && state.success.telegram.ok === false;
       html += '<div class="okbox"><strong>Yuk xati ' + esc(bill.waybill_code) + ' tayyor</strong>' +
         '<p class="muted">' + esc(dmy(bill.sale_date)) + " · " + money(bill.total_amount) + " so'm</p>" +
         '<p class="faint">Yozgan: ' + esc(bill.created_by_name || "Eski yozuv") + '</p>' +
-        '<div class="row" style="flex-wrap:wrap"><button type="button" class="btn-ghost" data-act="copy">Nusxa olish</button>' +
-        '<button type="button" class="btn-ghost" data-act="share">Telegram\'ga yuborish</button>' +
-        '<button type="button" class="btn-ghost" data-act="copy-card"' + (company.card ? "" : " disabled") + '>Karta raqami</button></div>' +
+        '<div class="actions"><button type="button" class="btn-ghost" data-act="copy">' + icon("copy", "sm") + 'Nusxa olish</button>' +
+        '<button type="button" class="btn-ghost share" data-act="share">' + icon("send", "sm") + "Telegram'ga yuborish</button>" +
+        '<button type="button" class="btn-ghost" data-act="copy-card"' + (company.card ? "" : " disabled") + '>' + icon("card", "sm") + 'Karta raqami</button></div>' +
         (tgFail ? '<p class="err">' + esc(state.success.telegram.error || "Yuborilmadi") + '</p><button type="button" class="btn" data-act="resend" data-id="' + bill.id + '">Qayta yuborish</button>' : "") +
         '</div>';
     }
-    html += '<button type="button" class="pick" data-act="date"><span class="faint">Sana</span><strong>' + esc(dmy(state.saleDate)) + '</strong></button>';
-    html += '<div style="height:8px"></div>';
-    html += '<button type="button" class="pick" data-act="open-stores"><span class="faint">Do\'kon</span><strong>' +
-      esc(c ? c.name : "Tanlang") + '</strong>' +
-      (c && c.phone ? '<span class="muted">' + esc(c.phone) + '</span>' : '') + '</button>';
+    html += '<div style="margin-bottom:16px"><label class="lbl">Sotuv sanasi</label>' +
+      '<button type="button" class="field" data-act="date">' + esc(dmy(state.saleDate) || "—") + '</button>' +
+      '<p class="hint">Kecha sotilgan bo\'lsa, kechagi sanani tanlang. Sana ' + esc(dmy(state.saleDate) || "—") + '.</p></div>';
+    html += '<div class="rel" style="margin-bottom:16px"><label class="lbl">Do\'kon</label><div class="row">' +
+      '<button type="button" class="pick grow" data-act="open-stores"><span class="' + (c ? "" : "ph") + '">' +
+      esc(c ? c.name : "Do'konni tanlang") + '</span>' + icon("chev", "sm") + '</button>' +
+      '<button type="button" class="btn sq" data-act="new-store" aria-label="Yangi do\'kon">' + icon("plus", "sm") + '</button></div>' +
+      (c && c.phone ? '<p class="hint">' + esc(c.phone) + '</p>' : '') +
+      (state.picker ? storeMenu() : '') + '</div>';
     if (c && Number(c.outstanding) > 0) {
-      html += '<div class="banner"><span>Eski qarz: ' + money(c.outstanding) + ' so\'m</span><button type="button" data-act="pay" data-id="' + c.id + '">Qaytarish</button></div>';
+      html += '<div class="banner"><span>Eski qarz: <b class="num">' + money(c.outstanding) + " so'm</b></span>" +
+        '<button type="button" data-act="pay" data-id="' + c.id + '">Qaytarish</button></div>';
     } else if (c && Number(c.store_credit) > 0) {
-      html += '<div class="banner"><span>Do\'kon krediti: ' + money(c.store_credit) + ' so\'m</span></div>';
+      html += '<div class="banner"><span>Do\'kon krediti: <b class="num">' + money(c.store_credit) + " so'm</b></span></div>";
     }
     if (state.boot && state.boot.open_reys) {
       html += '<label class="lbl">Reys</label><select class="field" data-in="reys"><option value="' + state.boot.open_reys.id + '">' +
         esc(state.boot.open_reys.reys_code) + ' (ochiq)</option><option value="none">Reyssiz</option></select>';
     }
-    html += productCards();
-    html += '<div class="card totals"><div class="row"><span>Jami</span><b class="grow" style="text-align:right">' + money(t.jami) + " so'm</b></div>";
-    html += '<div class="split"><div><label class="lbl">Naqd</label><input class="field" inputmode="numeric" data-in="naqd" data-focus="naqd" value="' + esc(state.naqd) + '" /></div>' +
-      '<div><label class="lbl">Karta</label><input class="field" inputmode="numeric" data-in="karta" data-focus="karta" value="' + esc(state.karta) + '" /></div></div>';
-    html += '<div class="row"><span>To\'langan</span><b class="grow" style="text-align:right">' + money(t.paid) + '</b></div>';
-    html += '<div class="row"><span>Qoldiq qarz</span><b class="grow" style="text-align:right">' + money(t.debt) + '</b></div>';
-    if (t.extra > 0) html += '<p class="faint">Ortiqcha ' + money(t.extra) + ' so\'m eski qarzga yoziladi</p>';
+    html += '<section style="margin-bottom:16px"><h2 class="section-title">Mahsulotlar</h2>' + productCards() + '</section>';
+    html += '<div class="card totals"><div class="row"><span>Jami</span><b class="grow num" style="text-align:right;font-size:18px">' + money(t.jami) + " so'm</b></div>";
+    html += '<p class="lbl" style="margin-top:8px">To\'langan — Naqd va Karta alohida</p>';
+    html += '<div class="split"><div><label class="lbl">Naqd</label><input class="field num" inputmode="numeric" data-in="naqd" data-focus="naqd" value="' + esc(state.naqd) + '" /></div>' +
+      '<div><label class="lbl">Karta</label><input class="field num" inputmode="numeric" data-in="karta" data-focus="karta" value="' + esc(state.karta) + '" /></div></div>';
+    html += '<div class="row"><span>To\'langan</span><b class="grow num" style="text-align:right">' + money(t.paid) + " so'm</b></div>";
+    html += '<div class="row"><span>Qoldiq qarz</span><b class="grow num ' + (t.debt > 0 ? "debt-num" : "debt-ok") + '" style="text-align:right">' + money(t.debt) + " so'm</b></div>";
+    if (t.extra > 0) html += '<p class="hint">Ortiqcha ' + money(t.extra) + " so'm eski qarzga yoziladi</p>";
     if (t.debt > 0) {
-html += '<label class="lbl">Muddat</label><input class="field" data-in="due" data-focus="due" value="' + esc(state.due) + '" placeholder="KK.OO.YYYY" inputmode="numeric" />';
-    html += '<p class="faint">Muddat sotuv sanasidan oldin bo\'lmasin. Ko\'rinish: ' + esc(dmy(toIso(state.due)) || dmy(state.due) || "—") + '</p>';
+      html += '<label class="lbl" style="margin-top:8px">Qarzni qaytarish muddati</label><input class="field" data-in="due" data-focus="due" value="' + esc(state.due) + '" placeholder="KK.OO.YYYY" inputmode="numeric" />';
+      html += '<p class="hint">Muddat sotuv sanasidan oldin bo\'lmasin. Ko\'rinish: ' + esc(dmy(toIso(state.due)) || "KK.OO.YYYY") + '</p>';
     }
     html += '</div>';
     html += '<button type="button" class="btn" data-act="save"' + (state.saving ? " disabled" : "") + '>' +
-      (state.saving ? "Saqlanmoqda..." : "Saqlash va yuk xati") + '</button>';
+      (state.saving ? "Saqlanmoqda…" : "Saqlash va yuk xati") + '</button>';
     return html;
   }
 
   function storesView() {
     if (state.sheet === "detail" && state.detail) return detailView();
+    var total = state.customers.reduce(function (s, c) { return s + Number(c.outstanding || 0); }, 0);
     var rows = state.customers.map(function (c) {
-      var debt = Number(c.outstanding) > 0
-        ? '<div class="debt">Qarz ' + money(c.outstanding) + " so'm</div>"
-        : (Number(c.store_credit) > 0 ? '<div class="muted">Kredit ' + money(c.store_credit) + '</div>' : '<div class="faint">Qarz yo\'q</div>');
-      return '<button type="button" class="hit" data-act="open-customer" data-id="' + c.id + '"><strong>' + esc(c.name) + '</strong>' +
-        '<div class="muted">' + esc(c.phone || "") + (c.address ? " · " + esc(c.address) : "") + '</div>' + debt +
-        (c.legacy_source ? '<span class="tag">Tarix</span>' : '') + '</button>';
-    }).join("") || '<p class="muted">Do\'kon yo\'q</p>';
-    return '<input class="field" placeholder="Ism, telefon, manzil" data-in="q" value="' + esc(state.q) + '" />' +
-      '<div style="height:8px"></div><button type="button" class="btn" data-act="new-store">+ Yangi do\'kon</button><div style="height:8px"></div>' + rows;
+      var debtTone = Number(c.outstanding) > 0 ? "debt-num" : "faint";
+      return '<li class="store-row"><button type="button" class="open" data-act="open-customer" data-id="' + c.id + '">' +
+        '<span class="grow"><span class="block"><strong>' + esc(c.name) + '</strong></span>' +
+        '<span class="faint">' + esc(c.phone || c.address || "—") + '</span></span>' +
+        '<span class="num ' + debtTone + '">' + money(c.outstanding) + '</span>' + icon("right", "sm") + '</button>' +
+        '<button type="button" class="pay-side" data-act="pay" data-id="' + c.id + '"' + (Number(c.outstanding) > 0 ? "" : " disabled") + ' aria-label="Qarz qaytarish">' +
+        icon("wallet", "sm") + "Qaytar</button></li>";
+    }).join("");
+    var chips = [
+      ["debt", "Qarz"],
+      ["name", "Nom"],
+      ["recent", "Oxirgi sotuv"]
+    ].map(function (opt) {
+      return '<button type="button" class="chip' + (state.sort === opt[0] ? " on" : "") + '" data-act="sort" data-sort="' + opt[0] + '">' + opt[1] + '</button>';
+    }).join("");
+    return '<header class="pagehead"><p class="eyebrow">Do\'konlar va qarzlar</p><h1>Do\'konlar</h1>' +
+      '<p>Umumiy qarz: <span class="num debt-num">' + money(total) + " so'm</span></p></header>" +
+      '<div class="row mb"><label class="search">' + icon("search", "sm") +
+      '<input data-in="q" data-focus="q" placeholder="Do\'kon nomi" value="' + esc(state.q) + '" /></label>' +
+      '<button type="button" class="btn fit" data-act="new-store">+ Yangi</button></div>' +
+      '<div class="chips" role="group" aria-label="Tartib">' + chips + '</div>' +
+      (rows ? '<ul style="list-style:none;margin:0;padding:0">' + rows + '</ul>' : '<p class="muted">Do\'kon topilmadi. Yangisini qo\'shing.</p>');
   }
 
   function detailView() {
     var d = state.detail;
     var c = d.customer;
+    var company = (state.boot && state.boot.company) || {};
     var bills = (d.waybills || []).map(function (w) {
       return '<div class="card"><div class="row"><strong class="grow">' + esc(w.waybill_code) + '</strong>' +
-        (w.legacy_source ? '<span class="tag">Tarix</span>' : '') +
-        (w.stock_posted === false && w.legacy_source ? '<span class="tag">Ombor tegilmagan</span>' : '') +
+        (w.legacy_source ? '<span class="tag muted">Tarix</span>' : '') +
+        (w.stock_posted === false && w.legacy_source ? '<span class="tag muted">Ombor tegilmagan</span>' : '') +
         '</div><div class="faint">' + esc(dmy(w.sale_date || w.created_at)) + ' · Yozgan: ' + esc(w.created_by_name || "Eski yozuv") + '</div>' +
-        '<div>Jami ' + money(w.total_amount) + ' · To\'langan ' + money(w.paid_amount) + ' · Qarz ' + money(w.debt_amount) + '</div>' +
-        '<div class="row" style="margin-top:8px"><button type="button" class="btn-ghost" data-act="share-bill" data-id="' + w.id + '">Ulashish</button>' +
+        '<div class="num">Jami ' + money(w.total_amount) + ' · To\'langan ' + money(w.paid_amount) + ' · Qarz ' + money(w.debt_amount) + '</div>' +
+        '<div class="actions" style="margin-top:8px"><button type="button" class="btn-ghost" data-act="copy-bill" data-id="' + w.id + '">' + icon("copy", "sm") + 'Nusxa</button>' +
+        '<button type="button" class="btn-ghost share" data-act="share-bill" data-id="' + w.id + '">' + icon("send", "sm") + 'Telegram</button>' +
+        '<button type="button" class="btn-ghost" data-act="copy-card"' + (company.card ? "" : " disabled") + '>' + icon("card", "sm") + 'Karta</button>' +
         '<button type="button" class="btn-ghost" data-act="edit" data-id="' + w.id + '">Tahrir</button></div></div>';
     }).join("");
     var pays = (d.payments || []).map(function (p) {
       var label = p.kind === "reversal" ? "Tuzatish" : (p.kind === "backfill" ? "Tarixiy taqsim" : (p.method === "card" ? "Karta" : "Naqd"));
       return '<div class="card"><div class="row"><span class="grow">' + label + ' ' + money(p.amount) + " so'm</span>" +
         '<span class="faint">Yozgan: ' + esc(p.created_by_name || "Eski yozuv") + '</span>' +
-        (p.reversed ? '<span class="tag">Tuzatilgan</span>' : '') +
+        (p.reversed ? '<span class="tag muted">Tuzatilgan</span>' : '') +
         (!p.reversed && p.kind !== "reversal" && p.kind !== "reallocation"
           ? '<button type="button" class="btn-danger" data-act="reverse" data-id="' + p.id + '">Tuzatish</button>' : '') +
         '</div></div>';
     }).join("");
-    return '<button type="button" class="btn-ghost" data-act="tab" data-tab="dokon">Orqaga</button>' +
-      '<h2>' + esc(c.name) + '</h2><p class="muted">' + esc(c.phone || "") + '<br>' + esc(c.address || "") + '</p>' +
-      '<div class="card"><div>Qarz: <b>' + money(d.outstanding) + " so'm</b></div>" +
-      (Number(d.store_credit) > 0 ? '<div>Do\'kon krediti: <b>' + money(d.store_credit) + " so'm</b></div>" : '') +
-      '<button type="button" class="btn" data-act="pay" data-id="' + c.id + '">To\'lov yozish</button></div>' +
-      '<h3>Yuk xatlari</h3>' + (bills || '<p class="muted">Hali yo\'q</p>') +
-      '<h3>To\'lovlar</h3>' + (pays || '<p class="muted">Taqsimli to\'lov yo\'q</p>');
+    return '<button type="button" class="btn-ghost" data-act="tab" data-tab="dokon" style="margin-bottom:8px">← Orqaga</button>' +
+      '<header class="pagehead"><h1>' + esc(c.name) + '</h1>' +
+      (c.phone ? '<p>' + esc(c.phone) + '</p>' : '') +
+      (c.address ? '<p>' + esc(c.address) + '</p>' : '') + '</header>' +
+      '<div class="card"><div>Qarz: <b class="num debt-num">' + money(d.outstanding) + " so'm</b></div>" +
+      (Number(d.store_credit) > 0 ? '<div>Do\'kon krediti: <b class="num">' + money(d.store_credit) + " so'm</b></div>" : '') +
+      '<button type="button" class="btn" data-act="pay" data-id="' + c.id + '" style="margin-top:8px">To\'lov yozish</button></div>' +
+      '<h2 class="section-title">Yuk xatlari</h2>' + (bills || '<p class="muted">Hali yo\'q</p>') +
+      '<h2 class="section-title">To\'lovlar</h2>' + (pays || '<p class="muted">Taqsimli to\'lov yo\'q</p>');
+  }
+
+  function remindBlock(title, rows, tone, badge) {
+    if (!rows || !rows.length) return "";
+    return '<section style="margin-bottom:20px"><h2 class="section-title">' + icon("warn", "sm") + " " + title + '</h2>' +
+      rows.map(function (w) {
+        return '<button type="button" class="remind ' + tone + '" data-act="open-customer" data-id="' + w.customer_id + '">' +
+          '<span class="grow"><span class="block"><strong>' + esc(w.customer_name) + '</strong></span>' +
+          '<span class="faint">' + esc(w.waybill_code) + ' · muddat ' + esc(dmy(w.due_date)) + ' · Yozgan: ' + esc(w.created_by_name || "Eski yozuv") + '</span></span>' +
+          '<span style="text-align:right"><span class="tag ' + (tone === "red" ? "red" : "amber") + '">' + badge + '</span>' +
+          '<span class="block num" style="font-weight:700">' + money(w.debt_amount) + '</span></span></button>';
+      }).join("") + '</section>';
   }
 
   function remindView() {
     var g = state.reminders && state.reminders.groups;
-    if (!g) return '<p class="muted">Yuklanmoqda...</p>';
-    function block(title, rows) {
-      var body = rows.map(function (w) {
-        return '<button type="button" class="hit" data-act="open-customer" data-id="' + w.customer_id + '"><strong>' + esc(w.customer_name) + '</strong>' +
-          '<div>' + esc(w.waybill_code) + ' · ' + money(w.debt_amount) + " so'm</div>" +
-          '<div class="faint">Muddat ' + esc(dmy(w.due_date)) + ' · Yozgan: ' + esc(w.created_by_name || "Eski yozuv") + '</div></button>';
-      }).join("") || '<p class="faint">Yo\'q</p>';
-      return '<div class="group"><h2>' + title + '</h2>' + body + '</div>';
+    var html = '<header class="pagehead"><p class="eyebrow">Qarzdorlik</p><h1>Eslatmalar</h1>' +
+      '<p>Bugun, ertaga va muddati o\'tgan qarzlar.</p></header>';
+    if (!g) return html + '<p class="muted">Yuklanmoqda…</p>';
+    var n = (g.overdue || []).length + (g.today || []).length + (g.tomorrow || []).length;
+    if (!n) {
+      return html + '<div class="empty">' + icon("bell") + '<p>Yaqin kunlarda qaytarilishi kerak bo\'lgan qarz yo\'q.</p></div>';
     }
-    return block("Muddati o'tgan", g.overdue || []) + block("Bugun", g.today || []) + block("Ertaga", g.tomorrow || []);
+    return html + remindBlock("Muddati o'tgan", g.overdue, "red", "KECHIKKAN") +
+      remindBlock("Bugun", g.today, "red", "BUGUN") +
+      remindBlock("Ertaga", g.tomorrow, "amber", "ERTAGA");
   }
 
   function settingsView() {
     var company = (state.boot && state.boot.company) || { name: "", phone: "", card: "", card_holder: "" };
     var list = products().map(function (p) {
-      return '<div class="row card"><span class="grow">' + esc(p.sku) + '</span><b>' + money(p.price) + " so'm</b></div>";
+      return '<div class="card"><p style="margin:0 0 8px"><strong>' + esc(p.sku) + '</strong></p>' +
+        '<label class="lbl">Standart narx (so\'m)</label><p class="num" style="margin:0;font-size:18px">' + money(p.price) + " so'm</p></div>";
     }).join("") || '<p class="muted">Mahsulot yo\'q</p>';
-    return '<div class="card"><h2 style="margin:0 0 8px">Kompaniya</h2>' +
-      '<div>' + esc(company.name || "Nom sozlamada yo'q") + '</div>' +
-      '<div>Tel: ' + esc(company.phone || "Sozlamada yo'q") + '</div>' +
-      '<div>Karta: ' + esc(company.card || "Sozlamada yo'q") + '</div>' +
-      '<div class="faint">' + esc(company.card_holder || "") + '</div>' +
-      '<p class="faint">ERP sozlamasidan o\'qiladi. Shu yerda o\'zgartirilmaydi.</p></div>' +
-      '<h2>Mahsulot va narx</h2>' + list;
+    return '<header class="pagehead"><p class="eyebrow">Sozlamalar</p><h1>Mahsulot narxlari</h1>' +
+      '<p class="hint">Narx va to\'lov ma\'lumoti ERP sozlamasidan o\'qiladi. Shu yerda o\'zgartirilmaydi.</p></header>' +
+      list +
+      '<section class="card"><p style="margin:0 0 4px"><strong>To\'lov ma\'lumotlari</strong></p>' +
+      '<p class="num" style="margin:0">' + esc(company.card || "Karta sozlamada yo'q") +
+      (company.card_holder ? " / " + esc(company.card_holder) : "") + '</p>' +
+      '<p style="margin:4px 0 0">' + esc(company.phone || "Telefon sozlamada yo'q") + '</p>' +
+      (company.name ? '<p style="margin:4px 0 0">' + esc(company.name) + '</p>' : '') +
+      '</section>';
   }
 
   function sheetHtml() {
@@ -858,57 +1085,56 @@ html += '<label class="lbl">Muddat</label><input class="field" data-in="due" dat
       var guard = 0;
       while (cur <= state.boot.today && guard < 100) {
         days.push(cur);
-        var p = cur.split("-");
-        var dt = new Date(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2]) + 1));
+        var parts = cur.split("-");
+        var dt = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]) + 1));
         cur = dt.toISOString().slice(0, 10);
         guard++;
       }
-      return '<div class="sheet"><header><strong>Sana</strong><button type="button" class="btn-ghost" data-act="close">Yopish</button></header><div class="list">' +
+      return '<div class="overlay"><div class="sheet" role="dialog" aria-modal="true"><header><strong>Sotuv sanasi</strong>' +
+        '<button type="button" class="btn-ghost" data-act="close" aria-label="Yopish">Yopish</button></header><div class="list">' +
         days.slice().reverse().map(function (d) {
           return '<button type="button" class="hit" data-act="set-date" data-date="' + d + '">' + esc(dmy(d)) + '</button>';
-        }).join("") + '</div></div>';
-    }
-    if (state.sheet === "stores") {
-      var rows = state.customers.map(function (c) {
-        var debt = Number(c.outstanding) > 0 ? money(c.outstanding) + " so'm qarz" : (Number(c.store_credit) > 0 ? money(c.store_credit) + " kredit" : "qarz yo'q");
-        return '<button type="button" class="hit" data-act="pick-store" data-id="' + c.id + '"><strong>' + esc(c.name) + '</strong>' +
-          '<div class="muted">' + esc([c.phone, c.address].filter(Boolean).join(" · ")) + '</div><div class="debt">' + debt + '</div></button>';
-      }).join("") || '<p class="muted">Topilmadi</p>';
-      return '<div class="sheet"><header><strong>Do\'kon</strong><button type="button" class="btn-ghost" data-act="close">Yopish</button></header>' +
-        '<div class="pad"><input class="field" data-in="q" data-focus="q" placeholder="Ism, telefon, manzil" value="' + esc(state.q) + '" />' +
-        '<div style="height:8px"></div><button type="button" class="btn" data-act="new-store">+ Yangi do\'kon</button></div><div class="list">' + rows + '</div></div>';
+        }).join("") + '</div></div></div>';
     }
     if (state.sheet === "new") {
       var f = state.newStore;
-      return '<div class="sheet"><header><strong>Yangi do\'kon</strong><button type="button" class="btn-ghost" data-act="close">Yopish</button></header><div class="list">' +
-        '<label class="lbl">Nomi</label><input class="field" data-in="store-name" data-focus="store-name" value="' + esc(f.name) + '" />' +
-        '<label class="lbl">Telefon</label><input class="field" data-in="store-phone" data-focus="store-phone" inputmode="tel" value="' + esc(f.phone) + '" />' +
-        '<label class="lbl">Manzil</label><input class="field" data-in="store-address" data-focus="store-address" value="' + esc(f.address) + '" />' +
-        '<div style="height:8px"></div><button type="button" class="btn-ghost" data-act="pin">Xaritada pin</button>' +
-        '<p class="faint">' + (f.latitude ? "Pin qo'yildi" : "Pin ixtiyoriy") + '</p>' +
-        '<button type="button" class="btn" data-act="create-store"' + (state.saving ? " disabled" : "") + '>Saqlash</button></div></div>';
+      return '<div class="overlay"><div class="sheet" role="dialog" aria-modal="true"><header><strong>+ Yangi do\'kon</strong>' +
+        '<button type="button" class="btn-ghost" data-act="close" aria-label="Yopish">Yopish</button></header><div class="list">' +
+        '<div><label class="lbl">Nomi *</label><input class="field" data-in="store-name" data-focus="store-name" value="' + esc(f.name) + '" placeholder="Masalan: Karvon market" /></div>' +
+        '<div><label class="lbl">Telefon</label><input class="field" data-in="store-phone" data-focus="store-phone" inputmode="tel" value="' + esc(f.phone) + '" placeholder="+99890..." /></div>' +
+        '<div><label class="lbl">Manzil</label><input class="field" data-in="store-address" data-focus="store-address" value="' + esc(f.address) + '" /></div>' +
+        '<button type="button" class="btn-ghost" data-act="pin">' + (f.latitude ? "Nuqta belgilangan — tahrirlash" : "Xaritadan belgilash") + '</button>' +
+        '<button type="button" class="btn" data-act="create-store"' + (state.saving ? " disabled" : "") + '>' + (state.saving ? "Saqlanmoqda…" : "Saqlash") + '</button></div></div></div>';
     }
     if (state.pay) {
       var pay = state.pay;
+      var who = "";
+      if (state.detail && state.detail.customer && String(state.detail.customer.id) === String(pay.customerId)) who = state.detail.customer.name;
+      else if (state.customer && String(state.customer.id) === String(pay.customerId)) who = state.customer.name;
       var body = pay.step === "confirm"
-        ? '<p style="font-size:20px"><b>' + money(pay.amount) + " so'm to'landimi?</b></p>" +
-          '<div class="row"><button type="button" class="btn" data-act="pay-yes"' + (state.saving ? " disabled" : "") + '>Ha</button>' +
+        ? '<p style="font-size:18px"><b class="num">' + money(pay.amount) + " so'm to'landimi?</b></p>" +
+          '<div class="row"><button type="button" class="btn" data-act="pay-yes"' + (state.saving ? " disabled" : "") + '>Qarzni kamaytirish</button>' +
           '<button type="button" class="btn-ghost" data-act="pay-back">Yo\'q</button></div>'
-        : '<label class="lbl">Summa</label><input class="field" data-in="pay-amount" data-focus="pay-amount" inputmode="numeric" value="' + esc(pay.amount) + '" />' +
-          '<div class="row" style="margin:8px 0"><button type="button" class="btn-ghost' + (pay.method === "cash" ? " on" : "") + '" data-act="method" data-method="cash">Naqd</button>' +
-          '<button type="button" class="btn-ghost" data-act="method" data-method="card">Karta</button></div>' +
+        : (who ? '<p class="muted">' + esc(who) + '</p>' : '') +
+          '<div><label class="lbl">To\'langan summa *</label><input class="field num" data-in="pay-amount" data-focus="pay-amount" inputmode="numeric" value="' + esc(pay.amount) + '" /></div>' +
+          '<div class="row"><button type="button" class="btn-ghost' + (pay.method === "cash" ? " on" : "") + '" data-act="method" data-method="cash">Naqd</button>' +
+          '<button type="button" class="btn-ghost' + (pay.method === "card" ? " on" : "") + '" data-act="method" data-method="card">Karta</button></div>' +
           '<button type="button" class="btn" data-act="pay-next"' + (intOf(pay.amount) > 0 ? "" : " disabled") + '>Davom etish</button>';
-      return '<div class="sheet"><header><strong>To\'lov</strong><button type="button" class="btn-ghost" data-act="close">Yopish</button></header><div class="list">' + body + '</div></div>';
+      return '<div class="overlay"><div class="sheet" role="dialog" aria-modal="true"><header><strong>Qarz qaytarish</strong>' +
+        '<button type="button" class="btn-ghost" data-act="close" aria-label="Yopish">Yopish</button></header><div class="list">' + body + '</div></div></div>';
     }
     if (state.edit) {
       var ed = state.edit;
       var items = ed.items.map(function (it, i) {
-        return '<div class="card"><strong>' + esc(it.product_name) + '</strong><div class="stepper"><button type="button" data-act="edit-qty" data-i="' + i + '" data-d="-1">−</button><span>' + it.quantity + '</span><button type="button" data-act="edit-qty" data-i="' + i + '" data-d="1">+</button></div>' +
-          '<label class="lbl">Narx</label><input class="field" data-in="edit-price" data-focus="edit-' + i + '" data-i="' + i + '" inputmode="numeric" value="' + it.price + '" /></div>';
+        return '<div class="card"><strong>' + esc(it.product_name) + '</strong><label class="lbl">Miqdor</label><div class="stepper">' +
+          '<button type="button" data-act="edit-qty" data-i="' + i + '" data-d="-1" aria-label="Kamaytirish">' + icon("minus", "sm") + '</button><span class="num">' + it.quantity + '</span>' +
+          '<button type="button" data-act="edit-qty" data-i="' + i + '" data-d="1" aria-label="Ko\'paytirish">' + icon("plus", "sm") + '</button></div>' +
+          '<label class="lbl">Narx (so\'m)</label><input class="field num" data-in="edit-price" data-focus="edit-' + i + '" data-i="' + i + '" inputmode="numeric" value="' + it.price + '" /></div>';
       }).join("");
-      return '<div class="sheet"><header><strong>Tahrir ' + esc(ed.code) + '</strong><button type="button" class="btn-ghost" data-act="close">Yopish</button></header><div class="list">' +
-        '<p class="faint">To\'langan summa o\'zgarmaydi.</p>' + items +
-        '<button type="button" class="btn" data-act="save-edit"' + (state.saving ? " disabled" : "") + '>Saqlash</button></div></div>';
+      return '<div class="overlay"><div class="sheet" role="dialog" aria-modal="true"><header><strong>Tahrir ' + esc(ed.code) + '</strong>' +
+        '<button type="button" class="btn-ghost" data-act="close" aria-label="Yopish">Yopish</button></header><div class="list">' +
+        '<p class="hint">To\'langan summa o\'zgarmaydi. Tuzatish yangi qator yozadi, eski to\'lov o\'chmaydi.</p>' + items +
+        '<button type="button" class="btn" data-act="save-edit"' + (state.saving ? " disabled" : "") + '>Saqlash</button></div></div></div>';
     }
     return "";
   }
@@ -917,7 +1143,7 @@ html += '<label class="lbl">Muddat</label><input class="field" data-in="due" dat
     var root = document.getElementById("app");
     if (state.gate === "need-auth") {
       root.innerHTML =
-        '<div class="card"><h1>Yuk xati</h1><p class="err">' + esc(state.error) + '</p>' +
+        '<div class="card"><p class="eyebrow">Yuk xati</p><h1>Kirish kerak</h1><p class="err">' + esc(state.error) + '</p>' +
         '<a class="btn" href="/admin">Admin panel</a></div>';
       return;
     }
@@ -932,15 +1158,22 @@ html += '<label class="lbl">Muddat</label><input class="field" data-in="due" dat
     }
     var body = state.tab === "dokon" ? storesView() : state.tab === "eslatma" ? remindView() : state.tab === "sozlama" ? settingsView() : saleView();
     var active = function (name) { return state.tab === name ? " on" : ""; };
+    var count = reminderCount();
+    var badge = count > 0 ? '<span class="badge">' + (count > 9 ? "9+" : String(count)) + "</span>" : "";
+    function tabBtn(id, label, ico) {
+      return '<button type="button" class="' + active(id) + '" data-act="tab" data-tab="' + id + '"><span class="bar"></span>' +
+        '<span class="ico-wrap">' + icon(ico) + (id === "eslatma" ? badge : "") + "</span>" + label + "</button>";
+    }
     root.innerHTML =
-      '<header class="top"><div><h1>Yuk xati</h1><p>' + esc(state.boot && state.boot.today ? dmy(state.boot.today) : "") +
-      (who ? " · " + esc(who) : "") + '</p></div></header>' +
-      (state.error ? '<div class="err">' + esc(state.error) + '</div>' : '') +
+      (who ? '<p class="who">' + esc(state.boot && state.boot.today ? dmy(state.boot.today) : "") + " · " + esc(who) + "</p>" : "") +
+      (state.error ? '<div class="err">' + esc(state.error) + "</div>" : "") +
       body +
-      '<nav class="nav"><button type="button" class="' + active("sotuv") + '" data-act="tab" data-tab="sotuv">Sotuv</button>' +
-      "<button type=\"button\" class=\"" + active("dokon") + "\" data-act=\"tab\" data-tab=\"dokon\">Do'konlar</button>" +
-      '<button type="button" class="' + active("eslatma") + '" data-act="tab" data-tab="eslatma">Eslatma</button>' +
-      '<button type="button" class="' + active("sozlama") + '" data-act="tab" data-tab="sozlama">Sozlama</button></nav>' +
+      '<nav class="nav" aria-label="Asosiy menyu">' +
+      tabBtn("sotuv", "Sotuv", "cart") +
+      tabBtn("dokon", "Do'konlar", "store") +
+      tabBtn("eslatma", "Eslatma", "bell") +
+      tabBtn("sozlama", "Sozlama", "gear") +
+      "</nav>" +
       sheetHtml();
     var keep = focusKey ? document.querySelector('[data-focus="' + focusKey + '"]') : null;
     if (keep) { keep.focus(); var n = keep.value.length; try { keep.setSelectionRange(n, n); } catch (e) {} }
