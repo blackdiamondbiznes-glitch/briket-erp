@@ -750,3 +750,15 @@ INSERT INTO settings (key, value, description) VALUES
   ('company_card', '', 'Yuk xatidagi karta raqami'),
   ('company_card_holder', '', 'Karta egasi')
 ON CONFLICT (key) DO NOTHING;
+
+-- 008: yozuvchi. migrations/008_yuk_creator.sql bilan bir xil.
+-- Nullable. Eski qatorlar NULL qoladi, ekranda "Eski yozuv".
+ALTER TABLE waybills ADD COLUMN IF NOT EXISTS created_by_telegram_id TEXT;
+ALTER TABLE waybills ADD COLUMN IF NOT EXISTS created_by_first_name TEXT;
+ALTER TABLE waybills ADD COLUMN IF NOT EXISTS created_by_last_name TEXT;
+ALTER TABLE waybills ADD COLUMN IF NOT EXISTS created_by_username TEXT;
+
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS created_by_telegram_id TEXT;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS created_by_first_name TEXT;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS created_by_last_name TEXT;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS created_by_username TEXT;
