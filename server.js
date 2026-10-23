@@ -5,12 +5,15 @@
  * Env (production majburiy):
  *   DATABASE_URL, ADMIN_KEY, CORS_ORIGIN, NODE_ENV=production
  * Ixtiyoriy:
- *   PORT, TELEGRAM_BOT_TOKEN, ALLOW_DEMO_CUSTOMER, AGENT_CORS_ORIGINS,
+ *   PORT, ALLOW_DEMO_CUSTOMER, AGENT_CORS_ORIGINS,
+ *   YUK_BOT_TOKEN (@briketborbot), ERP_BOT_TOKEN (@Blckdmndbrqts_bot),
+ *   TELEGRAM_BOT_TOKEN (@briket_mijoz_bot, HMAC zaxirasi va xabar yuborish).
+ *   initData HMAC shu uchtalikdan o'rnatilganlariga tekshiriladi.
  *   ADMIN_TELEGRAM_IDS (vergul bilan; bo'sh bo'lsa hech kim kirmaydi).
  *   /yuk va /api/agent/yuk shu ro'yxat + initData (eng ko'pi 1 soat).
  *   TELEGRAM_INITDATA_MAX_AGE_SEC agent API uchun, sukut 86400.
  *     Egasi yo'li bu qiymatni 3600 dan oshirmaydi.
- * Agent API (/api/agent) TELEGRAM_BOT_TOKEN siz ishlamaydi.
+ * Agent API (/api/agent) uchala bot token ham bo'sh bo'lsa ishlamaydi.
  * Yuk tarqatish — yuk xati buyurtma emas. Reyssiz stock_posted qator ombordan bir marta ayiriladi.
  * Reys yuki ombordan yo'lga chiqadi; shu reysdagi yuk xati ombordan ikkinchi marta ayirilmaydi.
  */

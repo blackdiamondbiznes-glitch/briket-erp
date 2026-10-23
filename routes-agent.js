@@ -1,10 +1,11 @@
 /**
  * /api/agent — yuk xati (field sales).
- * Telegram initData HMAC majburiy. Bot token yo'q bo'lsa 503.
+ * Telegram initData HMAC majburiy. YUK, ERP va mijoz bot tokenlaridan
+ * biri mos kelsa qabul. Hech biri o'rnatilmagan bo'lsa 503.
  * /api/agent/admin/* server.js dagi admin kalitidan o'tadi.
  */
 const crypto = require('crypto');
-const { validateTelegramInitData } = require('./lib/telegram-webapp');
+const { checkTelegramInitDataAny, configuredInitDataTokens } = require('./lib/telegram-webapp');
 const { createAgentService } = require('./lib/agent-service');
 const { createSqlStore } = require('./lib/agent-repo');
 const { renderNakladnoyHtml, renderNakladnoyPdf } = require('./lib/nakladnoy');
@@ -49,21 +50,29 @@ module.exports = function registerAgentRoutes(app, pool, helpers, options) {
   }
 
   function readTelegram(req, res) {
-    const token = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
-    if (!token) {
-      res.status(503).json({ ok: false, error: 'TELEGRAM_BOT_TOKEN o\'rnatilmagan' });
+    const tokens = configuredInitDataTokens();
+    if (!tokens.length) {
+      res.status(503).json({
+        ok: false,
+        reason: 'missing_token',
+        error: 'YUK_BOT_TOKEN, ERP_BOT_TOKEN yoki TELEGRAM_BOT_TOKEN o\'rnatilmagan',
+      });
       return null;
     }
     const initData = req.headers['x-telegram-init-data'] || (req.body && req.body.initData) || '';
     const maxAge = process.env.TELEGRAM_INITDATA_MAX_AGE_SEC;
-    const user = validateTelegramInitData(initData, token, {
+    const checked = checkTelegramInitDataAny(initData, tokens, {
       maxAgeSec: maxAge == null || maxAge === '' ? undefined : Number(maxAge),
     });
-    if (!user) {
-      res.status(401).json({ ok: false, error: 'Telegram initData yaroqsiz' });
+    if (!checked.ok || !checked.user) {
+      res.status(401).json({
+        ok: false,
+        reason: checked.reason || 'hash_mismatch',
+        error: 'Telegram initData yaroqsiz',
+      });
       return null;
     }
-    return user;
+    return checked.user;
   }
 
   async function loadApprovedAgent(req, res) {

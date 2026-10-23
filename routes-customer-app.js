@@ -2,40 +2,15 @@
  * Mijoz API: Telegram WebApp + PWA
  * SMS OTP yo'q — Telegram initData yoki demo sessiya
  *
- * Env: TELEGRAM_BOT_TOKEN (productionda majburiy)
+ * Env: YUK_BOT_TOKEN, ERP_BOT_TOKEN, TELEGRAM_BOT_TOKEN.
+ * initData HMAC shu tokenlardan biriga mos kelsa qabul. Yuborish TELEGRAM_BOT_TOKEN da qoladi.
  * server.js: require('./routes-customer-app')(app, pool, helpers);
  */
-const crypto = require('crypto');
+const { checkTelegramInitDataAny, configuredInitDataTokens } = require('./lib/telegram-webapp');
 
 module.exports = function registerCustomerApp(app, pool, helpers) {
   const num = helpers.num;
   const sendError = helpers.sendError;
-
-  function validateTelegramInitData(initData, botToken) {
-    if (!initData || !botToken) return null;
-    try {
-      const params = new URLSearchParams(initData);
-      const hash = params.get('hash');
-      if (!hash) return null;
-      params.delete('hash');
-      const entries = [...params.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-      const dataCheckString = entries.map(([k, v]) => k + '=' + v).join('\n');
-      const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
-      const calculated = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-      const a = Buffer.from(calculated, 'hex');
-      const b = Buffer.from(String(hash), 'hex');
-      if (a.length !== 32 || b.length !== 32 || !crypto.timingSafeEqual(a, b)) return null;
-
-      const authDate = Number(params.get('auth_date') || 0);
-      if (authDate && Date.now() / 1000 - authDate > 86400) return null;
-
-      const userRaw = params.get('user');
-      if (!userRaw) return null;
-      return JSON.parse(userRaw);
-    } catch (e) {
-      return null;
-    }
-  }
 
   function parseUserFromInitData(initData) {
     if (!initData) return null;
@@ -50,16 +25,18 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
   }
 
   function getTelegramUser(req) {
-    const botToken = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
     const allowDemo = process.env.ALLOW_DEMO_CUSTOMER === '1';
     const initData =
       req.headers['x-telegram-init-data'] ||
       (req.body && req.body.initData) ||
       '';
+    const tokens = configuredInitDataTokens();
 
-    if (botToken && initData) {
-      const user = validateTelegramInitData(initData, botToken);
-      if (user && user.id) return { source: 'telegram', user, initData };
+    if (tokens.length && initData) {
+      const checked = checkTelegramInitDataAny(initData, tokens, { maxAgeSec: 86400 });
+      if (checked.ok && checked.user && checked.user.id) {
+        return { source: 'telegram', user: checked.user, initData };
+      }
     }
 
     if (allowDemo && initData) {
@@ -201,7 +178,7 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
     try {
       const ctx = getTelegramUser(req);
       if (!ctx) {
-        return res.status(401).json({ ok: false, error: 'Telegram tasdiqlanmadi. Botda TELEGRAM_BOT_TOKEN va ALLOW_DEMO_CUSTOMER=1 ni tekshiring yoki Mini Appni qayta oching' });
+        return res.status(401).json({ ok: false, error: 'Telegram tasdiqlanmadi. Mini Appni qayta oching yoki bot tokenni tekshiring' });
       }
       const customer = await upsertCustomerFromTelegram(ctx.user);
       const { items, phone, address, note, paid_amount } = req.body || {};

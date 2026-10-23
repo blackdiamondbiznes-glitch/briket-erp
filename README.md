@@ -11,7 +11,7 @@ npm start
 
 Productionda majburiy: `DATABASE_URL`, `ADMIN_KEY`, `CORS_ORIGIN`, `NODE_ENV=production`.
 
-Ixtiyoriy: `PORT` (Render `$PORT` ga bog'lanadi), `TELEGRAM_BOT_TOKEN` (mijoz ilovasi), `ALLOW_DEMO_CUSTOMER` (faqat local, productionda taqiqlangan).
+Ixtiyoriy: `PORT` (Render `$PORT` ga bog'lanadi), `YUK_BOT_TOKEN`, `ERP_BOT_TOKEN`, `TELEGRAM_BOT_TOKEN` (mijoz boti va xabar yuborish), `ALLOW_DEMO_CUSTOMER` (faqat local, productionda taqiqlangan).
 
 ## Yuk tarqatish
 
@@ -27,7 +27,9 @@ Agent jadvallari va `/api/agent/*` kodda qoladi, lekin admin oynasida yashirin. 
 
 | O'zgaruvchi | Vazifa |
 | --- | --- |
-| `TELEGRAM_BOT_TOKEN` | Agent initData HMAC va nakladnoyni Telegramga yuborish. Bo'sh bo'lsa agent API va yuborish 503. |
+| `YUK_BOT_TOKEN` | @briketborbot. `/yuk` Mini App shu bot ichida ochiladi. initData HMAC da birinchi tekshiriladi. Qiymati logga yozilmaydi. |
+| `ERP_BOT_TOKEN` | @Blckdmndbrqts_bot. briket-erp shu botda ham ishlaydi. initData HMAC da ikkinchi tekshiriladi. Bo'sh bo'lsa tashlab ketiladi. |
+| `TELEGRAM_BOT_TOKEN` | @briket_mijoz_bot. initData HMAC uchun zaxira. Nakladnoy va mijoz xabarlarini yuborish shu tokenda qoladi — boshqa botga almashtirilmaydi. Uchala token ham bo'sh bo'lsa agent API 503. |
 | `TELEGRAM_INITDATA_MAX_AGE_SEC` | Agent initData yoshi, soniya, sukut 86400. `/yuk` egasi yo'li buni 3600 soniyadan oshirmaydi. `auth_date` Unix soniya; 401 javobida `reason`: `missing`, `expired`, `hash_mismatch`. |
 | `ADMIN_TELEGRAM_IDS` | Vergul bilan telegram id. Bo'sh yoki o'rnatilmagan bo'lsa **hech kim** `/yuk` va Telegram orqali admin kira olmaydi — ID kodga yozilmaydi. Hozir productionda o'rnatilmagan. `/yuk` ni ochishdan oldin egasining Telegram id sini qo'ying. |
 | `CORS_ORIGIN` | Vergul bilan originlar. Productionda majburiy. |
@@ -38,7 +40,7 @@ Agent jadvallari va `/api/agent/*` kodda qoladi, lekin admin oynasida yashirin. 
 ### Rollout
 
 1. Supabase SQL Editor da ketma-ket ishga tushiring: `migrations/004_agent_field_sales.sql`, `migrations/005_admin_waybills.sql`, `migrations/006_reys.sql`, `migrations/007_yuk_xati.sql`. Hammasi qayta yurishga yaroqli. Mavjud qatorlar o'chirilmaydi, ustunlar qayta nomlanmaydi. 007 faqat yangi ustun, jadval va `waybill_code_seq` qo'shadi. `paid_amount` ni o'zgartirmaydi.
-2. Shu PR merge bo'lgach servisni yangilang. `ADMIN_TELEGRAM_IDS` ni egasining Telegram id si bilan to'ldiring va `TELEGRAM_BOT_TOKEN` turganini tekshiring. Bo'sh ro'yxatda `/yuk` 401 qaytaradi. Mini-app manzili: `https://<host>/yuk`.
+2. Shu PR merge bo'lgach servisni yangilang. `ADMIN_TELEGRAM_IDS` ni egasining Telegram id si bilan to'ldiring. `YUK_BOT_TOKEN` (@briketborbot) va `ERP_BOT_TOKEN` (@Blckdmndbrqts_bot) ni qo'ying; `TELEGRAM_BOT_TOKEN` mijoz botida qoladi va HMAC zaxirasi. Bo'sh ro'yxatda `/yuk` 401 qaytaradi. Mini-app manzili: `https://<host>/yuk`.
 3. Tarixiy yuk xati taqsimi alohida, avval dry-run: `node scripts/backfill-waybill-allocations.js`. `--apply` faqat ko'rib chiqilgach. U `payment_allocations` yozadi, `paid_amount` ni tegmaydi, qator o'chirmaydi. Import (`legacy_source`, `stock_posted=false`) dry-run siz ham ekranda o'z `paid_amount` / `debt_amount` ini ko'rsatadi.
 4. Admin → Sotuv → Yuk tarqatish. Mijoz va mahsulotni tanlang, to'lov va qarzni ko'ring, yuk xatini yozing. Chop etish server HTML ini ochadi. PDF va Telegramga yuborish (mijozda `telegram_id` va bot token bo'lsa) shu yerdan. Telefon: `/yuk` — Sotuv, Do'konlar, Eslatma, Sozlama. Kompaniya karta va telefon Sozlama (`company_card`, `company_phone`) dan o'qiladi.
 5. Agentlar yorlig'i Sozlama dagi belgi yoqilmaguncha chiqmaydi. Egasi yuk xatini `/yuk` da o'zi yozadi; agent oynasi yashirin qoladi.
