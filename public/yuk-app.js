@@ -1,0 +1,1397 @@
+
+(function () {
+  function decodeHashPart(value) {
+    try { return decodeURIComponent(String(value || "").replace(/\+/g, "%20")); }
+    catch (e) { return String(value || ""); }
+  }
+  function readInitData() {
+    var tg = window.Telegram && window.Telegram.WebApp;
+    if (tg) {
+      try { tg.ready(); tg.expand(); } catch (e) {}
+      if (tg.initData) return tg.initData;
+    }
+    var hash = "";
+    try { hash = String(location.hash || "").replace(/^#/, ""); } catch (e) {}
+    var q = hash.indexOf("?");
+    if (q >= 0) hash = hash.slice(q + 1);
+    var parts = hash ? hash.split("&") : [];
+    for (var i = 0; i < parts.length; i++) {
+      var eq = parts[i].indexOf("=");
+      if (eq < 0) continue;
+      if (decodeHashPart(parts[i].slice(0, eq)) !== "tgWebAppData") continue;
+      return decodeHashPart(parts[i].slice(eq + 1));
+    }
+    return "";
+  }
+  var SESSION_MS = 12 * 60 * 60 * 1000;
+  var SESSION_LONG_MS = 7 * 24 * 60 * 60 * 1000;
+  function readStoreSession(store, maxAge) {
+    try {
+      var key = store.getItem("erp_key") || "";
+      var at = Number(store.getItem("erp_key_at") || 0);
+      if (!key || !at || Date.now() - at > maxAge) return null;
+      return { key: key, operator: store.getItem("erp_operator") || "Admin" };
+    } catch (e) {
+      return null;
+    }
+  }
+  function readAdminSession() {
+    var ss = null;
+    try { ss = readStoreSession(window.sessionStorage, SESSION_MS); } catch (e) {}
+    if (ss) return ss;
+    try {
+      if (window.localStorage.getItem("erp_persist") === "1") {
+        return readStoreSession(window.localStorage, SESSION_LONG_MS);
+      }
+    } catch (e2) {}
+    return null;
+  }
+  function tashkentToday() {
+    try {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Tashkent", year: "numeric", month: "2-digit", day: "2-digit"
+      }).format(new Date());
+    } catch (e) {
+      return new Date().toISOString().slice(0, 10);
+    }
+  }
+
+  var state = {
+    accessError: "",
+    asking: false,
+    tab: "sotuv",
+    boot: null,
+    error: "",
+    notice: "",
+    loading: true,
+    gate: "checking",
+    saleDate: tashkentToday(),
+    customer: null,
+    qty: {},
+    price: {},
+    naqd: "0",
+    karta: "0",
+    due: "",
+    reys: "auto",
+    note: "",
+    saving: false,
+    requestId: rid(),
+    success: null,
+    sheet: null,
+    q: "",
+    customers: [],
+    detail: null,
+    reminders: null,
+    pay: null,
+    edit: null,
+    newStore: { name: "", phone: "", address: "", latitude: "", longitude: "" },
+    dateOpen: false,
+    sort: "debt",
+    saleFilter: "",
+    reportDate: tashkentToday(),
+    ulushDate: tashkentToday(),
+    ulush: null,
+    ulushTake: "",
+    editStore: null,
+    mapLat: "",
+    mapLng: "",
+    mapBack: "new",
+    dateFor: "sale",
+    backBound: false,
+    picker: false
+  };
+
+  function rid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return "req-" + Date.now().toString(36) + Math.random().toString(16).slice(2, 10);
+  }
+  function esc(v) {
+    return String(v == null ? "" : v).replace(/[&<>"']/g, function (ch) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch];
+    });
+  }
+  function dmy(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
+    return m ? m[3] + "." + m[2] + "." + m[1] : "";
+  }
+  function money(n) {
+    var v = Math.round(Number(n) || 0);
+    var sign = v < 0 ? "-" : "";
+    return sign + String(Math.abs(v)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  }
+  function toIso(v) {
+    var s = String(v || "").trim();
+    var m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(s);
+    if (m) return m[3] + "-" + m[2] + "-" + m[1];
+    return s;
+  }
+  function intOf(v) {
+    var s = String(v == null ? "" : v).trim();
+    if (!/^\d+$/.test(s)) return 0;
+    return Number(s);
+  }
+  function syncVV() {
+    var vv = window.visualViewport;
+    var h = vv ? vv.height : window.innerHeight;
+    var top = vv ? vv.offsetTop : 0;
+    document.documentElement.style.setProperty("--vv-h", h + "px");
+    document.documentElement.style.setProperty("--vv-top", top + "px");
+  }
+  syncVV();
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", syncVV);
+    window.visualViewport.addEventListener("scroll", syncVV);
+  }
+  window.addEventListener("resize", syncVV);
+
+  function api(path, opts) {
+    opts = opts || {};
+    var initData = readInitData();
+    var session = initData ? null : readAdminSession();
+    var method = opts.method || "GET";
+    var headers = { "Content-Type": "application/json" };
+    if (initData) {
+      headers["X-Telegram-Init-Data"] = initData;
+      headers.Authorization = "tma " + initData;
+    } else if (session) {
+      headers["x-admin-key"] = session.key;
+      headers["x-operator-name"] = session.operator || "Admin";
+    }
+    var url = path;
+    var payload = opts.body ? Object.assign({}, opts.body) : null;
+    if (method !== "GET" && initData) {
+      payload = Object.assign({}, payload || {}, { initData: initData });
+    }
+    return fetch(url, {
+      method: method,
+      headers: headers,
+      body: payload ? JSON.stringify(payload) : undefined
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (!res.ok || data.ok === false) {
+          var err = new Error((data && data.error) || "So'rov bajarilmadi");
+          err.status = res.status;
+          err.code = data && data.code || "";
+          err.reason = data && data.reason || "";
+          throw err;
+        }
+        return data;
+      });
+    });
+  }
+
+  function products() { return (state.boot && state.boot.products) || []; }
+  function lineQty(id) { return intOf(state.qty[id]); }
+  function linePrice(p) {
+    if (state.price[p.id] != null && state.price[p.id] !== "") return intOf(state.price[p.id]);
+    return Math.round(Number(p.price) || 0);
+  }
+  function totals() {
+    var jami = 0;
+    products().forEach(function (p) {
+      var q = lineQty(p.id);
+      if (q > 0) jami += q * linePrice(p);
+    });
+    var paid = intOf(state.naqd) + intOf(state.karta);
+    var debt = Math.max(0, jami - paid);
+    return { jami: jami, paid: paid, debt: debt, extra: Math.max(0, paid - jami) };
+  }
+
+  function applyGate(e) {
+    state.asking = false;
+    state.accessError = e && e.message ? e.message : "";
+    if (e && e.code === "PENDING_APPROVAL") state.gate = "pending";
+    else if (e && e.code === "REJECTED") state.gate = "rejected";
+    else if (e && e.code === "LOCKED") {
+      state.gate = "locked";
+      state.accessError = "";
+    } else state.gate = "invalid";
+    state.loading = false;
+    render();
+  }
+
+  function loadAccess() {
+    state.gate = "checking";
+    state.accessError = "";
+    render();
+    return api("/api/agent/yuk/access").then(function (r) {
+      if (r.allowed) {
+        state.gate = "allowed";
+        return loadBoot();
+      }
+      state.gate = "locked";
+      state.loading = false;
+      render();
+    }).catch(applyGate);
+  }
+
+  function askAccess() {
+    if (state.asking) return;
+    state.asking = true;
+    state.accessError = "";
+    render();
+    return api("/api/agent/yuk/access-requests", { method: "POST", body: {} }).then(function (r) {
+      state.asking = false;
+      if (r.allowed) {
+        state.gate = "allowed";
+        return loadBoot();
+      }
+      state.gate = "locked";
+      render();
+    }).catch(applyGate);
+  }
+
+  function lockHtml() {
+    var pending = state.gate === "pending";
+    var rejected = state.gate === "rejected";
+    var body = "";
+    if (state.gate === "checking") {
+      body = '<p class="muted">Tekshirilmoqda...</p>';
+    } else if (state.gate === "invalid") {
+      body = '<div class="err">' + esc(state.accessError || "Telegram initData yaroqsiz") + "</div>";
+    } else if (pending) {
+      body = '<div class="pending-box"><p class="font"><b>⏳ Tasdiq kutilmoqda</b></p>' +
+        "<p>Kirish so'rovi yuborildi. Admin tasdiqlashini kuting. Tasdiqlangandan keyin Mini Appni qayta oching.</p></div>" +
+        '<button type="button" class="btn" data-act="recheck-access"' + (state.asking ? " disabled" : "") + ">Holatni qayta tekshirish</button>";
+    } else if (rejected) {
+      body = '<div class="reject-box"><p><b>❌ Kirish rad etilgan</b></p><p>Admin bilan bog\'laning.</p></div>';
+    } else {
+      body = "<p>Bu Telegram hisobi yuk xati yozolmaydi.</p>" +
+        '<button type="button" class="btn" data-act="ask-access"' + (state.asking ? " disabled" : "") + ">Ruxsat so'rash</button>";
+    }
+    var link = state.gate === "checking" ? "" :
+      '<a class="btn-ghost" href="https://t.me/Khoshimov_Adkham" target="_blank" rel="noreferrer">Admin bilan bog\'lanish (Telegram)</a>';
+    return adminBackLink() + '<div class="lock"><p class="eyebrow">B2B Field Sales</p><h1>Briket Savdo</h1>' +
+      body + (state.gate !== "invalid" && state.accessError && !pending && !rejected ? '<div class="err">' + esc(state.accessError) + "</div>" : "") +
+      link + "</div>";
+  }
+
+  function loadBoot() {
+    state.loading = true;
+    state.error = "";
+    if (readInitData()) state.gate = "allowed";
+    render();
+    return api("/api/agent/yuk/bootstrap").then(function (r) {
+      state.gate = "allowed";
+      state.boot = r.data;
+      state.saleDate = r.data.today;
+      state.reportDate = r.data.today;
+      state.ulushDate = r.data.today;
+      if (r.data.open_reys) state.reys = String(r.data.open_reys.id);
+      state.loading = false;
+      render();
+      loadReminders(true);
+    }).catch(function (e) {
+      state.loading = false;
+      state.error = e.message;
+      if (!readInitData()) state.gate = "need-auth";
+      render();
+    });
+  }
+
+  function sortCustomers(list) {
+    var copy = (list || []).slice();
+    if (state.sort === "name") {
+      copy.sort(function (a, b) { return String(a.name || "").localeCompare(String(b.name || ""), "uz"); });
+    } else if (state.sort === "recent") {
+      copy.sort(function (a, b) {
+        var da = String(a.last_sale_date || "");
+        var db = String(b.last_sale_date || "");
+        if (!da && db) return 1;
+        if (da && !db) return -1;
+        if (da !== db) return da < db ? 1 : -1;
+        return String(a.name || "").localeCompare(String(b.name || ""), "uz");
+      });
+    } else {
+      copy.sort(function (a, b) {
+        var d = Number(b.outstanding || 0) - Number(a.outstanding || 0);
+        if (d) return d;
+        return String(a.name || "").localeCompare(String(b.name || ""), "uz");
+      });
+    }
+    return copy;
+  }
+  function loadCustomers() {
+    return api("/api/agent/yuk/customers?q=" + encodeURIComponent(state.q || "")).then(function (r) {
+      state.customers = sortCustomers(r.data || []);
+      render();
+    }).catch(function (e) { state.error = e.message; render(); });
+  }
+
+  function openCustomer(id) {
+    state.tab = "dokon";
+    state.detail = null;
+    state.sheet = "detail";
+    render();
+    api("/api/agent/yuk/customers/" + id).then(function (r) {
+      state.detail = r.data;
+      render();
+    }).catch(function (e) { state.error = e.message; render(); });
+  }
+
+  function loadReminders(quiet) {
+    return api("/api/agent/yuk/reminders").then(function (r) {
+      state.reminders = r.data;
+      render();
+    }).catch(function (e) {
+      if (quiet) return;
+      state.error = e.message;
+      render();
+    });
+  }
+  function reminderCount() {
+    var g = state.reminders && state.reminders.groups;
+    if (!g) return 0;
+    return (g.overdue || []).length + (g.today || []).length + (g.tomorrow || []).length;
+  }
+  function icon(name, cls) {
+    var p = {
+      cart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+      store: '<path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M2 7h20"/>',
+      bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+      gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+      search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+      plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+      minus: '<path d="M5 12h14"/>',
+      chev: '<path d="m6 9 6 6 6-6"/>',
+      right: '<path d="m9 18 6-6-6-6"/>',
+      wallet: '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+      copy: '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+      send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+      card: '<rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/>',
+      phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.35 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>',
+      warn: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+      print: '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/>'
+    };
+    return '<svg class="ico' + (cls ? " " + cls : "") + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (p[name] || "") + "</svg>";
+  }
+
+  function resetSale() {
+    state.customer = null;
+    state.qty = {};
+    state.price = {};
+    state.naqd = "0";
+    state.karta = "0";
+    state.due = "";
+    state.note = "";
+    state.requestId = rid();
+    state.saving = false;
+    if (state.boot && state.boot.open_reys) state.reys = String(state.boot.open_reys.id);
+    else state.reys = "auto";
+  }
+
+  function saveSale() {
+    if (state.saving) return;
+    var t = totals();
+    if (!state.customer) { state.error = "Do'kon tanlang"; render(); return; }
+    if (!(t.jami > 0)) { state.error = "Mahsulot tanlanmagan"; render(); return; }
+    if (t.debt > 0 && !state.due) { state.error = "Qarz uchun muddat kerak"; render(); return; }
+    var zero = products().some(function (p) { return lineQty(p.id) > 0 && linePrice(p) === 0; });
+    var items = products().filter(function (p) { return lineQty(p.id) > 0; }).map(function (p) {
+      return { product_id: p.id, quantity: lineQty(p.id), price: linePrice(p) };
+    });
+    var body = {
+      request_id: state.requestId,
+      customer_id: state.customer.id,
+      sale_date: state.saleDate,
+      naqd: intOf(state.naqd),
+      karta: intOf(state.karta),
+      due_date: t.debt > 0 ? toIso(state.due) : null,
+      note: state.note || null,
+      items: items,
+      reys_id: state.reys === "auto" ? null : state.reys,
+      confirm_zero_price: zero
+    };
+    function postSale() {
+      state.saving = true;
+      state.error = "";
+      render();
+      api("/api/agent/yuk/waybills", { method: "POST", body: body }).then(function (r) {
+        state.success = { bill: r.data, telegram: r.telegram || null };
+        try {
+          var tgApp = window.Telegram && window.Telegram.WebApp;
+          if (tgApp && tgApp.HapticFeedback) tgApp.HapticFeedback.notificationOccurred("success");
+        } catch (e) {}
+        resetSale();
+        render();
+      }).catch(function (e) {
+        state.saving = false;
+        state.error = e.message;
+        render();
+      });
+    }
+    if (zero) {
+      var askZero = window.bdConfirm || function (msg) { return Promise.resolve(window.confirm(msg)); };
+      askZero("Narx 0 so'm. Tasdiqlaysizmi?", {
+        money: true,
+        title: "Narx 0 so'm",
+        detail: "Narxi 0 so'm bo'lgan qator shu savdoga yoziladi."
+      }).then(function (ok) { if (ok) postSale(); });
+      return;
+    }
+    postSale();
+  }
+
+  function resend(id) {
+    api("/api/agent/yuk/waybills/" + id + "/send", { method: "POST", body: {} }).then(function (r) {
+      if (state.success) state.success.telegram = { ok: true };
+      state.error = "";
+      render();
+    }).catch(function (e) {
+      if (state.success) state.success.telegram = { ok: false, error: e.message };
+      state.error = e.message;
+      render();
+    });
+  }
+
+  function copyText(text, label) {
+    var done = function () {
+      state.error = "";
+      state.notice = label || "Nusxalandi";
+      render();
+    };
+    if (!text) { state.error = "Nusxalanadigan matn yo'q"; render(); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function () {
+        if (window.bdPrompt) window.bdPrompt("Nusxa", text);
+        else window.prompt("Nusxa", text);
+        done();
+      });
+    } else if (window.bdPrompt) { window.bdPrompt("Nusxa", text); done(); }
+    else { window.prompt("Nusxa", text); done(); }
+  }
+
+  function shareText(text) {
+    var link = "https://t.me/share/url?text=" + encodeURIComponent(text);
+    var tg = window.Telegram && window.Telegram.WebApp;
+    if (tg && tg.openTelegramLink) tg.openTelegramLink(link);
+    else if (navigator.share) navigator.share({ text: text }).catch(function () {});
+    else copyText(text);
+  }
+
+  function submitPay() {
+    var pay = state.pay;
+    if (!pay || pay.step !== "confirm" || state.saving) return;
+    state.saving = true;
+    render();
+    api("/api/agent/yuk/customers/" + pay.customerId + "/payments", {
+      method: "POST",
+      body: {
+        request_id: pay.requestId,
+        amount: intOf(pay.amount),
+        method: pay.method,
+        note: pay.note ? String(pay.note).trim() : null
+      }
+    }).then(function () {
+      state.saving = false;
+      state.pay = null;
+      state.requestId = rid();
+      if (state.customer && String(state.customer.id) === String(pay.customerId)) {
+        return loadCustomers().then(function () {
+          var found = state.customers.filter(function (c) { return String(c.id) === String(pay.customerId); })[0];
+          if (found) state.customer = found;
+        });
+      }
+      return openCustomer(pay.customerId);
+    }).catch(function (e) {
+      state.saving = false;
+      state.error = e.message;
+      render();
+    });
+  }
+
+  function createStore() {
+    var f = state.newStore;
+    if (!f.name.trim() || state.saving) return;
+    state.saving = true;
+    render();
+    api("/api/agent/yuk/customers", {
+      method: "POST",
+      body: {
+        name: f.name.trim(),
+        phone: f.phone.trim() || null,
+        address: f.address.trim() || null,
+        latitude: f.latitude === "" ? null : Number(f.latitude),
+        longitude: f.longitude === "" ? null : Number(f.longitude)
+      }
+    }).then(function (r) {
+      state.customer = r.data;
+      state.sheet = null;
+      state.saving = false;
+      state.newStore = { name: "", phone: "", address: "", latitude: "", longitude: "" };
+      state.tab = "sotuv";
+      render();
+    }).catch(function (e) {
+      state.saving = false;
+      state.error = e.message;
+      render();
+    });
+  }
+
+  function saveEdit() {
+    var ed = state.edit;
+    if (!ed || state.saving) return;
+    state.saving = true;
+    render();
+    api("/api/agent/yuk/waybills/" + ed.id, {
+      method: "PUT",
+      body: { items: ed.items, sale_date: ed.sale_date, due_date: ed.due_date ? String(ed.due_date).slice(0, 10) : null, confirm_zero_price: true }
+    }).then(function (r) {
+      state.saving = false;
+      state.edit = null;
+      state.error = r.data && r.data.realloc_note ? r.data.realloc_note : "";
+      if (state.detail) openCustomer(state.detail.customer.id);
+      else render();
+    }).catch(function (e) {
+      state.saving = false;
+      state.error = e.message;
+      render();
+    });
+  }
+
+  function reversePay(id) {
+    if (state.saving) return;
+    state.saving = true;
+    api("/api/agent/yuk/payments/" + id + "/reverse", {
+      method: "POST",
+      body: { request_id: rid(), note: "Tuzatish" }
+    }).then(function () {
+      state.saving = false;
+      if (state.detail) openCustomer(state.detail.customer.id);
+    }).catch(function (e) {
+      state.saving = false;
+      state.error = e.message;
+      render();
+    });
+  }
+
+  function adminBackLink() {
+    return window.erpBackLink('/admin');
+  }
+  function innerScreen() {
+    return !!(state.dateOpen || state.pay || state.edit || state.sheet);
+  }
+  function goBack() {
+    if (state.dateOpen) { state.dateOpen = false; render(); return; }
+    if (state.sheet === "map") { state.sheet = state.mapBack || "new"; render(); return; }
+    if (state.pay || state.edit || state.sheet === "new" || state.sheet === "edit-store") {
+      state.pay = null;
+      state.edit = null;
+      state.sheet = state.detail ? "detail" : null;
+      render();
+      return;
+    }
+    if (state.detail || state.sheet === "detail") {
+      state.detail = null;
+      state.sheet = null;
+      render();
+    }
+  }
+  function syncBackButton() {
+    var tg = window.Telegram && window.Telegram.WebApp;
+    if (!tg || !tg.BackButton) return;
+    try {
+      if (state.gate === "allowed" && readInitData() && innerScreen()) {
+        tg.BackButton.show();
+        if (!state.backBound && tg.BackButton.onClick) {
+          state.backBound = true;
+          tg.BackButton.onClick(goBack);
+        }
+      } else {
+        tg.BackButton.hide();
+      }
+    } catch (e) {}
+  }
+  function osmLink(lat, lng) {
+    return "https://www.openstreetmap.org/?mlat=" + encodeURIComponent(lat) + "&mlon=" + encodeURIComponent(lng) + "#map=17/" + lat + "/" + lng;
+  }
+  function openMap(back) {
+    var src = back === "edit" ? state.editStore : state.newStore;
+    state.mapBack = back;
+    state.mapLat = src && src.latitude ? String(src.latitude) : "41.311081";
+    state.mapLng = src && src.longitude ? String(src.longitude) : "69.240562";
+    state.sheet = "map";
+    render();
+  }
+  function applyMap() {
+    var target = state.mapBack === "edit" ? state.editStore : state.newStore;
+    if (!target) return;
+    target.latitude = String(state.mapLat || "");
+    target.longitude = String(state.mapLng || "");
+    var lat = Number(target.latitude);
+    var lng = Number(target.longitude);
+    var keep = state.mapBack;
+    if (target.address || !window.fetch || !isFinite(lat)) {
+      state.sheet = keep;
+      render();
+      return;
+    }
+    fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=" + lat + "&lon=" + lng, { headers: { Accept: "application/json" } })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (data && data.display_name && !target.address) target.address = String(data.display_name).slice(0, 300);
+      })
+      .catch(function () {})
+      .then(function () {
+        state.sheet = keep;
+        render();
+      });
+  }
+  function geoHere() {
+    if (!navigator.geolocation) { state.error = "Joylashuv yo'q"; render(); return; }
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      state.mapLat = String(pos.coords.latitude);
+      state.mapLng = String(pos.coords.longitude);
+      if (state._map && state._marker) {
+        var ll = [Number(state.mapLat), Number(state.mapLng)];
+        state._marker.setLatLng(ll);
+        state._map.setView(ll, 16);
+        var lab = document.getElementById("map-pos");
+        if (lab) lab.textContent = Number(state.mapLat).toFixed(6) + ", " + Number(state.mapLng).toFixed(6);
+        return;
+      }
+      render();
+    }, function () { state.error = "Joylashuv olinmadi"; render(); });
+  }
+  function mountMap() {
+    var el = document.getElementById("yuk-map");
+    if (!el || !window.L) return;
+    var lat = Number(state.mapLat) || 41.311081;
+    var lng = Number(state.mapLng) || 69.240562;
+    var map = L.map(el).setView([lat, lng], state.mapLat ? 16 : 12);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" }).addTo(map);
+    var marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+    function set(ll) {
+      state.mapLat = String(ll.lat);
+      state.mapLng = String(ll.lng);
+      var lab = document.getElementById("map-pos");
+      if (lab) lab.textContent = ll.lat.toFixed(6) + ", " + ll.lng.toFixed(6);
+      var latIn = document.querySelector('[data-in="map-lat"]');
+      var lngIn = document.querySelector('[data-in="map-lng"]');
+      if (latIn) latIn.value = state.mapLat;
+      if (lngIn) lngIn.value = state.mapLng;
+    }
+    marker.on("dragend", function () { set(marker.getLatLng()); });
+    map.on("click", function (ev) { marker.setLatLng(ev.latlng); set(ev.latlng); });
+    state._map = map;
+    state._marker = marker;
+    setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 60);
+  }
+  function printText(text) {
+    var w = window.open("", "_blank");
+    if (!w) { state.error = "Chop etish oynasi ochilmadi"; render(); return; }
+    w.document.write("<!DOCTYPE html><html><head><meta charset='utf-8'><title>Yuk xati</title><style>body{font:14px/1.45 ui-monospace,monospace;white-space:pre-wrap;padding:24px}</style></head><body>" + esc(text || "") + "</body></html>");
+    w.document.close();
+    w.focus();
+    setTimeout(function () { try { w.print(); } catch (e) {} }, 150);
+  }
+  function printBill(id) {
+    api("/api/agent/yuk/waybills/" + id).then(function (r) { printText((r.data && r.data.text) || ""); });
+  }
+  function copyDaily() {
+    api("/api/agent/yuk/daily?date=" + encodeURIComponent(state.reportDate || "")).then(function (r) {
+      state.reportPreview = (r.data && r.data.text) || "";
+      copyText(state.reportPreview);
+    }).catch(function (e) { state.error = e.message; render(); });
+  }
+  function loadUlush() {
+    return api("/api/agent/yuk/ulush?date=" + encodeURIComponent(state.ulushDate || "")).then(function (r) {
+      state.ulush = r.data;
+      render();
+    }).catch(function (e) { state.error = e.message; render(); });
+  }
+  function takeUlush() {
+    if (state.saving) return;
+    state.saving = true;
+    render();
+    api("/api/agent/yuk/ulush/withdrawals", {
+      method: "POST",
+      body: { amount: intOf(state.ulushTake), note: "Oldim" }
+    }).then(function () {
+      state.saving = false;
+      state.ulushTake = "";
+      return loadUlush();
+    }).catch(function (e) {
+      state.saving = false;
+      state.error = e.message;
+      render();
+    });
+  }
+  function savePrice(id) {
+    var priceEl = document.querySelector('[data-in="std-price"][data-id="' + id + '"]');
+    var unitEl = document.querySelector('[data-in="std-unit"][data-id="' + id + '"]');
+    if (!priceEl || state.saving) return;
+    var price = intOf(priceEl.value);
+    var unit = unitEl ? intOf(unitEl.value) : 0;
+    state.saving = true;
+    render();
+    api("/api/agent/yuk/products/" + id, {
+      method: "PUT",
+      body: { price: price, unit_commission: unit }
+    }).then(function () {
+      state.saving = false;
+      return loadBoot();
+    }).catch(function (e) {
+      state.saving = false;
+      state.error = e.message;
+      render();
+    });
+  }
+  function saveStoreEdit() {
+    var f = state.editStore;
+    if (!f || !f.name.trim() || state.saving) return;
+    state.saving = true;
+    render();
+    api("/api/agent/yuk/customers/" + f.id, {
+      method: "PUT",
+      body: {
+        name: f.name.trim(),
+        phone: f.phone.trim() || null,
+        address: f.address.trim() || null,
+        latitude: f.latitude === "" ? null : Number(f.latitude),
+        longitude: f.longitude === "" ? null : Number(f.longitude)
+      }
+    }).then(function () {
+      state.saving = false;
+      state.sheet = "detail";
+      return openCustomer(f.id);
+    }).catch(function (e) {
+      state.saving = false;
+      state.error = e.message;
+      render();
+    });
+  }
+  function shownStores() {
+    if (!state.saleFilter) return state.customers;
+    return state.customers.filter(function (c) {
+      return String(c.last_sale_date || "").slice(0, 10) === state.saleFilter;
+    });
+  }
+
+  function onClick(e) {
+    var el = e.target.closest("[data-act]");
+    if (!el) {
+      if (state.picker && !e.target.closest(".drop")) {
+        state.picker = false;
+        render();
+      }
+      return;
+    }
+    var act = el.getAttribute("data-act");
+    state.notice = "";
+    if (act === "ask-access") { askAccess(); return; }
+    if (act === "recheck-access") { loadAccess(); return; }
+    var id = el.getAttribute("data-id");
+    if (state.picker && act !== "open-stores" && act !== "pick-store" && !e.target.closest(".drop")) {
+      state.picker = false;
+    }
+    if (act === "tab") {
+      state.tab = el.getAttribute("data-tab");
+      state.sheet = null;
+      state.detail = null;
+      state.picker = false;
+      state.pay = null;
+      state.edit = null;
+      if (state.tab === "dokon") { state.q = ""; loadCustomers(); }
+      if (state.tab === "eslatma") loadReminders();
+      if (state.tab === "ulush") loadUlush();
+      render();
+    } else if (act === "back") {
+      goBack();
+    } else if (act === "sort") {
+      state.sort = el.getAttribute("data-sort") || "debt";
+      state.customers = sortCustomers(state.customers);
+      render();
+    } else if (act === "open-stores") {
+      state.picker = !state.picker;
+      state.q = "";
+      if (state.picker) loadCustomers();
+      else render();
+    } else if (act === "close") {
+      if (state.sheet === "map") { state.sheet = state.mapBack || "new"; state.dateOpen = false; render(); return; }
+      state.dateOpen = false;
+      state.pay = null;
+      state.edit = null;
+      state.picker = false;
+      state.sheet = state.detail ? "detail" : null;
+      render();
+    } else if (act === "pick-store") {
+      var c = state.customers.filter(function (x) { return String(x.id) === String(id); })[0];
+      state.customer = c || null;
+      state.sheet = null;
+      state.picker = false;
+      state.q = "";
+      state.tab = "sotuv";
+      render();
+    } else if (act === "new-store") {
+      state.sheet = "new";
+      render();
+    } else if (act === "qty") {
+      var delta = Number(el.getAttribute("data-d"));
+      var cur = lineQty(id);
+      state.qty[id] = String(Math.max(0, cur + delta));
+      render();
+    } else if (act === "date") {
+      state.dateFor = "sale";
+      state.dateOpen = true;
+      render();
+    } else if (act === "edit-date") {
+      state.dateFor = "edit";
+      state.dateOpen = true;
+      render();
+    } else if (act === "set-date") {
+      var picked = el.getAttribute("data-date");
+      if (state.dateFor === "edit" && state.edit) state.edit.sale_date = picked;
+      else if (state.dateFor === "report") state.reportDate = picked;
+      else if (state.dateFor === "filter") { state.saleFilter = picked; state.customers = sortCustomers(state.customers); }
+      else if (state.dateFor === "ulush") { state.ulushDate = picked; loadUlush(); }
+      else state.saleDate = picked;
+      state.dateOpen = false;
+      render();
+    } else if (act === "save") saveSale();
+    else if (act === "copy") copyText(state.success && state.success.bill ? state.success.bill.text : "", "Nakladnoy nusxalandi");
+    else if (act === "share") shareText(state.success && state.success.bill ? state.success.bill.text : "");
+    else if (act === "copy-card") {
+      var card = el.getAttribute("data-card") || (state.boot && state.boot.company && state.boot.company.card);
+      if (card) copyText(card, "Karta raqami nusxalandi");
+    } else if (act === "copy-phone") {
+      var phone = el.getAttribute("data-phone") || (state.boot && state.boot.company && state.boot.company.phone);
+      if (phone) copyText(phone, "Telefon nusxalandi");
+    } else if (act === "resend") resend(id);
+    else if (act === "open-customer") openCustomer(id);
+    else if (act === "pay") {
+      state.pay = { customerId: id, amount: "", method: "cash", note: "", step: "edit", requestId: rid() };
+      render();
+    } else if (act === "pay-next") {
+      if (intOf(state.pay.amount) > 0) state.pay.step = "confirm";
+      render();
+    } else if (act === "pay-back") { state.pay.step = "edit"; render(); }
+    else if (act === "pay-yes") submitPay();
+    else if (act === "method") { state.pay.method = el.getAttribute("data-method"); render(); }
+    else if (act === "create-store") createStore();
+    else if (act === "save-store") saveStoreEdit();
+    else if (act === "open-map") openMap(el.getAttribute("data-back") || "new");
+    else if (act === "geo") geoHere();
+    else if (act === "map-ok") applyMap();
+    else if (act === "edit-store") {
+      var cstore = state.detail && state.detail.customer;
+      if (!cstore) return;
+      state.editStore = {
+        id: cstore.id,
+        name: cstore.name || "",
+        phone: cstore.phone || "",
+        address: cstore.address || "",
+        latitude: cstore.latitude != null ? String(cstore.latitude) : "",
+        longitude: cstore.longitude != null ? String(cstore.longitude) : ""
+      };
+      state.sheet = "edit-store";
+      render();
+    }
+    else if (act === "pin") openMap("new");
+    else if (act === "edit") {
+      var bill = (state.detail.waybills || []).filter(function (w) { return String(w.id) === String(id); })[0];
+      state.edit = {
+        id: bill.id,
+        code: bill.waybill_code,
+        customer_name: state.detail && state.detail.customer ? state.detail.customer.name : "",
+        sale_date: String(bill.sale_date || state.boot.today).slice(0, 10),
+        due_date: bill.due_date ? String(bill.due_date).slice(0, 10) : "",
+        paid_amount: Math.round(Number(bill.paid_amount) || 0),
+        items: (bill.items || []).map(function (it) {
+          return { product_id: it.product_id, product_name: it.product_name, quantity: Number(it.quantity), price: Math.round(Number(it.price)) };
+        })
+      };
+      render();
+    } else if (act === "edit-qty") {
+      var item = state.edit.items[Number(el.getAttribute("data-i"))];
+      item.quantity = Math.max(0, item.quantity + Number(el.getAttribute("data-d")));
+      render();
+    } else if (act === "save-edit") saveEdit();
+    else if (act === "reverse") {
+      var askPay = window.bdConfirm || function (msg) { return Promise.resolve(window.confirm(msg)); };
+      askPay("Bu to'lov tuzatilsinmi?", {
+        money: true,
+        title: "To'lovni tuzatish",
+        detail: "Qator o'chmaydi."
+      }).then(function (ok) { if (ok) reversePay(id); });
+    }     else if (act === "copy-bill") {
+      api("/api/agent/yuk/waybills/" + id).then(function (r) { copyText(r.data.text || "", "Nakladnoy nusxalandi"); });
+    } else if (act === "share-bill") {
+      api("/api/agent/yuk/waybills/" + id).then(function (r) { shareText(r.data.text || ""); });
+    } else if (act === "print") printText(state.success && state.success.bill ? state.success.bill.text : "");
+    else if (act === "print-bill") printBill(id);
+    else if (act === "daily") copyDaily();
+    else if (act === "report-date") { state.dateFor = "report"; state.dateOpen = true; render(); }
+    else if (act === "sale-filter") { state.dateFor = "filter"; state.dateOpen = true; render(); }
+    else if (act === "clear-filter") { state.saleFilter = ""; render(); }
+    else if (act === "ulush-date") { state.dateFor = "ulush"; state.dateOpen = true; render(); }
+    else if (act === "ulush-take") takeUlush();
+    else if (act === "save-price") savePrice(id);
+  }
+
+  var focusKey = null;
+  function onInput(e) {
+    var el = e.target;
+    var name = el.getAttribute("data-in");
+    if (!name) return;
+    if (name === "q") { state.q = el.value; focusKey = "q"; loadCustomers(); return; }
+    else if (name === "naqd") state.naqd = el.value.replace(/[^\d]/g, "");
+    else if (name === "karta") state.karta = el.value.replace(/[^\d]/g, "");
+    else if (name === "sale-date") state.saleDate = el.value;
+    else if (name === "due") state.due = el.value;
+    else if (name === "edit-sale-date" && state.edit) state.edit.sale_date = el.value;
+    else if (name === "note") state.note = el.value;
+    else if (name === "reys") state.reys = el.value;
+    else if (name === "price") state.price[el.getAttribute("data-id")] = el.value.replace(/[^\d]/g, "");
+    else if (name === "qty") state.qty[el.getAttribute("data-id")] = el.value.replace(/[^\d]/g, "");
+    else if (name === "pay-amount") state.pay.amount = el.value.replace(/[^\d]/g, "");
+    else if (name === "pay-note") state.pay.note = el.value;
+    else if (name === "ulush-take") state.ulushTake = el.value.replace(/[^\d]/g, "");
+    else if (name === "map-lat") { state.mapLat = el.value; return; }
+    else if (name === "map-lng") { state.mapLng = el.value; return; }
+    else if (name === "std-price" || name === "std-unit") return;
+    else if (name.indexOf("store-") === 0) {
+      var bag = state.sheet === "edit-store" ? state.editStore : state.newStore;
+      if (bag) bag[name.slice(6)] = el.value;
+    }
+    else if (name === "edit-price") state.edit.items[Number(el.getAttribute("data-i"))].price = intOf(el.value);
+    else if (name === "edit-due" && state.edit) state.edit.due_date = el.value;
+    focusKey = el.getAttribute("data-focus") || name;
+    render();
+  }
+
+  function productCards() {
+    if (state.loading && !state.boot) return '<p class="muted">Mahsulotlar yuklanmoqda…</p>';
+    if (!products().length) return '<p class="muted">Mahsulot yo\'q. Sozlamalardan qo\'shing.</p>';
+    return products().map(function (p) {
+      var q = lineQty(p.id);
+      var price = state.price[p.id] != null ? state.price[p.id] : String(Math.round(Number(p.price) || 0));
+      var sub = q * intOf(price);
+      return '<div class="card product"><div class="product-top"><p><strong>' + esc(p.sku) + '</strong></p>' +
+        '<p class="sub num">' + money(sub) + " so'm</p></div>" +
+        '<div class="product-grid"><div><label class="lbl">Miqdor</label><div class="stepper">' +
+        '<button type="button" data-act="qty" data-id="' + p.id + '" data-d="-1" aria-label="Kamaytirish">' + icon("minus", "sm") + '</button>' +
+        '<input class="qty num" inputmode="numeric" data-in="qty" data-focus="qty-' + p.id + '" data-id="' + p.id + '" value="' + esc(state.qty[p.id] || "0") + '" />' +
+        '<button type="button" data-act="qty" data-id="' + p.id + '" data-d="1" aria-label="Ko\'paytirish">' + icon("plus", "sm") + '</button></div></div>' +
+        '<div><label class="lbl">Narx (so\'m)</label>' +
+        '<input class="money num" inputmode="numeric" data-in="price" data-focus="price-' + p.id + '" data-id="' + p.id + '" value="' + esc(price) + '" /></div></div></div>';
+    }).join("");
+  }
+
+  function storeMenu() {
+    var rows = state.customers.map(function (c) {
+      var debt = Number(c.outstanding) > 0 ? money(c.outstanding) : "0";
+      var tone = Number(c.outstanding) > 0 ? "debt-num" : "faint";
+      return '<li><button type="button" data-act="pick-store" data-id="' + c.id + '"><span><span class="block"><strong>' + esc(c.name) + '</strong></span>' +
+        (c.phone ? '<span class="faint">' + esc(c.phone) + '</span>' : '') + '</span>' +
+        '<span class="num ' + tone + '">' + debt + '</span></button></li>';
+    }).join("") || '<li class="muted" style="padding:12px">Mos do\'kon yo\'q.</li>';
+    return '<div class="drop"><div class="menu-search">' + icon("search", "sm") +
+      '<input data-in="q" data-focus="q" placeholder="Qidirish..." value="' + esc(state.q) + '" /></div><ul>' + rows + '</ul></div>';
+  }
+
+  function saleView() {
+    var t = totals();
+    var c = state.customer;
+    var company = (state.boot && state.boot.company) || {};
+    var html = '<header class="pagehead"><p class="eyebrow">Yangi sotuv</p><h1>Sotuv oynasi</h1></header>';
+    if (state.success && state.success.bill) {
+      var bill = state.success.bill;
+      var tgFail = state.success.telegram && state.success.telegram.ok === false;
+      html += '<div class="okbox"><strong>Yuk xati ' + esc(bill.waybill_code) + ' tayyor</strong>' +
+        '<p class="muted">' + esc(dmy(bill.sale_date)) + " · " + money(bill.total_amount) + " so'm</p>" +
+        '<p class="faint">Yozgan: ' + esc(bill.created_by_name || "Eski yozuv") + '</p>' +
+        '<div class="actions"><button type="button" class="btn-ghost" data-act="copy">' + icon("copy", "sm") + 'Nusxa olish</button>' +
+        '<button type="button" class="btn-ghost share" data-act="share">' + icon("send", "sm") + "Telegram'ga yuborish</button>" +
+        '<button type="button" class="btn-ghost" data-act="print">' + icon("print", "sm") + 'Chop etish</button>' +
+        '<button type="button" class="btn-ghost" data-act="copy-card"' + (company.card ? "" : " disabled") + '>' + icon("card", "sm") + 'Karta raqami</button>' +
+        '<button type="button" class="btn-ghost" data-act="copy-phone"' + (company.phone ? "" : " disabled") + '>' + icon("phone", "sm") + 'Telefon</button></div>' +
+        (tgFail ? '<p class="err">' + esc(state.success.telegram.error || "Yuborilmadi") + '</p><button type="button" class="btn" data-act="resend" data-id="' + bill.id + '">Qayta yuborish</button>' : "") +
+        '</div>';
+    }
+    var minDate = state.boot && state.boot.min_date ? state.boot.min_date : "";
+    var maxDate = state.boot && state.boot.today ? state.boot.today : "";
+    html += '<div style="margin-bottom:16px"><label class="lbl">Sotuv sanasi</label>' +
+      '<input class="field" type="date" data-in="sale-date" data-focus="sale-date" value="' + esc(state.saleDate) + '"' +
+      (minDate ? ' min="' + esc(minDate) + '"' : '') + (maxDate ? ' max="' + esc(maxDate) + '"' : '') + ' />' +
+      '<p class="hint">Kecha sotilgan bo\'lsa, kechagi sanani tanlang. O\'tgan sanalar ham ochiq (90 kun).</p></div>';
+    html += '<div class="rel" style="margin-bottom:16px"><label class="lbl">Do\'kon</label><div class="row">' +
+      '<button type="button" class="pick grow" data-act="open-stores"><span class="' + (c ? "" : "ph") + '">' +
+      esc(c ? c.name : "Do'konni tanlang") + '</span>' + icon("chev", "sm") + '</button>' +
+      '<button type="button" class="btn sq" data-act="new-store" aria-label="Yangi do\'kon">' + icon("plus", "sm") + '</button></div>' +
+      (c && c.phone ? '<p class="hint">' + esc(c.phone) + '</p>' : '') +
+      (state.picker ? storeMenu() : '') + '</div>';
+    if (c && Number(c.outstanding) > 0) {
+      html += '<div class="banner"><span>Eski qarz: <b class="num">' + money(c.outstanding) + " so'm</b></span>" +
+        '<button type="button" data-act="pay" data-id="' + c.id + '">Qaytarish</button></div>';
+    } else if (c && Number(c.store_credit) > 0) {
+      html += '<div class="banner"><span>Do\'kon krediti: <b class="num">' + money(c.store_credit) + " so'm</b></span></div>";
+    }
+    if (state.boot && state.boot.open_reys) {
+      html += '<label class="lbl">Reys</label><select class="field" data-in="reys"><option value="' + state.boot.open_reys.id + '">' +
+        esc(state.boot.open_reys.reys_code) + ' (ochiq)</option><option value="none">Reyssiz</option></select>';
+    }
+    html += '<section style="margin-bottom:16px"><h2 class="section-title">Mahsulotlar</h2>' + productCards() + '</section>';
+    html += '<div class="card totals"><div class="row"><span>Jami</span><b class="grow num" style="text-align:right;font-size:18px">' + money(t.jami) + " so'm</b></div>";
+    html += '<p class="lbl" style="margin-top:8px">To\'langan — Naqd va Karta alohida</p>';
+    html += '<div class="split"><div><label class="lbl">Naqd</label><input class="field num" inputmode="numeric" data-in="naqd" data-focus="naqd" value="' + esc(state.naqd) + '" /></div>' +
+      '<div><label class="lbl">Karta</label><input class="field num" inputmode="numeric" data-in="karta" data-focus="karta" value="' + esc(state.karta) + '" /></div></div>';
+    html += '<div class="row"><span>To\'langan</span><b class="grow num" style="text-align:right">' + money(t.paid) + " so'm</b></div>";
+    html += '<div class="row"><span>Qoldiq qarz</span><b class="grow num ' + (t.debt > 0 ? "debt-num" : "debt-ok") + '" style="text-align:right">' + money(t.debt) + " so'm</b></div>";
+    if (t.extra > 0) html += '<p class="hint">Ortiqcha ' + money(t.extra) + " so'm eski qarzga yoziladi</p>";
+    if (t.debt > 0) {
+      if (!state.due) state.due = state.saleDate || maxDate;
+      html += '<label class="lbl" style="margin-top:8px">Qarzni qaytarish muddati</label>' +
+        '<input class="field" type="date" data-in="due" data-focus="due" value="' + esc(state.due) + '" min="' + esc(state.saleDate || "") + '" />';
+      html += '<p class="hint">Muddat sotuv sanasidan oldin bo\'lmasin. Sotuv sanasi o\'tgan bo\'lsa, muddat ham shu kundan.</p>';
+    }
+    html += '</div>';
+    html += '<button type="button" class="btn" data-act="save"' + (state.saving ? " disabled" : "") + '>' +
+      (state.saving ? "Saqlanmoqda…" : "Saqlash va yuk xati") + '</button>';
+    html += '<p class="hint">Saqlash va Nakladnoy Shakllantirish. Naqd va karta alohida yoziladi.</p>';
+    return html;
+  }
+
+  function storesView() {
+    if (state.sheet === "detail" && state.detail) return detailView();
+    var total = state.customers.reduce(function (s, c) { return s + Number(c.outstanding || 0); }, 0);
+    var rows = shownStores().map(function (c) {
+      var debtTone = Number(c.outstanding) > 0 ? "debt-num" : "faint";
+      var last = c.last_sale_date ? "Oxirgi sotuv " + dmy(c.last_sale_date) : "Sotuv yo'q";
+      return '<li class="store-row"><button type="button" class="open" data-act="open-customer" data-id="' + c.id + '">' +
+        '<span class="grow"><span class="block"><strong>' + esc(c.name) + '</strong></span>' +
+        '<span class="faint">' + esc(c.phone || c.address || "—") + " · " + esc(last) + '</span></span>' +
+        '<span class="num ' + debtTone + '">' + money(c.outstanding) + '</span>' + icon("right", "sm") + '</button>' +
+        '<button type="button" class="pay-side" data-act="pay" data-id="' + c.id + '"' + (Number(c.outstanding) > 0 ? "" : " disabled") + ' aria-label="Qarz qaytarish">' +
+        icon("wallet", "sm") + "Qaytar</button></li>";
+    }).join("");
+    var chips = [
+      ["debt", "Qarz"],
+      ["name", "Nom"],
+      ["recent", "Oxirgi sotuv"]
+    ].map(function (opt) {
+      return '<button type="button" class="chip' + (state.sort === opt[0] ? " on" : "") + '" data-act="sort" data-sort="' + opt[0] + '">' + opt[1] + '</button>';
+    }).join("");
+    return '<header class="pagehead"><p class="eyebrow">Do\'konlar va qarzlar</p><h1>Do\'konlar</h1>' +
+      '<p>Umumiy qarz: <span class="num debt-num">' + money(total) + " so'm</span></p></header>" +
+      '<div class="card"><p class="eyebrow">Kunlik yuklar</p><div class="row">' +
+      '<button type="button" class="field grow" data-act="report-date">' + esc(dmy(state.reportDate) || "Sana") + '</button>' +
+      '<button type="button" class="btn fit" data-act="daily">Nusxa</button></div>' +
+      (state.reportPreview ? '<p class="hint">Nusxalandi</p>' : '') + '</div>' +
+      '<div class="row mb"><label class="search">' + icon("search", "sm") +
+      '<input data-in="q" data-focus="q" placeholder="Do\'kon nomi" value="' + esc(state.q) + '" /></label>' +
+      '<button type="button" class="btn fit" data-act="new-store">+ Yangi</button></div>' +
+      '<div class="chips" role="group" aria-label="Tartib">' + chips + '</div>' +
+      '<div class="row mb"><button type="button" class="field grow" data-act="sale-filter">' +
+      (state.saleFilter ? "Oxirgi sotuv: " + esc(dmy(state.saleFilter)) : "Oxirgi sotuv sanasi bo'yicha filtr") + '</button>' +
+      (state.saleFilter ? '<button type="button" class="btn-ghost" data-act="clear-filter">Tozalash</button>' : '') + '</div>' +
+      (rows ? '<ul style="list-style:none;margin:0;padding:0">' + rows + '</ul>' : '<p class="muted">Do\'kon topilmadi. Yangisini qo\'shing.</p>');
+  }
+
+  function detailView() {
+    var d = state.detail;
+    var c = d.customer;
+    var company = (state.boot && state.boot.company) || {};
+    var bills = (d.waybills || []).map(function (w) {
+      var lines = (w.items || []).map(function (it) {
+        return '<div class="faint">• ' + esc(it.product_name) + ' × ' + esc(it.quantity) + ' = ' + money(it.subtotal) + " so'm</div>";
+      }).join("");
+      return '<div class="card"><div class="row"><strong class="grow">' + esc(w.waybill_code) + '</strong>' +
+        (w.legacy_source ? '<span class="tag muted">Tarix</span>' : '') +
+        (w.stock_posted === false && w.legacy_source ? '<span class="tag muted">Ombor tegilmagan</span>' : '') +
+        '</div><div class="faint">' + esc(dmy(w.sale_date || w.created_at)) + ' · Yozgan: ' + esc(w.created_by_name || "Eski yozuv") + '</div>' +
+        lines +
+        '<div class="num">Jami ' + money(w.total_amount) + ' · To\'langan ' + money(w.paid_amount) + ' · Qarz ' + money(w.debt_amount) + '</div>' +
+        '<div class="actions" style="margin-top:8px"><button type="button" class="btn-ghost" data-act="copy-bill" data-id="' + w.id + '">' + icon("copy", "sm") + 'Nusxa</button>' +
+        '<button type="button" class="btn-ghost share" data-act="share-bill" data-id="' + w.id + '">' + icon("send", "sm") + 'Telegram</button>' +
+        '<button type="button" class="btn-ghost" data-act="print-bill" data-id="' + w.id + '">' + icon("print", "sm") + 'Chop</button>' +
+        '<button type="button" class="btn-ghost" data-act="copy-card"' + (company.card ? "" : " disabled") + '>' + icon("card", "sm") + 'Karta</button>' +
+        '<button type="button" class="btn-ghost" data-act="copy-phone"' + (company.phone ? "" : " disabled") + '>' + icon("phone", "sm") + 'Telefon</button>' +
+        '<button type="button" class="btn-ghost" data-act="edit" data-id="' + w.id + '">Tahrirlash</button></div></div>';
+    }).join("");
+    var pays = (d.payments || []).map(function (p) {
+      var label = p.kind === "reversal" ? "Tuzatish" : (p.kind === "backfill" ? "Tarixiy taqsim" : (p.method === "card" ? "Karta" : "Naqd"));
+      return '<div class="card"><div class="row"><span class="grow">' + label + ' ' + money(p.amount) + " so'm</span>" +
+        '<span class="faint">Yozgan: ' + esc(p.created_by_name || "Eski yozuv") + '</span>' +
+        (p.reversed ? '<span class="tag muted">Tuzatilgan</span>' : '') +
+        (!p.reversed && p.kind !== "reversal" && p.kind !== "reallocation"
+          ? '<button type="button" class="btn-danger" data-act="reverse" data-id="' + p.id + '">Tuzatish</button>' : '') +
+        '</div></div>';
+    }).join("");
+    var map = (c.latitude != null && c.longitude != null && c.latitude !== "" && c.longitude !== "")
+      ? '<p><a href="' + osmLink(c.latitude, c.longitude) + '" target="_blank" rel="noreferrer">Xaritada ochish</a></p>'
+      : '';
+    return '<button type="button" class="btn-ghost" data-act="back" style="margin-bottom:8px">← Orqaga</button>' +
+      '<header class="pagehead"><h1>' + esc(c.name) + '</h1>' +
+      (c.phone ? '<p class="row"><span class="grow">' + esc(c.phone) + '</span>' +
+        '<a class="btn-ghost fit" href="tel:' + esc(String(c.phone).replace(/\s/g, '')) + '">Qo\'ng\'iroq</a>' +
+        '<button type="button" class="btn-ghost fit" data-act="copy-phone" data-phone="' + esc(c.phone) + '">' + icon("phone", "sm") + 'Telefon nusxasi</button></p>' : '') +
+      (c.address ? '<p>' + esc(c.address) + '</p>' : '') + map + '</header>' +
+      '<div class="card"><div>Qarz: <b class="num debt-num">' + money(d.outstanding) + " so'm</b></div>" +
+      (Number(d.store_credit) > 0 ? '<div>Do\'kon krediti: <b class="num">' + money(d.store_credit) + " so'm</b></div>" : '') +
+      '<button type="button" class="btn" data-act="pay" data-id="' + c.id + '" style="margin-top:8px">Qarz qaytarish</button>' +
+      '<button type="button" class="btn-ghost" data-act="edit-store" style="margin-top:8px;width:100%">Do\'konni tahrirlash</button></div>' +
+      '<h2 class="section-title">Tarix</h2>' + (bills || '<p class="muted">Hali yo\'q</p>') +
+      '<h2 class="section-title">To\'lovlar</h2>' + (pays || '<p class="muted">Taqsimli to\'lov yo\'q</p>');
+  }
+
+  function remindBlock(title, rows, tone, badge) {
+    if (!rows || !rows.length) return "";
+    return '<section style="margin-bottom:20px"><h2 class="section-title">' + icon("warn", "sm") + " " + title + '</h2>' +
+      rows.map(function (w) {
+        return '<button type="button" class="remind ' + tone + '" data-act="open-customer" data-id="' + w.customer_id + '">' +
+          '<span class="grow"><span class="block"><strong>' + esc(w.customer_name) + '</strong></span>' +
+          '<span class="faint">' + esc(w.waybill_code) + ' · muddat ' + esc(dmy(w.due_date)) + ' · Yozgan: ' + esc(w.created_by_name || "Eski yozuv") + '</span></span>' +
+          '<span style="text-align:right"><span class="tag ' + (tone === "red" ? "red" : "amber") + '">' + badge + '</span>' +
+          '<span class="block num" style="font-weight:700">' + money(w.debt_amount) + '</span></span></button>';
+      }).join("") + '</section>';
+  }
+
+  function remindView() {
+    var g = state.reminders && state.reminders.groups;
+    var html = '<header class="pagehead"><p class="eyebrow">Qarzdorlik</p><h1>Eslatmalar</h1>' +
+      '<p>Bugun, ertaga va muddati o\'tgan qarzlar.</p></header>';
+    if (!g) return html + '<p class="muted">Yuklanmoqda…</p>';
+    var n = (g.overdue || []).length + (g.today || []).length + (g.tomorrow || []).length;
+    if (!n) {
+      return html + '<div class="empty">' + icon("bell") + '<p>Yaqin kunlarda qaytarilishi kerak bo\'lgan qarz yo\'q.</p></div>';
+    }
+    return html + remindBlock("Muddati o'tgan", g.overdue, "red", "KECHIKKAN") +
+      remindBlock("Bugun", g.today, "red", "BUGUN") +
+      remindBlock("Ertaga", g.tomorrow, "amber", "ERTAGA");
+  }
+
+  function settingsView() {
+    var company = (state.boot && state.boot.company) || { name: "", phone: "", card: "", card_holder: "" };
+    var can = state.boot && state.boot.can_edit_prices;
+    var list = products().map(function (p) {
+      if (!can) {
+        return '<div class="card"><p style="margin:0 0 8px"><strong>' + esc(p.sku) + '</strong></p>' +
+          '<label class="lbl">Standart narx (so\'m)</label><p class="num" style="margin:0;font-size:18px">' + money(p.price) + " so'm</p></div>";
+      }
+      return '<div class="card"><p style="margin:0 0 8px"><strong>' + esc(p.sku) + '</strong></p>' +
+        '<label class="lbl">Standart narx (so\'m)</label>' +
+        '<input class="field num" data-in="std-price" data-focus="std-' + p.id + '" data-id="' + p.id + '" inputmode="numeric" value="' + Math.round(Number(p.price) || 0) + '" />' +
+        '<label class="lbl" style="margin-top:8px">Ulush, 1 dona (so\'m)</label>' +
+        '<input class="field num" data-in="std-unit" data-focus="unit-' + p.id + '" data-id="' + p.id + '" inputmode="numeric" value="' + Math.round(Number(p.unit_commission) || 0) + '" />' +
+        '<button type="button" class="btn" data-act="save-price" data-id="' + p.id + '" style="margin-top:8px"' + (state.saving ? " disabled" : "") + '>Saqlash</button></div>';
+    }).join("") || '<p class="muted">Mahsulot yo\'q</p>';
+    return '<header class="pagehead"><p class="eyebrow">Sozlamalar</p><h1>Mahsulot narxlari</h1>' +
+      '<p class="hint">' + (can
+        ? "Standart narx ERP mahsulot narxiga yoziladi. Ulush yuk xati komissiyasiga yozilmaydi."
+        : "Narxni faqat admin o'zgartiradi.") + '</p></header>' +
+      list +
+      '<section class="card"><p style="margin:0 0 4px"><strong>To\'lov ma\'lumotlari</strong></p>' +
+      '<p class="num" style="margin:0">' + esc(company.card || "Karta sozlamada yo'q") +
+      (company.card_holder ? " / " + esc(company.card_holder) : "") + '</p>' +
+      '<p style="margin:4px 0 0">' + esc(company.phone || "Telefon sozlamada yo'q") + '</p>' +
+      '<div class="actions" style="margin-top:8px">' +
+      '<button type="button" class="btn-ghost" data-act="copy-card"' + (company.card ? "" : " disabled") + '>' + icon("card", "sm") + 'Karta raqami</button>' +
+      '<button type="button" class="btn-ghost" data-act="copy-phone"' + (company.phone ? "" : " disabled") + '>' + icon("phone", "sm") + 'Telefon</button></div>' +
+      (company.name ? '<p style="margin:4px 0 0">' + esc(company.name) + '</p>' : '') +
+      '</section>';
+  }
+
+  function ulushView() {
+    var u = state.ulush;
+    var can = state.boot && state.boot.can_edit_prices;
+    var html = '<header class="pagehead"><p class="eyebrow">Ish haqi</p><h1>Ulush</h1>' +
+      '<p class="hint">Ulush hisobi ' + esc(u && u.enabled_on ? dmy(u.enabled_on) : "—") + ' dan. Yuk xati komissiyasi 0 qoladi.</p></header>';
+    if (!u) return html + '<p class="muted">Yuklanmoqda…</p>';
+    var src = { sale: "Naqd sotuv", debt_payment: "Qarz to'lovi", sale_edit: "Tahrir" };
+    html += '<div class="stats"><div class="stat"><span class="faint">Bugun jami</span><b class="num debt-ok">' + money(u.today_total) + " so'm</b></div>" +
+      '<div class="stat"><span class="faint">Kecha jami</span><b class="num">' + money(u.yesterday_total) + " so'm</b></div></div>";
+    html += '<div class="stats three"><div class="stat"><span class="faint">Yig\'ilgan</span><b class="num">' + money(u.yigilgan) + '</b></div>' +
+      '<div class="stat"><span class="faint">Olingan</span><b class="num">' + money(u.olingan) + '</b></div>' +
+      '<div class="stat ok"><span class="faint">Qoldiq</span><b class="num debt-ok">' + money(u.qoldiq) + '</b></div></div>';
+    if (can) {
+      html += '<div class="row mb"><input class="field num grow" data-in="ulush-take" data-focus="ulush-take" inputmode="numeric" placeholder="Olgan summa" value="' + esc(state.ulushTake) + '" />' +
+        '<button type="button" class="btn fit" data-act="ulush-take"' + (state.saving || !(Number(u.qoldiq) > 0) ? " disabled" : "") + '>Oldim</button></div>' +
+        '<p class="hint">Kunlik tarix o\'chmaydi. Oldim faqat umumiy qoldiqdan ayiradi.</p>';
+    }
+    html += '<div class="card"><p class="faint">Ochilmagan ulush</p><p class="num debt-num" style="font-size:20px;margin:4px 0">' + money(u.ochilmagan) + " so'm</p>" +
+      '<p class="hint">Qarz hali to\'lanmagani uchun ochilmagan ulush. Bu qoldiq emas.</p></div>';
+    html += '<label class="lbl">Sana</label><button type="button" class="field" data-act="ulush-date">' + esc(dmy(state.ulushDate) || "—") + '</button>';
+    html += '<div class="row" style="margin:12px 0 8px"><strong class="grow">Kunlik voqealar</strong><b class="num debt-ok">' + money(u.day_total) + " so'm</b></div>";
+    if (!(u.events || []).length) html += '<p class="muted">Bu kunda ochilgan ulush yo\'q.</p>';
+    else html += (u.events || []).map(function (ev) {
+      var sign = Number(ev.amount) < 0 ? "" : "+";
+      return '<div class="card"><div class="row"><span class="grow"><strong>' + esc(src[ev.source] || ev.source) + '</strong>' +
+        '<span class="faint block">' + esc(ev.customer_name || "Do'kon") + ' · ' + esc(ev.waybill_code || "") + '</span></span>' +
+        '<b class="num debt-ok">' + sign + money(ev.amount) + '</b></div></div>';
+    }).join("");
+    if ((u.withdrawals || []).length) {
+      html += '<h2 class="section-title">Olinganlar</h2>' + u.withdrawals.map(function (w) {
+        return '<div class="row card"><span class="faint grow">' + esc(dmy(w.taken_on)) + '</span><b class="num">-' + money(w.amount) + '</b></div>';
+      }).join("");
+    }
+    return html;
+  }
+
+  function storeFields(f, back) {
+    var pin = f.latitude ? "Nuqta belgilangan — tahrirlash" : "Xaritadan belgilash";
+    var link = f.latitude && f.longitude
+      ? '<p><a href="' + osmLink(f.latitude, f.longitude) + '" target="_blank" rel="noreferrer">Xaritada ochish</a></p>'
+      : '';
+    return '<div><label class="lbl">Nomi *</label><input class="field" data-in="store-name" data-focus="store-name" value="' + esc(f.name) + '" placeholder="Masalan: Karvon market" /></div>' +
+      '<div><label class="lbl">Telefon</label><input class="field" data-in="store-phone" data-focus="store-phone" inputmode="tel" value="' + esc(f.phone) + '" placeholder="+99890..." /></div>' +
+      '<div><label class="lbl">Manzil</label><input class="field" data-in="store-address" data-focus="store-address" value="' + esc(f.address) + '" /></div>' +
+      '<button type="button" class="btn-ghost" data-act="open-map" data-back="' + back + '">' + pin + '</button>' + link;
+  }
+
+  function sheetHtml() {
+    if (state.dateOpen && state.boot) {
+      var days = [];
+      var cur = state.boot.min_date;
+      var guard = 0;
+      while (cur <= state.boot.today && guard < 100) {
+        days.push(cur);
+        var parts = cur.split("-");
+        var dt = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]) + 1));
+        cur = dt.toISOString().slice(0, 10);
+        guard++;
+      }
+      return '<div class="overlay"><div class="sheet" role="dialog" aria-modal="true"><header><strong>Sotuv sanasi</strong>' +
+        '<button type="button" class="btn-ghost" data-act="close" aria-label="Yopish">Yopish</button></header><div class="list">' +
+        days.slice().reverse().map(function (d) {
+          return '<button type="button" class="hit" data-act="set-date" data-date="' + d + '">' + esc(dmy(d)) + '</button>';
+        }).join("") + '</div></div></div>';
+    }
+    if (state.sheet === "new") {
+      var f = state.newStore;
+      return '<div class="overlay"><div class="sheet" role="dialog" aria-modal="true"><header><strong>+ Yangi do\'kon</strong>' +
+        '<button type="button" class="btn-ghost" data-act="close" aria-label="Yopish">Yopish</button></header><div class="list">' +
+        storeFields(f, "new") +
+        '<button type="button" class="btn" data-act="create-store"' + (state.saving ? " disabled" : "") + '>' + (state.saving ? "Saqlanmoqda…" : "Saqlash") + '</button></div></div></div>';
+    }
+    if (state.sheet === "edit-store" && state.editStore) {
+      return '<div class="overlay"><div class="sheet" role="dialog" aria-modal="true"><header><strong>Do\'konni tahrirlash</strong>' +
+        '<button type="button" class="btn-ghost" data-act="close" aria-label="Yopish">Yopish</button></header><div class="list">' +
+        storeFields(state.editStore, "edit") +
+        '<button type="button" class="btn" data-act="save-store"' + (state.saving ? " disabled" : "") + '>Saqlash</button></div></div></div>';
+    }
+    if (state.sheet === "map") {
+      return '<div class="overlay"><div class="sheet" role="dialog" aria-modal="true"><header><strong>Xarita</strong>' +
+        '<button type="button" class="btn-ghost" data-act="close" aria-label="Yopish">Yopish</button></header><div class="list">' +
+        '<div id="yuk-map" class="map-box"></div>' +
+        '<p id="map-pos" class="faint num">' + esc(state.mapLat) + ", " + esc(state.mapLng) + '</p>' +
+        '<div class="split"><div><label class="lbl">Kenglik</label><input class="field num" data-in="map-lat" data-focus="map-lat" value="' + esc(state.mapLat) + '" /></div>' +
+        '<div><label class="lbl">Uzunlik</label><input class="field num" data-in="map-lng" data-focus="map-lng" value="' + esc(state.mapLng) + '" /></div></div>' +
+        '<button type="button" class="btn-ghost" data-act="geo">Joriy joyimni olish</button>' +
+        '<button type="button" class="btn" data-act="map-ok">Shu joyni saqlash</button></div></div></div>';
+    }
+    if (state.pay) {
+      var pay = state.pay;
+      var who = "";
+      if (state.detail && state.detail.customer && String(state.detail.customer.id) === String(pay.customerId)) who = state.detail.customer.name;
+      else if (state.customer && String(state.customer.id) === String(pay.customerId)) who = state.customer.name;
+      var body = pay.step === "confirm"
+        ? '<p style="font-size:18px"><b class="num">' + money(pay.amount) + " so'm to'landimi?</b></p>" +
+          '<div class="row"><button type="button" class="btn" data-act="pay-yes"' + (state.saving ? " disabled" : "") + '>Qarzni kamaytirish</button>' +
+          '<button type="button" class="btn-ghost" data-act="pay-back">Yo\'q</button></div>'
+        : (who ? '<p class="muted">' + esc(who) + '</p>' : '') +
+          '<div><label class="lbl">To\'langan summa *</label><input class="field num" data-in="pay-amount" data-focus="pay-amount" inputmode="numeric" value="' + esc(pay.amount) + '" /></div>' +
+          '<div><label class="lbl">Izoh</label><input class="field" data-in="pay-note" data-focus="pay-note" value="' + esc(pay.note || "") + '" placeholder="Naqd / karta" /></div>' +
+          '<div class="row"><button type="button" class="btn-ghost' + (pay.method === "cash" ? " on" : "") + '" data-act="method" data-method="cash">Naqd</button>' +
+          '<button type="button" class="btn-ghost' + (pay.method === "card" ? " on" : "") + '" data-act="method" data-method="card">Karta</button></div>' +
+          '<button type="button" class="btn" data-act="pay-next"' + (intOf(pay.amount) > 0 ? "" : " disabled") + '>Davom etish</button>';
+      return '<div class="overlay"><div class="sheet" role="dialog" aria-modal="true"><header><strong>Qarz qaytarish</strong>' +
+        '<button type="button" class="btn-ghost" data-act="close" aria-label="Yopish">Yopish</button></header><div class="list">' + body + '</div></div></div>';
+    }
+    if (state.edit) {
+      var ed = state.edit;
+      var editMin = state.boot && state.boot.min_date ? state.boot.min_date : "";
+      var editMax = state.boot && state.boot.today ? state.boot.today : "";
+      var editTotal = ed.items.reduce(function (s, it) { return s + (Number(it.quantity) || 0) * (Number(it.price) || 0); }, 0);
+      var editPaid = Number(ed.paid_amount) || 0;
+      var editDebt = Math.max(0, editTotal - editPaid);
+      var items = ed.items.map(function (it, i) {
+        var sub = (Number(it.quantity) || 0) * (Number(it.price) || 0);
+        return '<div class="card"><strong>' + esc(it.product_name) + '</strong><label class="lbl">Miqdor</label><div class="stepper">' +
+          '<button type="button" data-act="edit-qty" data-i="' + i + '" data-d="-1" aria-label="Kamaytirish">' + icon("minus", "sm") + '</button><span class="num">' + it.quantity + '</span>' +
+          '<button type="button" data-act="edit-qty" data-i="' + i + '" data-d="1" aria-label="Ko\'paytirish">' + icon("plus", "sm") + '</button></div>' +
+          '<label class="lbl">Narx (so\'m)</label><input class="field num" data-in="edit-price" data-focus="edit-' + i + '" data-i="' + i + '" inputmode="numeric" value="' + it.price + '" />' +
+          '<p class="sub">' + money(sub) + " so'm</p></div>";
+      }).join("");
+      return '<div class="overlay"><div class="sheet" role="dialog" aria-modal="true"><header><strong>Tahrirlash ' + esc(ed.code) + '</strong>' +
+        '<button type="button" class="btn-ghost" data-act="close" aria-label="Yopish">Yopish</button></header><div class="list">' +
+        (ed.customer_name ? '<p class="muted">' + esc(ed.customer_name) + '</p>' : '') +
+        '<p class="hint">To\'langan summa o\'zgarmaydi. Tuzatish yangi qator yozadi, eski to\'lov o\'chmaydi.</p>' +
+        '<label class="lbl">Sotuv sanasi</label><input class="field" type="date" data-in="edit-sale-date" data-focus="edit-sale-date" value="' + esc(ed.sale_date || "") + '"' +
+        (editMin ? ' min="' + esc(editMin) + '"' : '') + (editMax ? ' max="' + esc(editMax) + '"' : '') + ' />' +
+        '<p class="hint">O\'tgan sanalar ham ochiq (90 kun).</p>' +
+        items +
+        '<div class="card"><div class="row"><span>Jami</span><b class="grow num" style="text-align:right">' + money(editTotal) + " so'm</b></div>" +
+        '<div class="row"><span>To\'langan</span><b class="grow num" style="text-align:right">' + money(editPaid) + " so'm</b></div>" +
+        '<div class="row"><span>Qoldiq qarz</span><b class="grow num" style="text-align:right">' + money(editDebt) + " so'm</b></div></div>" +
+        (editDebt > 0 ? '<label class="lbl">Qarzni qaytarish muddati</label><input class="field" type="date" data-in="edit-due" data-focus="edit-due" value="' + esc(ed.due_date || "") + '" min="' + esc(ed.sale_date || "") + '" />' : '') +
+        '<button type="button" class="btn" data-act="save-edit"' + (state.saving ? " disabled" : "") + '>O\'zgarishlarni saqlash</button></div></div></div>';
+    }
+    return "";
+  }
+
+  function render() {
+    var root = document.getElementById("app");
+    if (state.gate === "need-auth") {
+      root.innerHTML =
+        adminBackLink() +
+        '<div class="card"><p class="eyebrow">Yuk xati</p><h1>Kirish kerak</h1><p class="err">' + esc(state.error) + '</p>' +
+        '<a class="btn" href="/admin">Admin panel</a></div>';
+      return;
+    }
+    if (state.gate !== "allowed") {
+      root.innerHTML = lockHtml();
+      return;
+    }
+    var who = "";
+    if (!readInitData()) {
+      var session = readAdminSession();
+      if (session) who = session.operator || "Admin";
+    }
+    var body = state.tab === "dokon" ? storesView() : state.tab === "ulush" ? ulushView() : state.tab === "eslatma" ? remindView() : state.tab === "sozlama" ? settingsView() : saleView();
+    var active = function (name) { return state.tab === name ? " on" : ""; };
+    var count = reminderCount();
+    var badge = count > 0 ? '<span class="badge">' + (count > 9 ? "9+" : String(count)) + "</span>" : "";
+    function tabBtn(id, label, ico) {
+      return '<button type="button" class="' + active(id) + '" data-act="tab" data-tab="' + id + '"><span class="bar"></span>' +
+        '<span class="ico-wrap">' + icon(ico) + (id === "eslatma" ? badge : "") + "</span>" + label + "</button>";
+    }
+    root.innerHTML =
+      adminBackLink() +
+      (who ? '<p class="who">' + esc(state.boot && state.boot.today ? dmy(state.boot.today) : "") + " · " + esc(who) + "</p>" : "") +
+      (state.error ? '<div class="err">' + esc(state.error) + "</div>" : "") +
+      (state.notice ? '<p class="hint">' + esc(state.notice) + "</p>" : "") +
+      body +
+      '<nav class="nav" aria-label="Asosiy menyu">' +
+      tabBtn("sotuv", "Sotuv", "cart") +
+      tabBtn("dokon", "Do'konlar", "store") +
+      tabBtn("ulush", "Ulush", "wallet") +
+      tabBtn("eslatma", "Eslatma", "bell") +
+      tabBtn("sozlama", "Sozlama", "gear") +
+      "</nav>" +
+      sheetHtml();
+    syncBackButton();
+    if (state.sheet === "map") mountMap();
+    var keep = focusKey ? document.querySelector('[data-focus="' + focusKey + '"]') : null;
+    if (keep) { keep.focus(); var n = keep.value.length; try { keep.setSelectionRange(n, n); } catch (e) {} }
+  }
+
+  document.body.addEventListener("click", onClick);
+  document.body.addEventListener("input", onInput);
+  render();
+  var bootTries = 0;
+  (function waitInit() {
+    if (readInitData()) return loadAccess();
+    if (readAdminSession()) return loadBoot();
+    if (bootTries > 8) {
+      state.loading = false;
+      state.gate = "need-auth";
+      state.error = "Kirish kerak. Admin panelga kiring yoki Telegram orqali oching.";
+      render();
+      return;
+    }
+    bootTries += 1;
+    setTimeout(waitInit, 120);
+  })();
+})();
+  

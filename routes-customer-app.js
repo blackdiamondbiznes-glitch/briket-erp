@@ -2,11 +2,11 @@
  * Mijoz API: Telegram WebApp + PWA
  * SMS OTP yo'q — Telegram initData yoki demo sessiya
  *
- * Env: YUK_BOT_TOKEN, ERP_BOT_TOKEN, TELEGRAM_BOT_TOKEN.
- * initData HMAC shu tokenlardan biriga mos kelsa qabul. Yuborish TELEGRAM_BOT_TOKEN da qoladi.
+ * Env: TELEGRAM_BOT_TOKEN (@briket_mijoz_bot).
+ * initData faqat shu token bilan tekshiriladi, muddati 1 soat.
  * server.js: require('./routes-customer-app')(app, pool, helpers);
  */
-const { checkTelegramInitDataAny, configuredInitDataTokens } = require('./lib/telegram-webapp');
+const { checkTelegramInitData } = require('./lib/telegram-webapp');
 
 module.exports = function registerCustomerApp(app, pool, helpers) {
   const num = helpers.num;
@@ -30,10 +30,10 @@ module.exports = function registerCustomerApp(app, pool, helpers) {
       req.headers['x-telegram-init-data'] ||
       (req.body && req.body.initData) ||
       '';
-    const tokens = configuredInitDataTokens();
+    const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
 
-    if (tokens.length && initData) {
-      const checked = checkTelegramInitDataAny(initData, tokens, { maxAgeSec: 86400 });
+    if (token && initData) {
+      const checked = checkTelegramInitData(initData, token, { maxAgeSec: 3600 });
       if (checked.ok && checked.user && checked.user.id) {
         return { source: 'telegram', user: checked.user, initData };
       }

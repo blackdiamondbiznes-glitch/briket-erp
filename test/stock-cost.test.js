@@ -74,7 +74,7 @@ test('product payload keeps the manual cost_price and adds resolved tannarx', fu
 });
 
 test('admin stock headers bind tannarx to cost and foyda to sale minus cost', function () {
-  const html = fs.readFileSync(path.join(__dirname, '../public/admin.html'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '../public/admin-app.jsx'), 'utf8');
   const stockStart = html.indexOf("Tayyor mahsulot qoldig'i");
   const stockEnd = html.indexOf('function Products');
   const stock = html.slice(stockStart, stockEnd);

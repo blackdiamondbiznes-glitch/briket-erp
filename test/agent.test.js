@@ -414,7 +414,7 @@ test('migration is additive', () => {
   assert.match(stockRoutes, /reys_id IS NOT NULL/);
   const sales = fs.readFileSync(path.join(root, 'routes-sales.js'), 'utf8');
   assert.doesNotMatch(sales, /waybills/);
-  const adminHtml = fs.readFileSync(path.join(root, 'public/admin.html'), 'utf8');
+  const adminHtml = fs.readFileSync(path.join(root, 'public/admin.html'), 'utf8') + fs.readFileSync(path.join(root, 'public/admin-app.jsx'), 'utf8');
   assert.match(adminHtml, /Yuk tarqatish/);
   assert.match(adminHtml, /Yo'lda/);
   assert.doesNotMatch(adminHtml, /Dala savdosi/);

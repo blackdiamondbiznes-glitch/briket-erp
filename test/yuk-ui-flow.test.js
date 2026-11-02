@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 
-const page = fs.readFileSync(path.join(__dirname, '../public/yuk.html'), 'utf8');
+const page = fs.readFileSync(path.join(__dirname, '../public/yuk.html'), 'utf8') + fs.readFileSync(path.join(__dirname, '../public/yuk-app.js'), 'utf8');
 
 test('/yuk follows the mini-app sale flow on the ERP API', () => {
   const saleAt = page.indexOf('function saleView');

@@ -30,8 +30,7 @@ function registerYukRoutes(app, service, helpers, options) {
     const authz = String(req.headers.authorization || '');
     const tma = /^tma\s+/i.test(authz) ? authz.replace(/^tma\s+/i, '').trim() : '';
     const body = req.body && typeof req.body.initData === 'string' ? req.body.initData : '';
-    const query = req.query && typeof req.query.init_data === 'string' ? req.query.init_data : '';
-    return body || tma || (headerValue ? String(headerValue) : '') || query;
+    return body || tma || (headerValue ? String(headerValue) : '');
   }
 
   async function owner(req, res) {

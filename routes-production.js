@@ -151,7 +151,7 @@ app.delete('/api/batches/:id', async (req, res) => {
     // Material qaytarish
     await client.query(
       `INSERT INTO material_movements (material_id, movement_type, qty, unit_price, total_amount, note)
-       SELECT material_id, 'in', qty, unit_price, total_amount, 'Partiya o\'chirildi: qaytarildi'
+       SELECT material_id, 'in', qty, unit_price, total_amount, 'Partiya o'chirildi: qaytarildi'
        FROM material_movements WHERE batch_id = $1 AND movement_type = 'out'`,
       [req.params.id]
     );

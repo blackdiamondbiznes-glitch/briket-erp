@@ -5,7 +5,7 @@ const path = require('path');
 
 describe('6. Admin UI va mavzu', () => {
   it('/yuk da Briket ERP tugmasi bor', () => {
-    const html = fs.readFileSync(path.join(__dirname, '../public/yuk.html'), 'utf8');
+    const html = fs.readFileSync(path.join(__dirname, '../public/yuk.html'), 'utf8') + fs.readFileSync(path.join(__dirname, '../public/yuk-app.js'), 'utf8');
     assert.match(html, /erp-back\.js/);
     assert.match(html, /erpBackLink\(/);
     assert.doesNotMatch(html, /← Briket ERP/);
@@ -28,7 +28,7 @@ describe('6. Admin UI va mavzu', () => {
   });
 
   it('admin da KPI, grafik va tezkor amallar bor', () => {
-    const html = fs.readFileSync(path.join(__dirname, '../public/admin.html'), 'utf8');
+    const html = fs.readFileSync(path.join(__dirname, '../public/admin.html'), 'utf8') + fs.readFileSync(path.join(__dirname, '../public/admin-app.jsx'), 'utf8');
     assert.match(html, /dash-kpis/);
     assert.match(html, /dash-charts/);
     assert.match(html, /Tez amallar/);

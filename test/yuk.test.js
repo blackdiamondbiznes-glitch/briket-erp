@@ -531,10 +531,16 @@ test('initData matches YUK_BOT_TOKEN, then ERP_BOT_TOKEN, then TELEGRAM_BOT_TOKE
     assert.equal(yukBody.data.role, 'owner');
     assert.equal(yukBody.data.telegram_id, '1001');
 
-    const cust = await fetch(base + '/api/customer/auth/telegram', {
+    const custYuk = await fetch(base + '/api/customer/auth/telegram', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ initData: yukInit }),
+    });
+    assert.equal(custYuk.status, 401);
+    const cust = await fetch(base + '/api/customer/auth/telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData: signedWith(TG, 1001, now) }),
     });
     const custBody = await cust.json();
     assert.equal(cust.status, 200);
@@ -564,7 +570,7 @@ test('initData matches YUK_BOT_TOKEN, then ERP_BOT_TOKEN, then TELEGRAM_BOT_TOKE
   }
 });
 
-test('yuk accepts initData from the query string or JSON body, not only the header', async () => {
+test('yuk rejects initData from the query string and accepts body or tma', async () => {
   const prevToken = process.env.TELEGRAM_BOT_TOKEN;
   const prevIds = process.env.ADMIN_TELEGRAM_IDS;
   process.env.TELEGRAM_BOT_TOKEN = TOKEN;
@@ -589,8 +595,8 @@ test('yuk accepts initData from the query string or JSON body, not only the head
   try {
     const viaQuery = await fetch(base + '/api/agent/yuk/me?init_data=' + encodeURIComponent(init));
     const queryBody = await viaQuery.json();
-    assert.equal(viaQuery.status, 200);
-    assert.equal(queryBody.data.telegram_id, '1001');
+    assert.equal(viaQuery.status, 401);
+    assert.equal(queryBody.reason, 'missing');
     const viaAuth = await fetch(base + '/api/agent/yuk/bootstrap', {
       headers: { Authorization: 'tma ' + init },
     });
@@ -767,7 +773,7 @@ test('yuk migration is additive and the page does not hardcode an owner id', () 
   assert.doesNotMatch(creatorSql, /\bDELETE\s+FROM\b/i);
   assert.doesNotMatch(creatorSql, /\bDROP\b/i);
   assert.doesNotMatch(creatorSql, /\bNOT NULL\b/i);
-  const page = fs.readFileSync(path.join(root, 'public/yuk.html'), 'utf8');
+  const page = fs.readFileSync(path.join(root, 'public/yuk.html'), 'utf8') + fs.readFileSync(path.join(root, 'public/yuk-app.js'), 'utf8');
   assert.match(page, /Sotuv/);
   assert.match(page, /Do'konlar/);
   assert.match(page, /Eslatma/);
@@ -776,7 +782,8 @@ test('yuk migration is additive and the page does not hardcode an owner id', () 
   assert.match(page, /function readInitData/);
   assert.match(page, /tg\.ready\(\)/);
   assert.match(page, /Asia\/Tashkent/);
-  assert.match(page, /init_data=/);
+  assert.match(page, /X-Telegram-Init-Data/);
+  assert.doesNotMatch(page, /init_data=/);
   assert.match(page, /tma /);
   assert.match(page, /\.field:focus/);
   assert.doesNotMatch(page, /8600\s*\d{4}/);
@@ -1091,7 +1098,7 @@ test('yuk access request notifies owners, dedups for an hour, and only env owner
 
     const src = fs.readFileSync(path.join(root, 'lib/yuk-access.js'), 'utf8');
     assert.doesNotMatch(src, /console\.(log|error|info|warn|debug)/);
-    const page = fs.readFileSync(path.join(root, 'public/yuk.html'), 'utf8');
+    const page = fs.readFileSync(path.join(root, 'public/yuk.html'), 'utf8') + fs.readFileSync(path.join(root, 'public/yuk-app.js'), 'utf8');
     assert.match(page, /Ruxsat so'rash/);
     assert.match(page, /Tasdiq kutilmoqda/);
     assert.match(page, /Kirish rad etilgan/);
@@ -1285,14 +1292,14 @@ test('erp admin session opens /yuk without initData and records that operator', 
     assert.equal(tgBody.data.created_by_name, 'Ega Karimov');
     assert.equal(fetches, 1);
 
-    const page = fs.readFileSync(path.join(root, 'public/yuk.html'), 'utf8');
+    const page = fs.readFileSync(path.join(root, 'public/yuk.html'), 'utf8') + fs.readFileSync(path.join(root, 'public/yuk-app.js'), 'utf8');
     assert.match(page, /x-admin-key/);
     assert.match(page, /readAdminSession/);
     assert.match(page, /max-width: 960px/);
     assert.match(page, /need-auth/);
     assert.doesNotMatch(page, /erp_key=/);
     assert.doesNotMatch(page, /[?&]admin_key=/);
-    const admin = fs.readFileSync(path.join(root, 'public/admin.html'), 'utf8');
+    const admin = fs.readFileSync(path.join(root, 'public/admin.html'), 'utf8') + fs.readFileSync(path.join(root, 'public/admin-app.jsx'), 'utf8');
     assert.match(admin, /href: "\/yuk"/);
     assert.match(admin, /label: "Tarix"/);
     assert.match(admin, /YukXatiPanel/);
@@ -1387,7 +1394,7 @@ test('parity: price edit, map coords, last sale, ulush, and daily report', async
   assert.doesNotMatch(sql, /\bUPDATE\b/i);
   assert.doesNotMatch(sql, /\bDELETE\s+FROM\b/i);
   assert.doesNotMatch(sql, /\bDROP\b/i);
-  const page = fs.readFileSync(path.join(root, 'public/yuk.html'), 'utf8');
+  const page = fs.readFileSync(path.join(root, 'public/yuk.html'), 'utf8') + fs.readFileSync(path.join(root, 'public/yuk-app.js'), 'utf8');
   assert.match(page, /Ulush/);
   assert.match(page, /Oxirgi sotuv/);
   assert.match(page, /erpBackLink\(/);

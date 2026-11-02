@@ -62,12 +62,26 @@ if (IS_PROD) {
 const app = express();
 app.set('trust proxy', 1);
 
-app.use(
+function miniAppFrame(req) {
+  const p = req.path || '';
+  return p === '/yuk' || p === '/mijoz' || p === '/yuk.html' || p === '/mijoz.html';
+}
+
+app.use(function (req, res, next) {
   helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "https://telegram.org"],
+        imgSrc: ["'self'", "data:", "https:"],
+        frameAncestors: miniAppFrame(req)
+          ? ["https://web.telegram.org", "https://telegram.org", "https://*.telegram.org"]
+          : ["'none'"],
+      },
+    },
     crossOriginEmbedderPolicy: false,
-  })
-);
+  })(req, res, next);
+});
 
 const corsOriginRaw = (process.env.CORS_ORIGIN || '').trim();
 const allowedOrigins = corsOriginRaw
@@ -99,6 +113,7 @@ const corsOptions = {
     'X-Admin-Key',
     'X-Operator-Name',
     'X-Telegram-Init-Data',
+    'Authorization',
     'X-Demo-Telegram-Id',
   ],
   credentials: true,
