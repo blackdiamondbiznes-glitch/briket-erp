@@ -571,7 +571,7 @@ async function readErp(client) {
   const customers = await client.query(
     'SELECT id, name, phone, legacy_id, legacy_source, agent_id FROM customers'
   );
-  const products = await client.query('SELECT id, sku, name FROM products');
+  const products = await client.query('SELECT id, sku FROM products');
   const waybills = await client.query(
     'SELECT id, legacy_id, legacy_source, waybill_code FROM waybills'
   );
