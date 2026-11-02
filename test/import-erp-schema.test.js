@@ -126,8 +126,48 @@ test('ERP product match uses sku and the read query has no products.name', () =>
   }, {});
   assert.equal(namedOnly.actions.some((a) => a.type === 'link_product'), false);
 
-  assert.match(src, /SELECT id, sku FROM products/);
+  assert.match(src, /SELECT id, sku, weight_kg FROM products/);
   assert.doesNotMatch(src, /sku,\s*name FROM products/);
+});
+
+test('mini kg matches a single ERP weight_kg and two weights stay unmatched', () => {
+  const mini = {
+    profiles: [],
+    stores: [],
+    orders: [],
+    debt_payments: [],
+    access_requests: [],
+    products: [
+      { id: 'a', name: '1 kg' },
+      { id: 'b', name: '1.5 kg' },
+      { id: 'c', name: '2 kg' },
+      { id: 'd', name: '1,5 kg' },
+      { id: 'e', name: '3 kg' },
+    ],
+  };
+  const plan = match.buildImportPlan(mini, {
+    customers: [],
+    products: [
+      { id: 1, sku: 'briket-1', weight_kg: '1.000' },
+      { id: 2, sku: 'briket-15', weight_kg: 1.5 },
+      { id: 3, sku: 'briket-2', weight_kg: 2 },
+      { id: 4, sku: 'briket-2b', weight_kg: 2 },
+    ],
+  }, {});
+  function link(id) {
+    return plan.actions.find((a) => a.type === 'link_product' && a.legacy_id === id);
+  }
+  assert.equal(link('a').product_id, 1);
+  assert.equal(link('a').via, 'weight');
+  assert.equal(link('b').product_id, 2);
+  assert.equal(link('d').product_id, 2);
+  assert.equal(link('c'), undefined);
+  assert.equal(link('e'), undefined);
+  const ambiguous = plan.product_unmatched.find((p) => p.legacy_id === 'c');
+  assert.equal(ambiguous.kg, 2);
+  assert.deepEqual(ambiguous.matches, [3, 4]);
+  assert.equal(plan.erp_products[0].sku, 'briket-1');
+  assert.equal(plan.erp_products[0].weight_kg, 1);
 });
 
 test('every ERP query column exists on the production tables', () => {

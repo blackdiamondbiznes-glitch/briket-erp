@@ -119,6 +119,47 @@ test('apply inserts only missing rows, sets payments.legacy_source, and does not
   assert.equal(calls.filter((c) => /INSERT INTO agent_debt_payments/i.test(c.sql)).length, 1);
 });
 
+test('unmatched mini line is inserted with product_id null and stock_posted false', async () => {
+  const calls = [];
+  let id = 1;
+  const erpClient = {
+    async query(sql, params) {
+      calls.push({ sql: sql, params: params || [] });
+      if (/RETURNING/i.test(sql)) return { rows: [{ id: id++ }] };
+      return { rows: [] };
+    },
+  };
+  const mini = {
+    profiles: [],
+    access_requests: [],
+    stores: [{ id: 's1', name: 'Do\'kon', phone: '901110000' }],
+    products: [{ id: 'pr', owner_id: 'p', name: '9 kg' }],
+    orders: [{ id: 1, owner_id: 'p', store_id: 's1', total_amount: 100, paid_amount: 0, debt_amount: 100 }],
+    order_items: [{ id: 5, order_id: 1, product_name: '9 kg', quantity: 1, price: 100, subtotal: 100, commission: 20 }],
+    debt_payments: [],
+    commission_events: [],
+    commission_withdrawals: [],
+  };
+  await runImport({
+    apply: true,
+    mini: mini,
+    erp: { customers: [], products: [{ id: 3, sku: 'boshqa', weight_kg: 1 }] },
+    links: {},
+    erpClient: erpClient,
+    log: () => {},
+  });
+  const item = calls.find((c) => /INSERT INTO waybill_items/i.test(c.sql));
+  const bill = calls.find((c) => /INSERT INTO waybills/i.test(c.sql));
+  assert.ok(item);
+  assert.equal(item.params[1], null);
+  assert.equal(item.params[2], '9 kg');
+  assert.match(bill.sql, /stock_posted/);
+  assert.match(bill.sql, /false/);
+  const blob = calls.map((c) => c.sql).join('\n');
+  assert.doesNotMatch(blob, /UPDATE\s+products/i);
+  assert.doesNotMatch(blob, /stock_posted\s*=\s*true/i);
+});
+
 test('import script stays insert-only and documents dry-run', () => {
   const src = fs.readFileSync(path.join(root, 'scripts/import-mini-app.js'), 'utf8');
   assert.match(src, /--dry-run/);

@@ -76,10 +76,21 @@ function printPlan(plan, log) {
         '\t' + d.interpretation
     );
   });
+  out('--- ERP mahsulotlar (o\'qish: sku, weight_kg) ---');
+  const catalog = plan.erp_products || [];
+  if (!catalog.length) out('ERP mahsuloti ko\'rinmadi.');
+  catalog.forEach(function (p) {
+    out('#' + p.id + '\t' + (p.sku || '') + '\tweight_kg=' + (p.weight_kg == null ? '' : p.weight_kg));
+  });
+  out('Mos kelmagan qator product_id NULL va product_name bilan yoziladi. Yuk xati stock_posted=false. Ombor va ulush o\'zgarmaydi: ombor faqat stock_posted=true, ulush YX-LEG- va legacy_source ni olmaydi.');
   if (plan.product_unmatched.length) {
     out('--- ERP katalogiga tushmagan mini mahsulotlar ---');
     plan.product_unmatched.forEach(function (p) {
-      out(p.legacy_id + '\t' + p.name + '\tmos=' + (p.matches.length ? p.matches.join(',') : 'yo\'q'));
+      out(
+        p.legacy_id + '\t' + p.name +
+        '\tkg=' + (p.kg == null ? '' : p.kg) +
+        '\tmos=' + (p.matches.length ? p.matches.join(',') : 'yo\'q')
+      );
     });
   }
   out(
@@ -571,7 +582,9 @@ async function readErp(client) {
   const customers = await client.query(
     'SELECT id, name, phone, legacy_id, legacy_source, agent_id FROM customers'
   );
-  const products = await client.query('SELECT id, sku FROM products');
+  const products = await client.query(
+    'SELECT id, sku, weight_kg FROM products ORDER BY weight_kg, id'
+  );
   const waybills = await client.query(
     'SELECT id, legacy_id, legacy_source, waybill_code FROM waybills'
   );
