@@ -24,8 +24,8 @@ require('dotenv').config();
 const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
-const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { securityHeaders } = require('./lib/security-headers');
 const { Pool } = require('pg');
 const path = require('path');
 const { telegramAdminUser } = require('./lib/admin-auth');
@@ -62,26 +62,7 @@ if (IS_PROD) {
 const app = express();
 app.set('trust proxy', 1);
 
-function miniAppFrame(req) {
-  const p = req.path || '';
-  return p === '/yuk' || p === '/mijoz' || p === '/yuk.html' || p === '/mijoz.html';
-}
-
-app.use(function (req, res, next) {
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "https://telegram.org"],
-        imgSrc: ["'self'", "data:", "https:"],
-        frameAncestors: miniAppFrame(req)
-          ? ["https://web.telegram.org", "https://telegram.org", "https://*.telegram.org"]
-          : ["'none'"],
-      },
-    },
-    crossOriginEmbedderPolicy: false,
-  })(req, res, next);
-});
+app.use(securityHeaders);
 
 const corsOriginRaw = (process.env.CORS_ORIGIN || '').trim();
 const allowedOrigins = corsOriginRaw
@@ -157,11 +138,6 @@ app.get('/mijoz', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'mijoz.html'));
 });
 app.get('/yuk', (req, res) => {
-  res.removeHeader('X-Frame-Options');
-  res.set(
-    'Content-Security-Policy',
-    "frame-ancestors https://web.telegram.org https://webk.telegram.org https://webz.telegram.org"
-  );
   res.set('Cache-Control', 'no-store');
   res.sendFile(path.join(__dirname, 'public', 'yuk.html'));
 });
