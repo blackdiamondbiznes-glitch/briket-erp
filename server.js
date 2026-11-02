@@ -523,12 +523,8 @@ const server = app.listen(PORT, () => {
   console.log(
     'Server ' + PORT + ' portda (' + (IS_PROD ? 'production' : 'development') + ') v' + APP_VERSION
   );
-  pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_price NUMERIC(14,2) NOT NULL DEFAULT 0')
-    .then(function () { console.log('products.cost_price tayyor'); })
-    .catch(function (e) { console.warn('cost_price migrate:', e.message); });
-  pool.query('ALTER TABLE recipes ADD COLUMN IF NOT EXISTS line_amount NUMERIC(14,2)')
-    .then(function () { console.log('recipes.line_amount tayyor'); })
-    .catch(function (e) { console.warn('line_amount migrate:', e.message); });
+  // Migratsiya server ishga tushganda yozilmaydi.
+  // Qo'llash: node scripts/migrate.js (reja) yoki node scripts/migrate.js --apply (ruxsatdan keyin).
 });
 
 function shutdown(signal) {

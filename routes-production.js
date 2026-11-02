@@ -4,6 +4,7 @@ module.exports = function(app, pool, helpers) {
   const sendError = helpers.sendError;
   const tashkentDateStr = helpers.tashkentDateStr;
   const uniqueTmpCode = helpers.uniqueTmpCode;
+  const settings = require('./lib/settings');
 
 app.get('/api/batches', async (req, res) => {
   try {
@@ -62,8 +63,9 @@ app.post('/api/batches', async (req, res) => {
       if (mat.rows.length) matRow = mat.rows[0];
     }
 
+    const sackKg = await settings.sackKg(pool);
     const bagsCost = som(bags * price);
-    const estimated = bags * 27;
+    const estimated = bags * sackKg;
     const loss = estimated > 0 ? Number((((estimated - dry) / estimated) * 100).toFixed(1)) : 0;
     const remaining = Math.max(0, Math.round((dry - already) * 1000) / 1000);
     const status = remaining > 0.01 ? 'active' : 'closed';
@@ -188,7 +190,8 @@ app.post('/api/packaging', async (req, res) => {
     if (!prod.rows.length) return res.status(404).json({ ok: false, error: 'Mahsulot topilmadi' });
     const weight = num(prod.rows[0].weight_kg);
     if (weight <= 0) return res.status(400).json({ ok: false, error: 'Mahsulot ogirligi 0' });
-    const totalKg = dona * weight, wage = som(unit_wage || 700), workers = num(workers_count, 1), totalWage = som(dona * wage);
+    const packWage = await settings.packUnitWage(client);
+    const totalKg = dona * weight, wage = som(unit_wage != null && unit_wage !== '' ? unit_wage : packWage), workers = num(workers_count, 1), totalWage = som(dona * wage);
     const price = som(sell_price) > 0 ? som(sell_price) : som(prod.rows[0].price);
     await client.query('BEGIN');
     let batchId = batch_id ? num(batch_id) : null;

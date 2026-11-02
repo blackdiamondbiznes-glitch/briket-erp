@@ -1390,7 +1390,7 @@ test('parity: price edit, map coords, last sale, ulush, and daily report', async
   const page = fs.readFileSync(path.join(root, 'public/yuk.html'), 'utf8');
   assert.match(page, /Ulush/);
   assert.match(page, /Oxirgi sotuv/);
-  assert.match(page, /← Admin panel/);
+  assert.match(page, /← Briket ERP/);
   assert.match(page, /BackButton/);
   assert.match(page, /Xaritadan belgilash/);
   assert.match(page, /openstreetmap\.org/);

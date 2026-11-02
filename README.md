@@ -2,6 +2,14 @@
 
 Ishlab chiqarish, ombor, sotuv va mijoz qarzi. Express + PostgreSQL (Supabase). Admin: `/admin`. Mijoz ilovasi: `/mijoz`.
 
+## Deploy
+
+`npm start` va Render start buyrug'i **migratsiya ishlatmaydi**. Server ishga tushganda `ALTER` ham yozilmaydi.
+
+004–011 productionda allaqachon qo'llangan (011 — 23.10). Runner ularni `schema_migrations` jurnali yoki mavjud jadval/ustun orqali aniqlaydi va qayta qo'llamaydi. Rejada "allaqachon bor" yoki "jurnalda" deb chiqadi.
+
+`node scripts/migrate.js` faqat o'qiydi. `--apply` hozircha productionda ishlatilmaydi. Bazaga yozishdan oldin `pg_dump` va alohida ruxsat kerak.
+
 ## Ishga tushirish
 
 ```bash

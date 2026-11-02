@@ -498,7 +498,7 @@
     }
     var link = state.gate === "checking" ? "" :
       '<a class="btn-ghost" href="https://t.me/Khoshimov_Adkham" target="_blank" rel="noreferrer">Admin bilan bog\'lanish (Telegram)</a>';
-    return '<div class="lock"><p class="eyebrow">B2B Field Sales</p><h1>Briket Savdo</h1>' +
+    return adminBackLink() + '<div class="lock"><p class="eyebrow">B2B Field Sales</p><h1>Briket Savdo</h1>' +
       body + (state.gate !== "invalid" && state.accessError && !pending && !rejected ? '<div class="err">' + esc(state.accessError) + "</div>" : "") +
       link + "</div>";
   }
@@ -801,9 +801,7 @@
   }
 
   function adminBackLink() {
-    if (readInitData()) return "";
-    if (!readAdminSession()) return "";
-    return '<a class="btn-ghost admin-back" href="/admin">← Admin panel</a>';
+    return '<a class="btn-ghost admin-back" href="/admin">← Briket ERP</a>';
   }
   function innerScreen() {
     return !!(state.dateOpen || state.pay || state.edit || state.sheet);
@@ -1542,6 +1540,7 @@
     var root = document.getElementById("app");
     if (state.gate === "need-auth") {
       root.innerHTML =
+        adminBackLink() +
         '<div class="card"><p class="eyebrow">Yuk xati</p><h1>Kirish kerak</h1><p class="err">' + esc(state.error) + '</p>' +
         '<a class="btn" href="/admin">Admin panel</a></div>';
       return;

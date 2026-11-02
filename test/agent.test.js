@@ -205,9 +205,11 @@ test('nakladnoy escapes HTML and emits a PDF', () => {
     created_by_telegram_id: '1001',
   }));
   assert.match(named, /Yozgan: Aka Karimov/);
-  assert.match(nakladnoy.renderNakladnoyPdf(Object.assign({}, adminDoc, {
+  const pdfText = nakladnoy.renderNakladnoyPdf(Object.assign({}, adminDoc, {
     created_by_username: 'ota',
-  })).toString('latin1'), /Yozgan: @ota/);
+  })).toString('latin1');
+  assert.match(pdfText, /YUK XATI \\\(NAKLADNOY\\\)/);
+  assert.equal(pdfText.includes('Yozgan: @ota'), false);
   const pdf = nakladnoy.renderNakladnoyPdf(doc);
   assert.equal(pdf.slice(0, 5).toString(), '%PDF-');
   assert.equal(pdf.includes('YX-1\\)'), true);

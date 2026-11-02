@@ -1,5 +1,30 @@
 const stockCost = require('./lib/stock-cost');
 
+async function archiveAndDeactivate(pool, table, id) {
+  const client = await pool.connect();
+  try {
+    const found = await client.query('SELECT * FROM ' + table + ' WHERE id = $1', [id]);
+    if (!found.rows.length) return null;
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO archived_rows (batch_key, source_table, source_id, row_data)
+       VALUES ($1, $2, $3, $4::jsonb)`,
+      ['archive-' + table + '-' + id + '-' + Date.now(), table, String(id), JSON.stringify(found.rows[0])]
+    );
+    const updated = await client.query(
+      'UPDATE ' + table + ' SET is_active = false WHERE id = $1 RETURNING *',
+      [id]
+    );
+    await client.query('COMMIT');
+    return updated.rows[0];
+  } catch (error) {
+    try { await client.query('ROLLBACK'); } catch (e) {}
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = function(app, pool, helpers) {
   const num = helpers.num;
   const sendError = helpers.sendError;
@@ -55,10 +80,9 @@ app.put('/api/products/:id', async (req, res) => {
 });
 app.delete('/api/products/:id', async (req, res) => {
   try {
-    const hard = req.query.hard === '1' || req.query.hard === 'true';
-    const r = hard ? await pool.query('DELETE FROM products WHERE id = $1 RETURNING *', [req.params.id]) : await pool.query('UPDATE products SET is_active = false WHERE id = $1 RETURNING *', [req.params.id]);
-    if (!r.rows.length) return res.status(404).json({ ok: false, error: 'Mahsulot topilmadi' });
-    res.json({ ok: true, data: r.rows[0], deleted: hard ? 'hard' : 'soft' });
+    const row = await archiveAndDeactivate(pool, 'products', req.params.id);
+    if (!row) return res.status(404).json({ ok: false, error: 'Mahsulot topilmadi' });
+    res.json({ ok: true, data: row, deleted: 'archived' });
   } catch (err) { sendError(res, err); }
 });
 app.get('/api/products/:id/recipes', async (req, res) => {
@@ -158,10 +182,9 @@ app.put('/api/materials/:id', async (req, res) => {
 });
 app.delete('/api/materials/:id', async (req, res) => {
   try {
-    const hard = req.query.hard === '1' || req.query.hard === 'true';
-    const r = hard ? await pool.query('DELETE FROM materials WHERE id = $1 RETURNING *', [req.params.id]) : await pool.query('UPDATE materials SET is_active = false WHERE id = $1 RETURNING *', [req.params.id]);
-    if (!r.rows.length) return res.status(404).json({ ok: false, error: 'Material topilmadi' });
-    res.json({ ok: true, data: r.rows[0], deleted: hard ? 'hard' : 'soft' });
+    const row = await archiveAndDeactivate(pool, 'materials', req.params.id);
+    if (!row) return res.status(404).json({ ok: false, error: 'Material topilmadi' });
+    res.json({ ok: true, data: row, deleted: 'archived' });
   } catch (err) { sendError(res, err); }
 });
 };
