@@ -2,14 +2,14 @@
 /**
  * briket-mini-app -> Briket ERP import.
  *
- * Sukut bo'yicha DRY-RUN: hech narsa yozilmaydi.
- *   node scripts/import-mini-app.js
+ * Sukut va --dry-run: hech narsa yozilmaydi. Yangi yuk xati, to'lov, mijoz soni chiqadi.
+ *   node scripts/import-mini-app.js --dry-run
  *   node scripts/import-mini-app.js --apply
  *   node scripts/import-mini-app.js --apply --links links.json
  *
- * Env:
+ * Env (qiymatni kodga yozmang, so'ramang — egasi o'zi beradi):
  *   MINI_DATABASE_URL  mini-app Postgres (faqat o'qiladi)
- *   DATABASE_URL       ERP Postgres (--apply da yoziladi; dry-run da dublikat tekshiruvi)
+ *   DATABASE_URL       ERP Postgres (dry-run da solishtirish, --apply da bitta tranzaksiya)
  *
  * Dublikat mijozlar avtomatik birlashtirilmaydi.
  * --links fayl: { "stores": { "<legacy uuid>": <erp customer id> }, "products": { "<legacy uuid>": <erp product id> } }
@@ -21,6 +21,8 @@ const { Pool } = require('pg');
 const {
   LEGACY_SOURCE,
   buildImportPlan,
+  legacyWaybillCode,
+  paymentNote,
   reconcileOrders,
 } = require('../lib/import-match');
 
@@ -36,6 +38,13 @@ function poolFor(url) {
 
 function printPlan(plan, log) {
   const out = log || console.log;
+  const delta = plan.delta || { new_waybills: 0, new_payments: 0, new_customers: 0 };
+  out(
+    'Yangi qo\'shiladi: yuk xati ' + delta.new_waybills +
+    ', to\'lov ' + delta.new_payments +
+    ', mijoz ' + delta.new_customers
+  );
+  out('Mavjud yozuvlar o\'zgartirilmaydi va o\'chirilmaydi. Takror: legacy_source va YX-LEG-.');
   out('--- Dublikat nomzodlar (avtomatik birlashtirilmaydi) ---');
   if (!plan.duplicates.length) out("Dublikat topilmadi.");
   plan.duplicates.forEach(function (d) {
@@ -87,6 +96,29 @@ function printPlan(plan, log) {
   out('Qarz farqi (FARQ) bo\'lsa --apply to\'xtaydi. Saqlangan qarzni o\'zgartirmasdan yozish: --accept-debt-as-stored');
 }
 
+async function findWaybill(erp, legacyId) {
+  const r = await erp.query(
+    `SELECT id FROM waybills
+     WHERE (legacy_source = $1 AND legacy_id = $2) OR waybill_code = $3
+     LIMIT 1`,
+    [LEGACY_SOURCE, String(legacyId), legacyWaybillCode(legacyId)]
+  );
+  return r.rows[0] || null;
+}
+
+async function findImportedPayment(erp, legacyId) {
+  const debt = await findLegacy(erp, 'agent_debt_payments', legacyId);
+  if (debt) return debt;
+  const note = paymentNote(legacyId);
+  const r = await erp.query(
+    `SELECT id FROM payments
+     WHERE note = $1 AND (legacy_source IS NULL OR legacy_source = $2)
+     LIMIT 1`,
+    [note, LEGACY_SOURCE]
+  );
+  return r.rows[0] || null;
+}
+
 async function findLegacy(erp, table, legacyId) {
   const sql = {
     agents: 'SELECT id FROM agents WHERE legacy_source = $1 AND legacy_id = $2 LIMIT 1',
@@ -130,31 +162,10 @@ async function applyImport(erp, mini, plan) {
     const legacyId = String(profile.id);
     let row = await findLegacy(erp, 'agents', legacyId);
     if (!row && profile.telegram_id != null) {
-      const byTg = await erp.query('SELECT id, legacy_id FROM agents WHERE telegram_id = $1 LIMIT 1', [
+      const byTg = await erp.query('SELECT id FROM agents WHERE telegram_id = $1 LIMIT 1', [
         profile.telegram_id,
       ]);
       row = byTg.rows[0] || null;
-      if (row && !row.legacy_id) {
-        await erp.query(
-          `UPDATE agents SET
-             legacy_source = COALESCE(legacy_source, $1),
-             legacy_id = COALESCE(legacy_id, $2),
-             email = COALESCE(email, $3),
-             telegram_username = COALESCE(telegram_username, $4),
-             full_name = CASE WHEN full_name IS NULL OR full_name = '' THEN $5 ELSE full_name END,
-             commission_enabled_on = COALESCE(commission_enabled_on, $6)
-           WHERE id = $7 AND (legacy_id IS NULL OR legacy_id = $2)`,
-          [
-            LEGACY_SOURCE,
-            legacyId,
-            profile.email || null,
-            profile.telegram_username || null,
-            profile.full_name || '',
-            profile.commission_enabled_on || null,
-            row.id,
-          ]
-        );
-      }
     }
     if (!row) {
       const ins = await erp.query(
@@ -227,7 +238,7 @@ async function applyImport(erp, mini, plan) {
     const link = (plan.actions || []).find((a) => a.type === 'link_customer' && a.store_id === legacyId);
     if (link) {
       const cur = await erp.query(
-        'SELECT id, agent_id, legacy_id FROM customers WHERE id = $1',
+        'SELECT id, legacy_id FROM customers WHERE id = $1',
         [link.customer_id]
       );
       if (!cur.rows.length) {
@@ -239,16 +250,8 @@ async function applyImport(erp, mini, plan) {
         skip();
         continue;
       }
-      await erp.query(
-        `UPDATE customers SET
-           latitude = COALESCE(latitude, $2),
-           longitude = COALESCE(longitude, $3),
-           legacy_source = COALESCE(legacy_source, $4),
-           legacy_id = COALESCE(legacy_id, $5)
-         WHERE id = $1`,
-        [row.id, store.latitude, store.longitude, LEGACY_SOURCE, legacyId]
-      );
       customerId = row.id;
+      skip();
     } else {
       const existing = await findLegacy(erp, 'customers', legacyId);
       if (existing) {
@@ -318,46 +321,45 @@ async function applyImport(erp, mini, plan) {
       skip();
       continue;
     }
-    let waybillId = null;
-    const existing = await findLegacy(erp, 'waybills', legacyId);
+    const existing = await findWaybill(erp, legacyId);
     if (existing) {
-      waybillId = existing.id;
+      waybillIds[legacyId] = existing.id;
       skip();
-    } else {
-      const moneyRow = (plan.reconciled && plan.reconciled[legacyId]) || {
-        paid_amount: order.paid_amount || 0,
-        debt_amount: order.debt_amount || 0,
-      };
-      const ins = await erp.query(
-        `INSERT INTO waybills
-           (waybill_code, agent_id, customer_id, total_amount, paid_amount, debt_amount,
-            commission_amount, due_date, status, note, legacy_source, legacy_id, stock_posted, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,false,COALESCE($13, NOW()))
-         RETURNING id`,
-        [
-          'YX-LEG-' + legacyId,
-          null,
-          customerIds[storeId],
-          order.total_amount || 0,
-          moneyRow.paid_amount,
-          moneyRow.debt_amount,
-          0,
-          order.due_date || null,
-          Number(moneyRow.debt_amount) > 0 ? (Number(moneyRow.paid_amount) > 0 ? 'partial' : 'open') : 'paid',
-          null,
-          LEGACY_SOURCE,
-          legacyId,
-          order.created_at || null,
-        ]
-      );
-      waybillId = ins.rows[0].id;
-      inserted();
+      continue;
     }
-    waybillIds[legacyId] = waybillId;
     const items = (mini.order_items || []).filter((it) => String(it.order_id) === legacyId);
     let commissionSum = 0;
+    items.forEach(function (it) { commissionSum += Number(it.commission) || 0; });
+    const moneyRow = (plan.reconciled && plan.reconciled[legacyId]) || {
+      paid_amount: order.paid_amount || 0,
+      debt_amount: order.debt_amount || 0,
+    };
+    const ins = await erp.query(
+      `INSERT INTO waybills
+         (waybill_code, agent_id, customer_id, total_amount, paid_amount, debt_amount,
+          commission_amount, due_date, status, note, legacy_source, legacy_id, stock_posted, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,false,COALESCE($13, NOW()))
+       RETURNING id`,
+      [
+        legacyWaybillCode(legacyId),
+        null,
+        customerIds[storeId],
+        order.total_amount || 0,
+        moneyRow.paid_amount,
+        moneyRow.debt_amount,
+        commissionSum,
+        order.due_date || null,
+        Number(moneyRow.debt_amount) > 0 ? (Number(moneyRow.paid_amount) > 0 ? 'partial' : 'open') : 'paid',
+        null,
+        LEGACY_SOURCE,
+        legacyId,
+        order.created_at || null,
+      ]
+    );
+    const waybillId = ins.rows[0].id;
+    waybillIds[legacyId] = waybillId;
+    inserted();
     for (const it of items) {
-      commissionSum += Number(it.commission) || 0;
       const itemLegacy = String(it.id);
       if (await findLegacy(erp, 'waybill_items', itemLegacy)) {
         skip();
@@ -381,12 +383,6 @@ async function applyImport(erp, mini, plan) {
       );
       inserted();
     }
-    if (!existing && waybillId) {
-      await erp.query(
-        `UPDATE waybills SET commission_amount = $1 WHERE id = $2 AND legacy_source = $3 AND legacy_id = $4`,
-        [commissionSum, waybillId, LEGACY_SOURCE, legacyId]
-      );
-    }
   }
 
   for (const pay of mini.debt_payments || []) {
@@ -396,7 +392,7 @@ async function applyImport(erp, mini, plan) {
       skip();
       continue;
     }
-    const existing = await findLegacy(erp, 'agent_debt_payments', legacyId);
+    const existing = await findImportedPayment(erp, legacyId);
     if (existing) {
       paymentIds[legacyId] = existing.id;
       skip();
@@ -423,13 +419,14 @@ async function applyImport(erp, mini, plan) {
     paymentIds[legacyId] = ins.rows[0].id;
     inserted();
     await erp.query(
-      `INSERT INTO payments (order_id, customer_id, amount, method, note, paid_at)
-       VALUES (NULL,$1,$2,'cash',$3,COALESCE($4, NOW()))`,
+      `INSERT INTO payments (order_id, customer_id, amount, method, note, paid_at, legacy_source)
+       VALUES (NULL,$1,$2,'cash',$3,COALESCE($4, NOW()),$5)`,
       [
         customerIds[storeId],
         pay.amount || 0,
-        'Yuk tarqatish tarix ' + legacyId,
+        paymentNote(legacyId),
         pay.created_at || null,
+        LEGACY_SOURCE,
       ]
     );
     inserted();
@@ -571,9 +568,24 @@ async function readMini(client) {
 
 async function readErp(client) {
   await client.query('SET default_transaction_read_only = on');
-  const customers = await client.query('SELECT id, name, phone, legacy_id, agent_id FROM customers');
-  const products = await client.query('SELECT id, sku FROM products');
-  return { customers: customers.rows, products: products.rows };
+  const customers = await client.query(
+    'SELECT id, name, phone, legacy_id, legacy_source, agent_id FROM customers'
+  );
+  const products = await client.query('SELECT id, sku, name FROM products');
+  const waybills = await client.query(
+    'SELECT id, legacy_id, legacy_source, waybill_code FROM waybills'
+  );
+  const payments = await client.query('SELECT id, legacy_source, note FROM payments');
+  const debts = await client.query(
+    'SELECT id, legacy_id, legacy_source FROM agent_debt_payments'
+  );
+  return {
+    customers: customers.rows,
+    products: products.rows,
+    waybills: waybills.rows,
+    payments: payments.rows,
+    agent_debt_payments: debts.rows,
+  };
 }
 
 function loadLinks(argv) {
@@ -586,7 +598,13 @@ function loadLinks(argv) {
 }
 
 async function main() {
-  const apply = process.argv.indexOf('--apply') !== -1;
+  const wantsApply = process.argv.indexOf('--apply') !== -1;
+  const wantsDry = process.argv.indexOf('--dry-run') !== -1;
+  if (wantsApply && wantsDry) {
+    console.error('--dry-run va --apply birga emas. Yozish faqat --apply.');
+    process.exit(1);
+  }
+  const apply = wantsApply;
   const acceptDebtAsStored = process.argv.indexOf('--accept-debt-as-stored') !== -1;
   const miniUrl = (process.env.MINI_DATABASE_URL || '').trim();
   const erpUrl = (process.env.DATABASE_URL || '').trim();
@@ -594,47 +612,42 @@ async function main() {
     console.error('MINI_DATABASE_URL kerak');
     process.exit(1);
   }
-  if (apply && !erpUrl) {
-    console.error('--apply uchun DATABASE_URL kerak');
+  if (!erpUrl) {
+    console.error('DATABASE_URL kerak');
     process.exit(1);
   }
-  if (apply && miniUrl === erpUrl) {
+  if (miniUrl === erpUrl) {
     console.error('MINI_DATABASE_URL va DATABASE_URL bir xil bo\'lmasin');
     process.exit(1);
   }
   const links = loadLinks(process.argv);
   const miniPool = poolFor(miniUrl);
-  const erpPool = erpUrl ? poolFor(erpUrl) : null;
+  const erpPool = poolFor(erpUrl);
   try {
     const mini = await readMini(miniPool);
-    let erp = { customers: [], products: [] };
-    if (erpPool && !apply) {
-      erp = await readErp(erpPool);
-    } else if (erpPool && apply) {
-      const snap = await erpPool.connect();
-      try {
-        await snap.query('SET default_transaction_read_only = on');
-        const customers = await snap.query('SELECT id, name, phone, legacy_id, agent_id FROM customers');
-        const products = await snap.query('SELECT id, sku FROM products');
-        erp = { customers: customers.rows, products: products.rows };
-        await snap.query('SET default_transaction_read_only = off');
-        await runImport({
-          apply: true,
-          mini: mini,
-          erp: erp,
-          links: links,
-          erpClient: snap,
-          acceptDebtAsStored: acceptDebtAsStored,
-        });
-      } finally {
-        snap.release();
-      }
+    if (!apply) {
+      const erp = await readErp(erpPool);
+      await runImport({ apply: false, mini: mini, erp: erp, links: links });
       return;
     }
-    await runImport({ apply: false, mini: mini, erp: erp, links: links });
+    const snap = await erpPool.connect();
+    try {
+      const erp = await readErp(snap);
+      await snap.query('SET default_transaction_read_only = off');
+      await runImport({
+        apply: true,
+        mini: mini,
+        erp: erp,
+        links: links,
+        erpClient: snap,
+        acceptDebtAsStored: acceptDebtAsStored,
+      });
+    } finally {
+      snap.release();
+    }
   } finally {
     await miniPool.end();
-    if (erpPool) await erpPool.end();
+    await erpPool.end();
   }
 }
 

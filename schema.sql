@@ -763,6 +763,9 @@ ALTER TABLE payments ADD COLUMN IF NOT EXISTS created_by_first_name TEXT;
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS created_by_last_name TEXT;
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS created_by_username TEXT;
 
+-- 013: payments.legacy_source. Eski qatorlar NULL qoladi. Qo'llangan migratsiya qayta yozilmaydi.
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS legacy_source TEXT;
+
 -- 009: yuk kirish so'rovi. migrations/009_yuk_access.sql bilan bir xil.
 -- Faqat yangi jadvallar. Mavjud qatorlar o'zgarmaydi.
 CREATE TABLE IF NOT EXISTS yuk_access_requests (

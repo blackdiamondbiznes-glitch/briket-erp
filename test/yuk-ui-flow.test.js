@@ -1,0 +1,60 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
+
+const page = fs.readFileSync(path.join(__dirname, '../public/yuk.html'), 'utf8');
+
+test('/yuk follows the mini-app sale flow on the ERP API', () => {
+  const saleAt = page.indexOf('function saleView');
+  const detailAt = page.indexOf('function detailView');
+  const editAt = page.indexOf('function sheetHtml');
+  assert.ok(saleAt > 0 && detailAt > saleAt && editAt > detailAt);
+  const sale = page.slice(saleAt, detailAt);
+  assert.match(sale, /Do'konni tanlang/);
+  assert.match(page, /data-act="pick-store"/);
+  assert.match(sale, /data-act="open-stores"/);
+  assert.match(sale, /data-act="new-store"/);
+  assert.match(sale, /type="date"/);
+  assert.match(sale, /data-in="sale-date"/);
+  assert.match(sale, /min_date/);
+  assert.match(sale, /Kecha sotilgan/);
+  assert.match(sale, /O\\'tgan sanalar/);
+  assert.match(sale, /productCards\(\)/);
+  assert.match(page, /function productCards/);
+  assert.match(page, /Miqdor/);
+  assert.match(page, /Narx \(so\\'m\)/);
+  assert.match(sale, /Naqd/);
+  assert.match(sale, /Karta/);
+  assert.match(sale, /data-in="due"/);
+  assert.match(sale, /Saqlash va yuk xati/);
+  assert.match(sale, /Nakladnoy/);
+  assert.match(sale, /data-act="copy-card"/);
+  assert.match(sale, /data-act="copy-phone"/);
+  assert.match(page, /\/api\/agent\/yuk\/waybills/);
+  assert.doesNotMatch(page, /supabase/i);
+  assert.match(page, /← Briket ERP/);
+  assert.match(page, /function readInitData/);
+  assert.match(page, /BackButton/);
+  assert.match(page, /tokens\.css/);
+  assert.match(page, /theme\.js/);
+});
+
+test('/yuk edit keeps paid amount locked and copies card and phone', () => {
+  assert.match(page, /Tahrirlash/);
+  assert.match(page, /O\\'zgarishlarni saqlash/);
+  assert.match(page, /To\\'langan summa o\\'zgarmaydi/);
+  assert.match(page, /data-in="edit-sale-date"/);
+  assert.match(page, /data-in="edit-due"/);
+  assert.doesNotMatch(page, /data-in="edit-paid"/);
+  assert.doesNotMatch(page, /paid_amount:\s*ed\./);
+  assert.match(page, /Telefon nusxasi/);
+  assert.match(page, /Karta raqami nusxalandi/);
+  assert.match(page, /Telefon nusxalandi/);
+  const saveEdit = page.slice(page.indexOf('function saveEdit'), page.indexOf('function reversePay'));
+  assert.match(saveEdit, /method: "PUT"/);
+  assert.match(saveEdit, /sale_date: ed\.sale_date/);
+  assert.doesNotMatch(saveEdit, /paid_amount/);
+  assert.doesNotMatch(saveEdit, /naqd/);
+  assert.doesNotMatch(saveEdit, /karta/);
+});

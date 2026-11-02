@@ -78,11 +78,11 @@ curl -s "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook" \
 ```bash
 node scripts/cleanup-test-data.js
 node scripts/cleanup-test-data.js --apply --ids ids.json
-node scripts/import-mini-app.js
+node scripts/import-mini-app.js --dry-run
 node scripts/import-mini-app.js --apply --links links.json
 ```
 
-Dry-run hech narsa yozmaydi. Dublikatlar normallashtirilgan ism/telefon bo'yicha chiqadi va avtomatik birlashmaydi. Har bir do'kon qarzi uchun saqlangan `debt_amount`, `total-paid` va to'lovlar yig'indisi solishtiriladi; farq `FARQ` deb belgilanadi.
+`--dry-run` (bayroqsiz ham shu) yozmaydi va yangi yuk xati, to'lov, mijoz sonini chiqaradi. Mavjud `legacy_source` / `YX-LEG-` qatorlar o'zgarmaydi. `--apply` bitta tranzaksiyada faqat yangilarini qo'shadi va `payments.legacy_source` qo'yadi. Env: `MINI_DATABASE_URL`, `DATABASE_URL`. Dublikatlar normallashtirilgan ism/telefon bo'yicha chiqadi va avtomatik birlashmaydi. Har bir do'kon qarzi uchun saqlangan `debt_amount`, `total-paid` va to'lovlar yig'indisi solishtiriladi; farq `FARQ` deb belgilanadi.
 
 `links.json`:
 
