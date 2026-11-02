@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="theme.js"></script>
+  <script src="erp-back.js"></script>
   <script src="confirm-sheet.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
@@ -809,7 +810,7 @@
   }
 
   function adminBackLink() {
-    return '<a class="btn-ghost admin-back" href="/admin">← Briket ERP</a>';
+    return window.erpBackLink('/admin');
   }
   function innerScreen() {
     return !!(state.dateOpen || state.pay || state.edit || state.sheet);

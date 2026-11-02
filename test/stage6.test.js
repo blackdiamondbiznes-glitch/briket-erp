@@ -6,7 +6,22 @@ const path = require('path');
 describe('6. Admin UI va mavzu', () => {
   it('/yuk da Briket ERP tugmasi bor', () => {
     const html = fs.readFileSync(path.join(__dirname, '../public/yuk.html'), 'utf8');
-    assert.match(html, /← Briket ERP/);
+    assert.match(html, /erp-back\.js/);
+    assert.match(html, /erpBackLink\(/);
+    assert.doesNotMatch(html, /← Briket ERP/);
+    const back = fs.readFileSync(path.join(__dirname, '../public/erp-back.js'), 'utf8');
+    assert.match(back, /Briket ERP/);
+    assert.match(back, /width="16"/);
+    assert.match(back, /height="16"/);
+    assert.match(back, /fill="none"/);
+    assert.match(back, /stroke="currentColor"/);
+    assert.match(back, /stroke-width="2"/);
+    assert.match(back, /stroke-linecap="round"/);
+    assert.match(back, /stroke-linejoin="round"/);
+    assert.match(back, /m15 18-6-6 6-6/);
+    assert.match(back, /gap:6px/);
+    assert.match(back, /align-items:center/);
+    assert.doesNotMatch(back, /←/);
     assert.match(html, /href="\/admin"/);
     assert.match(html, /tokens\.css/);
     assert.match(html, /theme\.js/);

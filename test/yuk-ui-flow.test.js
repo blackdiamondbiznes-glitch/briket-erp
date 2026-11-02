@@ -33,7 +33,9 @@ test('/yuk follows the mini-app sale flow on the ERP API', () => {
   assert.match(sale, /data-act="copy-phone"/);
   assert.match(page, /\/api\/agent\/yuk\/waybills/);
   assert.doesNotMatch(page, /supabase/i);
-  assert.match(page, /← Briket ERP/);
+  assert.match(page, /erpBackLink\(/);
+  assert.match(page, /erp-back\.js/);
+  assert.doesNotMatch(page, /← Briket ERP/);
   assert.match(page, /function readInitData/);
   assert.match(page, /BackButton/);
   assert.match(page, /tokens\.css/);
