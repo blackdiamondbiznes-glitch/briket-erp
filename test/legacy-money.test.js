@@ -48,14 +48,14 @@ test('legacy money keeps applied payments and allocates the rest FIFO', () => {
   assert.equal(both.allocations[0].amount, 916000);
 });
 
-test('a fully allocated waybill does not take a new payment', () => {
+test('one legacy payment is one allocation row sized by corrected paid', () => {
   const mini = {
     stores: [{ id: 'sham', name: 'Shamaton' }, { id: 'ali', name: 'Alipolvon' }, { id: 'mari', name: 'Marinovka' }],
     orders: [
       { id: 1, store_id: 'sham', total_amount: 774000, paid_amount: 774000, debt_amount: 0, created_at: '2026-09-01' },
       { id: 2, store_id: 'sham', total_amount: 1412000, paid_amount: 1412000, debt_amount: 0, created_at: '2026-10-01' },
-      { id: 18, store_id: 'sham', total_amount: 2290000, paid_amount: 1500000, debt_amount: 790000, created_at: '2026-10-02' },
-      { id: 8, store_id: 'ali', total_amount: 328000, paid_amount: 0, debt_amount: 328000, created_at: '2026-10-01' },
+      { id: 18, store_id: 'sham', total_amount: 2290000, paid_amount: 88000, debt_amount: 790000, created_at: '2026-10-02' },
+      { id: 8, store_id: 'ali', total_amount: 328000, paid_amount: 138000, debt_amount: 190000, created_at: '2026-10-01' },
       { id: 17, store_id: 'mari', total_amount: 1200000, paid_amount: 0, debt_amount: 1200000, created_at: '2026-10-01' },
     ],
     debt_payments: [
@@ -69,12 +69,13 @@ test('a fully allocated waybill does not take a new payment', () => {
       { id: 12, waybill_code: 'YX-LEG-1', legacy_id: '1', legacy_source: 'briket-mini-app', total_amount: 774000, paid_amount: 774000, debt_amount: 0, status: 'paid' },
       { id: 7, waybill_code: 'YX-LEG-2', legacy_id: '2', legacy_source: 'briket-mini-app', total_amount: 1412000, paid_amount: 1412000, debt_amount: 0, status: 'paid' },
       { id: 18, waybill_code: 'YX-LEG-18', legacy_id: '18', legacy_source: 'briket-mini-app', total_amount: 2290000, paid_amount: 2290000, debt_amount: 0, status: 'paid' },
-      { id: 8, waybill_code: 'YX-LEG-8', legacy_id: '8', legacy_source: 'briket-mini-app', total_amount: 328000, paid_amount: 0, debt_amount: 328000, status: 'open' },
+      { id: 8, waybill_code: 'YX-LEG-8', legacy_id: '8', legacy_source: 'briket-mini-app', total_amount: 328000, paid_amount: 138000, debt_amount: 190000, status: 'partial' },
       { id: 17, waybill_code: 'YX-LEG-17', legacy_id: '17', legacy_source: 'briket-mini-app', total_amount: 1200000, paid_amount: 0, debt_amount: 1200000, status: 'open' },
     ],
     payments: [
       { id: 3, amount: 774000, note: 'naqd', legacy_source: null },
       { id: 4, amount: 1412000, note: 'naqd', legacy_source: null },
+      { id: 9, amount: 130000, note: 'naqd', legacy_source: null },
       { id: 24, amount: 1500000, note: 'Yuk tarqatish tarix 24', legacy_source: 'briket-mini-app' },
       { id: 23, amount: 138000, note: 'Yuk tarqatish tarix 23', legacy_source: 'briket-mini-app' },
       { id: 25, amount: 916000, note: 'Yuk tarqatish tarix 25', legacy_source: 'briket-mini-app' },
@@ -82,31 +83,73 @@ test('a fully allocated waybill does not take a new payment', () => {
     allocations: [
       { payment_id: 3, waybill_id: 12, amount: 774000 },
       { payment_id: 4, waybill_id: 7, amount: 1412000 },
+      { payment_id: 9, waybill_id: 8, amount: 130000 },
     ],
   };
   const plan = buildFixPlan(mini, erp);
-  assert.equal(plan.allocations.some(function (row) { return row.code === 'YX-LEG-1' || row.code === 'YX-LEG-2'; }), false);
-  function alloc(code, paymentId) {
-    return plan.allocations.find(function (row) { return row.code === code && row.payment_id === paymentId; });
+  function rowsFor(code, paymentId) {
+    return plan.allocations.filter(function (row) { return row.code === code && row.payment_id === paymentId; });
   }
-  assert.equal(alloc('YX-LEG-18', 24).amount, 1500000);
-  assert.equal(alloc('YX-LEG-8', 23).amount, 138000);
-  assert.equal(alloc('YX-LEG-17', 25).amount, 916000);
+  assert.deepEqual(rowsFor('YX-LEG-1', 24), []);
+  assert.deepEqual(rowsFor('YX-LEG-2', 24), []);
+  assert.equal(rowsFor('YX-LEG-18', 24).length, 1);
+  assert.equal(rowsFor('YX-LEG-18', 24)[0].amount, 1500000);
+  assert.equal(rowsFor('YX-LEG-8', 23).length, 1);
+  assert.equal(rowsFor('YX-LEG-8', 23)[0].amount, 138000);
+  assert.equal(rowsFor('YX-LEG-17', 25).length, 1);
+  assert.equal(rowsFor('YX-LEG-17', 25)[0].amount, 916000);
+  const byCode = {};
+  plan.rows.forEach(function (row) { byCode[row.code] = row; });
+  assert.equal(byCode['YX-LEG-18'].after.paid, 1500000);
+  assert.equal(byCode['YX-LEG-18'].after.debt, 790000);
+  assert.equal(byCode['YX-LEG-8'].after.paid, 268000);
+  assert.equal(byCode['YX-LEG-8'].after.paid - 130000, 138000);
+  assert.equal(byCode['YX-LEG-17'].after.paid, 916000);
+  assert.equal(byCode['YX-LEG-17'].after.debt, 284000);
+  assert.equal(byCode['YX-LEG-1'].dirty, false);
+  assert.equal(byCode['YX-LEG-2'].dirty, false);
   assert.equal(plan.checks.bad, 0);
+  assert.equal(plan.paymentChecks.bad, 0);
   function shown(code) {
     return plan.checks.lines.find(function (row) { return row.code === code; });
   }
   assert.equal(shown('YX-LEG-1').sum, 774000);
   assert.equal(shown('YX-LEG-2').sum, 1412000);
   assert.equal(shown('YX-LEG-18').sum, 1500000);
+  assert.equal(shown('YX-LEG-8').sum, 268000);
+  assert.equal(shown('YX-LEG-17').sum, 916000);
   plan.checks.lines.forEach(function (row) {
     assert.ok(row.sum <= row.total, row.code);
   });
-  const again = match.planStoreMoney(mini.orders.filter(function (row) { return row.store_id === 'sham'; }), mini.debt_payments.filter(function (row) { return row.id === 24; }), {
-    allocatedByOrder: { '2': 1412000 },
-    allocatedByPayment: { '24': 1500000 },
+  plan.paymentChecks.lines.forEach(function (row) {
+    assert.equal(row.sum, row.amount, 'payment #' + row.id);
   });
-  assert.equal(again.allocations.length, 0);
+  const lines = [];
+  const { printFix } = require('../scripts/fix-mini-import');
+  printFix(plan, function (line) { lines.push(line); });
+  assert.equal(lines.filter(function (line) { return line.indexOf('ALLOC') === 0 && line.indexOf('YX-LEG-18') !== -1; }).length, 1);
+  assert.ok(lines.some(function (line) { return line.indexOf('payment #24') !== -1 && line.indexOf('1500000 = amount 1500000') !== -1; }));
+});
+
+test('a short legacy payment allocation is XATO', () => {
+  const plan = buildFixPlan({
+    stores: [{ id: 's', name: 'S' }],
+    orders: [{ id: 1, store_id: 's', total_amount: 100000, paid_amount: 0, debt_amount: 100000, created_at: '2026-10-01' }],
+    debt_payments: [{ id: 9, store_id: 's', amount: 250000, created_at: '2026-10-02' }],
+  }, {
+    waybills: [{ id: 1, waybill_code: 'YX-LEG-1', legacy_id: '1', legacy_source: 'briket-mini-app', total_amount: 100000, paid_amount: 0, debt_amount: 100000, status: 'open' }],
+    payments: [{ id: 9, amount: 250000, note: 'Yuk tarqatish tarix 9', legacy_source: 'briket-mini-app' }],
+    allocations: [],
+  });
+  assert.equal(plan.allocations.length, 1);
+  assert.equal(plan.allocations[0].amount, 100000);
+  assert.equal(plan.paymentChecks.bad, 1);
+  assert.equal(plan.paymentChecks.lines[0].short, true);
+  assert.equal(plan.paymentChecks.lines[0].sum, 100000);
+  const lines = [];
+  const { printFix } = require('../scripts/fix-mini-import');
+  printFix(plan, function (line) { lines.push(line); });
+  assert.ok(lines.some(function (line) { return line.indexOf('XATO') === 0 && line.indexOf('payment #9') !== -1; }));
 });
 
 test('fix plan corrects legacy balances and is idempotent', async () => {
@@ -151,6 +194,7 @@ test('fix plan corrects legacy balances and is idempotent', async () => {
   assert.equal(plan.rows.some(function (row) { return row.code === 'YX-9'; }), false);
   assert.equal(plan.allocations.some(function (row) { return row.payment_id === 25 && row.waybill_id === 103 && row.amount === 916000; }), true);
   assert.equal(plan.allocations.some(function (row) { return row.payment_id === 24 && row.amount === 1500000; }), true);
+  assert.equal(plan.paymentChecks.bad, 0);
 
   const calls = [];
   const client = {
@@ -195,6 +239,7 @@ test('fix script does not delete and defaults to dry-run', () => {
   const src = fs.readFileSync(path.join(__dirname, '../scripts/fix-mini-import.js'), 'utf8');
   assert.match(src, /--dry-run/);
   assert.match(src, /waybill_id IN \(SELECT id FROM waybills WHERE legacy_source = \$1\)/);
+  assert.match(src, /sum\(allocations\) = amount/);
   assert.doesNotMatch(src, /JOIN payments p ON p\.id = a\.payment_id/);
   assert.doesNotMatch(src, /\bDELETE\s+FROM\b/i);
   assert.doesNotMatch(src, /\bDROP\b/i);

@@ -73,15 +73,14 @@ function buildFixPlan(mini, erp) {
   });
   const names = {};
   (mini.stores || []).forEach(function (store) { names[String(store.id)] = store.name || ''; });
-  const money = planLegacyMoney(mini.orders || [], mini.debt_payments || []);
-  const planned = planLegacyMoney(mini.orders || [], mini.debt_payments || [], {
+  const placed = planLegacyMoney(mini.orders || [], mini.debt_payments || [], {
     allocatedByOrder: allocatedByOrder,
     allocatedByPayment: allocatedByPayment,
   });
   const rows = [];
   const allocations = [];
-  Object.keys(money.byOrder).forEach(function (legacyId) {
-    const target = money.byOrder[legacyId];
+  Object.keys(placed.byOrder).forEach(function (legacyId) {
+    const target = placed.byOrder[legacyId];
     const current = byOrder[legacyId];
     if (!current) return;
     const order = (mini.orders || []).find(function (row) { return String(row.id) === legacyId; });
@@ -104,7 +103,7 @@ function buildFixPlan(mini, erp) {
       dirty: before.paid !== after.paid || before.debt !== after.debt || before.status !== after.status,
     });
   });
-  planned.allocations.forEach(function (alloc) {
+  placed.allocations.forEach(function (alloc) {
     const current = byOrder[alloc.order_legacy_id];
     const pay = payByLegacy[alloc.payment_legacy_id];
     if (!current || !pay || !(alloc.amount > 0)) return;
@@ -119,7 +118,36 @@ function buildFixPlan(mini, erp) {
     });
   });
   const checks = allocationChecks(waybills, erp.allocations || [], allocations);
-  return { rows: rows, allocations: allocations, checks: checks };
+  const paymentChecks = paymentAllocationChecks(erp.payments || [], erp.allocations || [], allocations);
+  return { rows: rows, allocations: allocations, checks: checks, paymentChecks: paymentChecks };
+}
+
+function paymentAllocationChecks(payments, existing, added) {
+  const sum = {};
+  function add(paymentId, amount) {
+    const id = String(paymentId);
+    sum[id] = (sum[id] || 0) + whole(amount);
+  }
+  (existing || []).forEach(function (row) { add(row.payment_id, row.amount); });
+  (added || []).forEach(function (row) { add(row.payment_id, row.amount); });
+  const lines = [];
+  let bad = 0;
+  (payments || []).forEach(function (pay) {
+    if (!pay || pay.legacy_source !== LEGACY_SOURCE) return;
+    const got = sum[String(pay.id)] || 0;
+    const amount = whole(pay.amount);
+    const ok = got === amount;
+    if (!ok) bad += 1;
+    lines.push({
+      id: pay.id,
+      sum: got,
+      amount: amount,
+      ok: ok,
+      short: got < amount,
+    });
+  });
+  lines.sort(function (a, b) { return Number(a.id) - Number(b.id); });
+  return { lines: lines, bad: bad };
 }
 
 function allocationChecks(waybills, existing, added) {
@@ -179,6 +207,17 @@ function printFix(plan, log) {
     );
   });
   if (checks.bad) out('XATO: ' + checks.bad + ' yuk xatida allocation jami totaldan oshadi');
+  out('--- sum(allocations) = amount (legacy to\'lov) ---');
+  const payChecks = plan.paymentChecks || { lines: [], bad: 0 };
+  if (!payChecks.lines.length) out('Legacy to\'lov yo\'q.');
+  payChecks.lines.forEach(function (row) {
+    const mark = row.sum < row.amount ? ' < ' : (row.sum > row.amount ? ' > ' : ' = ');
+    out(
+      (row.ok ? 'ok' : 'XATO') + '\tpayment #' + row.id +
+      '\talloc ' + row.sum + mark + 'amount ' + row.amount
+    );
+  });
+  if (payChecks.bad) out('XATO: ' + payChecks.bad + ' legacy to\'lovda allocation jami amountga teng emas');
 }
 
 async function readErpLegacy(client) {
@@ -300,4 +339,5 @@ module.exports = {
   printFix: printFix,
   applyFix: applyFix,
   allocationChecks: allocationChecks,
+  paymentAllocationChecks: paymentAllocationChecks,
 };
