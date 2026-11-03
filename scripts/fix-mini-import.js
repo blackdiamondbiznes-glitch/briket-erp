@@ -2,7 +2,9 @@
 /**
  * Import qilingan legacy yuk xati va to'lov taqsimini mini-app bilan solishtiradi.
  * Faqat legacy_source = briket-mini-app.
- * O'chirmaydi. Sukut va --dry-run yozmaydi. --apply bitta tranzaksiyada yozadi.
+ * O'chirmaydi. Sukut va --dry-run yozmaydi.
+ * paid/debt mini order dan. Allocation faqat bo'sh legacy to'lovga, bitta qator.
+ * --apply faqat kutilgan natija mos bo'lsa yozadi.
  *
  *   node scripts/fix-mini-import.js --dry-run
  *   node scripts/fix-mini-import.js --apply
@@ -13,7 +15,7 @@
  */
 const { Pool } = require('pg');
 const { readMini } = require('./import-mini-app');
-const { LEGACY_SOURCE, planLegacyMoney } = require('../lib/import-match');
+const { LEGACY_SOURCE } = require('../lib/import-match');
 
 function poolFor(url) {
   const local = /localhost|127\.0\.0\.1/.test(url);
@@ -37,6 +39,52 @@ function paymentLegacyId(row) {
   return '';
 }
 
+function moneyStatus(paid, debt) {
+  if (debt <= 0) return 'paid';
+  if (paid > 0) return 'partial';
+  return 'open';
+}
+
+function targetFromMini(order) {
+  let total = whole(order.total_amount);
+  const paidRaw = whole(order.paid_amount);
+  const debtRaw = whole(order.debt_amount);
+  if (!total) total = paidRaw + debtRaw;
+  const paid = Math.min(total, Math.max(0, paidRaw));
+  const debt = Math.max(0, total - paid);
+  return { paid: paid, debt: debt, status: moneyStatus(paid, debt) };
+}
+
+function linkedOrderId(pay, events) {
+  if (pay && pay.order_id != null && String(pay.order_id) !== '') return String(pay.order_id);
+  const ids = {};
+  (events || []).forEach(function (ev) {
+    if (!pay || String(ev.debt_payment_id) !== String(pay.id)) return;
+    if (ev.order_id == null || String(ev.order_id) === '') return;
+    ids[String(ev.order_id)] = true;
+  });
+  const keys = Object.keys(ids);
+  if (keys.length === 1) return keys[0];
+  return '';
+}
+
+function latestOrderBefore(orders, storeId, at) {
+  const when = String(at || '');
+  let best = null;
+  (orders || []).forEach(function (order) {
+    if (String(order.store_id) !== String(storeId)) return;
+    const created = String(order.created_at || '');
+    if (when && created > when) return;
+    if (!best) {
+      best = order;
+      return;
+    }
+    const bestAt = String(best.created_at || '');
+    if (created > bestAt || (created === bestAt && String(order.id) > String(best.id))) best = order;
+  });
+  return best;
+}
+
 function buildFixPlan(mini, erp) {
   const waybills = (erp.waybills || []).filter(function (row) {
     return row.legacy_source === LEGACY_SOURCE;
@@ -53,73 +101,89 @@ function buildFixPlan(mini, erp) {
     if (!legacyId || payByLegacy[legacyId]) return;
     payByLegacy[legacyId] = row;
   });
-  const haveAlloc = {};
-  const allocByWaybill = {};
   const allocByPayment = {};
   (erp.allocations || []).forEach(function (row) {
-    const amount = whole(row.amount);
-    haveAlloc[String(row.payment_id) + '|' + String(row.waybill_id) + '|' + amount] = true;
-    allocByWaybill[String(row.waybill_id)] = (allocByWaybill[String(row.waybill_id)] || 0) + amount;
-    allocByPayment[String(row.payment_id)] = (allocByPayment[String(row.payment_id)] || 0) + amount;
-  });
-  const allocatedByOrder = {};
-  waybills.forEach(function (row) {
-    if (row.legacy_id == null || String(row.legacy_id) === '') return;
-    allocatedByOrder[String(row.legacy_id)] = allocByWaybill[String(row.id)] || 0;
-  });
-  const allocatedByPayment = {};
-  Object.keys(payByLegacy).forEach(function (legacyId) {
-    allocatedByPayment[legacyId] = allocByPayment[String(payByLegacy[legacyId].id)] || 0;
+    const id = String(row.payment_id);
+    allocByPayment[id] = (allocByPayment[id] || 0) + whole(row.amount);
   });
   const names = {};
   (mini.stores || []).forEach(function (store) { names[String(store.id)] = store.name || ''; });
-  const placed = planLegacyMoney(mini.orders || [], mini.debt_payments || [], {
-    allocatedByOrder: allocatedByOrder,
-    allocatedByPayment: allocatedByPayment,
-  });
+  const miniOrders = mini.orders || [];
+  const miniById = {};
+  miniOrders.forEach(function (order) { miniById[String(order.id)] = order; });
+  const miniPayById = {};
+  (mini.debt_payments || []).forEach(function (pay) { miniPayById[String(pay.id)] = pay; });
   const rows = [];
   const allocations = [];
-  Object.keys(placed.byOrder).forEach(function (legacyId) {
-    const target = placed.byOrder[legacyId];
+  Object.keys(byOrder).forEach(function (legacyId) {
+    const order = miniById[legacyId];
     const current = byOrder[legacyId];
-    if (!current) return;
-    const order = (mini.orders || []).find(function (row) { return String(row.id) === legacyId; });
+    if (!order || !current) return;
+    const target = targetFromMini(order);
     const before = {
       paid: whole(current.paid_amount),
       debt: whole(current.debt_amount),
       status: current.status || '',
     };
-    const after = {
-      paid: target.paid_amount,
-      debt: target.debt_amount,
-      status: target.status,
-    };
     rows.push({
       id: current.id,
       code: current.waybill_code,
-      name: order ? (names[String(order.store_id)] || '') : '',
+      name: names[String(order.store_id)] || '',
       before: before,
-      after: after,
-      dirty: before.paid !== after.paid || before.debt !== after.debt || before.status !== after.status,
+      after: { paid: target.paid, debt: target.debt, status: target.status },
+      dirty: before.paid !== target.paid || before.debt !== target.debt || before.status !== target.status,
     });
   });
-  placed.allocations.forEach(function (alloc) {
-    const current = byOrder[alloc.order_legacy_id];
-    const pay = payByLegacy[alloc.payment_legacy_id];
-    if (!current || !pay || !(alloc.amount > 0)) return;
-    const key = String(pay.id) + '|' + String(current.id) + '|' + alloc.amount;
-    if (haveAlloc[key]) return;
+  Object.keys(payByLegacy).forEach(function (legacyId) {
+    const pay = payByLegacy[legacyId];
+    if ((allocByPayment[String(pay.id)] || 0) > 0) return;
+    const miniPay = miniPayById[legacyId];
+    if (!miniPay) return;
+    const linked = linkedOrderId(miniPay, mini.commission_events);
+    const order = linked
+      ? miniById[linked]
+      : latestOrderBefore(miniOrders, miniPay.store_id, miniPay.created_at);
+    if (!order) return;
+    const current = byOrder[String(order.id)];
+    const amount = whole(pay.amount);
+    if (!current || !(amount > 0)) return;
     allocations.push({
       payment_id: pay.id,
       waybill_id: current.id,
-      amount: alloc.amount,
+      amount: amount,
       code: current.waybill_code,
-      payment_legacy_id: alloc.payment_legacy_id,
+      payment_legacy_id: legacyId,
     });
   });
   const checks = allocationChecks(waybills, erp.allocations || [], allocations);
   const paymentChecks = paymentAllocationChecks(erp.payments || [], erp.allocations || [], allocations);
   return { rows: rows, allocations: allocations, checks: checks, paymentChecks: paymentChecks };
+}
+
+function matchesExpectedFix(plan) {
+  if (!plan) return false;
+  const byCode = {};
+  (plan.rows || []).forEach(function (row) { byCode[row.code] = row; });
+  function same(code, paid, debt, status) {
+    const row = byCode[code];
+    return !!(row && row.dirty && row.after.paid === paid && row.after.debt === debt && row.after.status === status);
+  }
+  if (!same('YX-LEG-8', 268000, 190000, 'partial')) return false;
+  if (!same('YX-LEG-18', 1500000, 790000, 'partial')) return false;
+  if (!same('YX-LEG-19', 0, 916000, 'open')) return false;
+  const extra = (plan.rows || []).some(function (row) {
+    return row.dirty && row.code !== 'YX-LEG-8' && row.code !== 'YX-LEG-18' && row.code !== 'YX-LEG-19';
+  });
+  if (extra) return false;
+  const allocs = (plan.allocations || []).map(function (row) {
+    return row.code + '#' + Number(row.payment_id) + '=' + Number(row.amount);
+  }).sort();
+  const want = ['YX-LEG-17#25=916000', 'YX-LEG-18#24=1500000', 'YX-LEG-8#23=138000'].sort();
+  if (allocs.length !== want.length) return false;
+  for (let i = 0; i < want.length; i++) {
+    if (allocs[i] !== want[i]) return false;
+  }
+  return true;
 }
 
 function paymentAllocationChecks(payments, existing, added) {
@@ -308,15 +372,21 @@ async function main() {
       const plan = buildFixPlan(mini, erp);
       console.log('DRY-RUN — hech narsa yozilmaydi');
       printFix(plan);
+      console.log(matchesExpectedFix(plan) ? 'Reja kutilgan natijaga mos.' : 'MOS EMAS — --apply yozmaydi.');
       return;
     }
     const snap = await erpPool.connect();
     try {
       const erp = await readErpLegacy(snap);
-      await snap.query('SET default_transaction_read_only = off');
       const plan = buildFixPlan(mini, erp);
       console.log('APPLY — faqat legacy_source=' + LEGACY_SOURCE);
       printFix(plan);
+      if (!matchesExpectedFix(plan)) {
+        console.error('XATO: reja kutilgan natijaga mos emas. --apply yozilmadi.');
+        process.exitCode = 1;
+        return;
+      }
+      await snap.query('SET default_transaction_read_only = off');
       await applyFix(snap, plan);
     } finally {
       snap.release();
@@ -338,6 +408,7 @@ module.exports = {
   buildFixPlan: buildFixPlan,
   printFix: printFix,
   applyFix: applyFix,
+  matchesExpectedFix: matchesExpectedFix,
   allocationChecks: allocationChecks,
   paymentAllocationChecks: paymentAllocationChecks,
 };
