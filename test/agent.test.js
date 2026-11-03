@@ -245,8 +245,8 @@ test('import plan flags duplicate phones and debt mismatches', () => {
     [{ total_amount: 1000, paid_amount: 400, debt_amount: 600 }],
     [{ amount: 100 }]
   );
-  assert.equal(separate.interpretation, 'debt_is_unpaid_at_sale_payments_separate');
-  assert.equal(separate.applied_to_waybills, false);
+  assert.equal(separate.interpretation, 'paid_includes_applied_payments');
+  assert.equal(separate.applied_to_waybills, true);
 
   const netted = match.interpretStoreDebt(
     [{ total_amount: 1000, paid_amount: 400, debt_amount: 500 }],

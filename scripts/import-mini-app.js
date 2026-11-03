@@ -23,7 +23,6 @@ const {
   buildImportPlan,
   legacyWaybillCode,
   paymentNote,
-  reconcileOrders,
 } = require('../lib/import-match');
 
 function poolFor(url) {
@@ -160,6 +159,7 @@ async function applyImport(erp, mini, plan) {
   const customerIds = {};
   const waybillIds = {};
   const paymentIds = {};
+  const erpPaymentIds = {};
   const productIds = {};
 
   function skip() {
@@ -341,9 +341,10 @@ async function applyImport(erp, mini, plan) {
     const items = (mini.order_items || []).filter((it) => String(it.order_id) === legacyId);
     let commissionSum = 0;
     items.forEach(function (it) { commissionSum += Number(it.commission) || 0; });
-    const moneyRow = (plan.reconciled && plan.reconciled[legacyId]) || {
+    const moneyRow = (plan.legacy_money && plan.legacy_money.byOrder[legacyId]) || {
       paid_amount: order.paid_amount || 0,
       debt_amount: order.debt_amount || 0,
+      status: Number(order.debt_amount) > 0 ? (Number(order.paid_amount) > 0 ? 'partial' : 'open') : 'paid',
     };
     const ins = await erp.query(
       `INSERT INTO waybills
@@ -360,7 +361,7 @@ async function applyImport(erp, mini, plan) {
         moneyRow.debt_amount,
         commissionSum,
         order.due_date || null,
-        Number(moneyRow.debt_amount) > 0 ? (Number(moneyRow.paid_amount) > 0 ? 'partial' : 'open') : 'paid',
+        moneyRow.status || (Number(moneyRow.debt_amount) > 0 ? (Number(moneyRow.paid_amount) > 0 ? 'partial' : 'open') : 'paid'),
         null,
         LEGACY_SOURCE,
         legacyId,
@@ -406,6 +407,13 @@ async function applyImport(erp, mini, plan) {
     const existing = await findImportedPayment(erp, legacyId);
     if (existing) {
       paymentIds[legacyId] = existing.id;
+      const linked = await erp.query(
+        `SELECT id FROM payments
+         WHERE note = $1 AND (legacy_source IS NULL OR legacy_source = $2)
+         LIMIT 1`,
+        [paymentNote(legacyId), LEGACY_SOURCE]
+      );
+      if (linked.rows[0]) erpPaymentIds[legacyId] = linked.rows[0].id;
       skip();
       continue;
     }
@@ -429,9 +437,10 @@ async function applyImport(erp, mini, plan) {
     );
     paymentIds[legacyId] = ins.rows[0].id;
     inserted();
-    await erp.query(
+    const payIns = await erp.query(
       `INSERT INTO payments (order_id, customer_id, amount, method, note, paid_at, legacy_source)
-       VALUES (NULL,$1,$2,'cash',$3,COALESCE($4, NOW()),$5)`,
+       VALUES (NULL,$1,$2,'cash',$3,COALESCE($4, NOW()),$5)
+       RETURNING id`,
       [
         customerIds[storeId],
         pay.amount || 0,
@@ -439,6 +448,32 @@ async function applyImport(erp, mini, plan) {
         pay.created_at || null,
         LEGACY_SOURCE,
       ]
+    );
+    erpPaymentIds[legacyId] = payIns.rows[0].id;
+    inserted();
+  }
+
+  for (const alloc of (plan.legacy_money && plan.legacy_money.allocations) || []) {
+    const paymentId = erpPaymentIds[alloc.payment_legacy_id];
+    const waybillId = waybillIds[alloc.order_legacy_id];
+    if (!paymentId || !waybillId || !(alloc.amount > 0)) {
+      skip();
+      continue;
+    }
+    const already = await erp.query(
+      `SELECT id FROM payment_allocations
+       WHERE payment_id = $1 AND waybill_id = $2 AND amount = $3
+       LIMIT 1`,
+      [paymentId, waybillId, alloc.amount]
+    );
+    if (already.rows[0]) {
+      skip();
+      continue;
+    }
+    await erp.query(
+      `INSERT INTO payment_allocations (payment_id, waybill_id, amount)
+       VALUES ($1,$2,$3)`,
+      [paymentId, waybillId, alloc.amount]
     );
     inserted();
   }
@@ -514,7 +549,6 @@ async function runImport(opts) {
   const blocked = (plan.debts || []).filter(function (d) {
     return d.needs_review && !skippedStores[String(d.store_id)];
   });
-  plan.reconciled = reconcileOrders(opts.mini && opts.mini.orders, plan.debts);
   log(opts.apply ? 'APPLY — ERP ga yoziladi' : 'DRY-RUN — hech narsa yozilmaydi');
   printPlan(plan, log);
   if (!opts.apply) return { plan: plan, wrote: false };

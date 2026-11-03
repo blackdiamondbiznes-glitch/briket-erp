@@ -55,6 +55,7 @@ const ERP_COLUMNS = {
   agent_commission_withdrawals: [
     'id', 'agent_id', 'amount', 'notes', 'legacy_source', 'legacy_id', 'created_at',
   ],
+  payment_allocations: ['id', 'payment_id', 'waybill_id', 'amount', 'created_at'],
   customer_map: ['id', 'legacy_uuid', 'customer_id', 'agent_id', 'legacy_source', 'created_at'],
   product_map: ['id', 'legacy_uuid', 'product_id', 'agent_id', 'legacy_source', 'created_at'],
 };
