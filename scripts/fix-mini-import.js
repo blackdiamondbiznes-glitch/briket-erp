@@ -54,16 +54,34 @@ function buildFixPlan(mini, erp) {
     payByLegacy[legacyId] = row;
   });
   const haveAlloc = {};
+  const allocByWaybill = {};
+  const allocByPayment = {};
   (erp.allocations || []).forEach(function (row) {
-    haveAlloc[String(row.payment_id) + '|' + String(row.waybill_id) + '|' + whole(row.amount)] = true;
+    const amount = whole(row.amount);
+    haveAlloc[String(row.payment_id) + '|' + String(row.waybill_id) + '|' + amount] = true;
+    allocByWaybill[String(row.waybill_id)] = (allocByWaybill[String(row.waybill_id)] || 0) + amount;
+    allocByPayment[String(row.payment_id)] = (allocByPayment[String(row.payment_id)] || 0) + amount;
+  });
+  const allocatedByOrder = {};
+  waybills.forEach(function (row) {
+    if (row.legacy_id == null || String(row.legacy_id) === '') return;
+    allocatedByOrder[String(row.legacy_id)] = allocByWaybill[String(row.id)] || 0;
+  });
+  const allocatedByPayment = {};
+  Object.keys(payByLegacy).forEach(function (legacyId) {
+    allocatedByPayment[legacyId] = allocByPayment[String(payByLegacy[legacyId].id)] || 0;
   });
   const names = {};
   (mini.stores || []).forEach(function (store) { names[String(store.id)] = store.name || ''; });
-  const planned = planLegacyMoney(mini.orders || [], mini.debt_payments || []);
+  const money = planLegacyMoney(mini.orders || [], mini.debt_payments || []);
+  const planned = planLegacyMoney(mini.orders || [], mini.debt_payments || [], {
+    allocatedByOrder: allocatedByOrder,
+    allocatedByPayment: allocatedByPayment,
+  });
   const rows = [];
   const allocations = [];
-  Object.keys(planned.byOrder).forEach(function (legacyId) {
-    const target = planned.byOrder[legacyId];
+  Object.keys(money.byOrder).forEach(function (legacyId) {
+    const target = money.byOrder[legacyId];
     const current = byOrder[legacyId];
     if (!current) return;
     const order = (mini.orders || []).find(function (row) { return String(row.id) === legacyId; });
@@ -100,7 +118,36 @@ function buildFixPlan(mini, erp) {
       payment_legacy_id: alloc.payment_legacy_id,
     });
   });
-  return { rows: rows, allocations: allocations };
+  const checks = allocationChecks(waybills, erp.allocations || [], allocations);
+  return { rows: rows, allocations: allocations, checks: checks };
+}
+
+function allocationChecks(waybills, existing, added) {
+  const book = {};
+  (waybills || []).forEach(function (row) {
+    if (row.legacy_source !== LEGACY_SOURCE) return;
+    const paid = whole(row.paid_amount);
+    const debt = whole(row.debt_amount);
+    const total = whole(row.total_amount) || (paid + debt);
+    book[String(row.id)] = { code: row.waybill_code || '', total: total, sum: 0 };
+  });
+  function add(waybillId, amount) {
+    const slot = book[String(waybillId)];
+    if (!slot) return;
+    slot.sum += whole(amount);
+  }
+  (existing || []).forEach(function (row) { add(row.waybill_id, row.amount); });
+  (added || []).forEach(function (row) { add(row.waybill_id, row.amount); });
+  const lines = [];
+  let bad = 0;
+  Object.keys(book).forEach(function (id) {
+    const row = book[id];
+    const ok = row.sum <= row.total;
+    if (!ok) bad += 1;
+    lines.push({ code: row.code, sum: row.sum, total: row.total, ok: ok });
+  });
+  lines.sort(function (a, b) { return String(a.code).localeCompare(String(b.code)); });
+  return { lines: lines, bad: bad };
 }
 
 function printFix(plan, log) {
@@ -122,12 +169,22 @@ function printFix(plan, log) {
   });
   const dirty = plan.rows.filter(function (row) { return row.dirty; }).length;
   out('Jami: yuk xati tuzatish ' + dirty + ', yangi allocation ' + plan.allocations.length);
+  out('--- sum(allocations) <= total ---');
+  const checks = plan.checks || { lines: [], bad: 0 };
+  if (!checks.lines.length) out('Tekshiruv uchun legacy yuk xati yo\'q.');
+  checks.lines.forEach(function (row) {
+    out(
+      (row.ok ? 'ok' : 'XATO') + '\t' + row.code +
+      '\talloc ' + row.sum + ' <= total ' + row.total
+    );
+  });
+  if (checks.bad) out('XATO: ' + checks.bad + ' yuk xatida allocation jami totaldan oshadi');
 }
 
 async function readErpLegacy(client) {
   await client.query('SET default_transaction_read_only = on');
   const waybills = await client.query(
-    `SELECT w.id, w.waybill_code, w.legacy_id, w.legacy_source, w.paid_amount, w.debt_amount, w.status
+    `SELECT w.id, w.waybill_code, w.legacy_id, w.legacy_source, w.total_amount, w.paid_amount, w.debt_amount, w.status
      FROM waybills w
      WHERE w.legacy_source = $1`,
     [LEGACY_SOURCE]
@@ -243,4 +300,5 @@ module.exports = {
   buildFixPlan: buildFixPlan,
   printFix: printFix,
   applyFix: applyFix,
+  allocationChecks: allocationChecks,
 };
