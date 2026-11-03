@@ -52,6 +52,7 @@ test('a fully allocated waybill does not take a new payment', () => {
   const mini = {
     stores: [{ id: 'sham', name: 'Shamaton' }, { id: 'ali', name: 'Alipolvon' }, { id: 'mari', name: 'Marinovka' }],
     orders: [
+      { id: 1, store_id: 'sham', total_amount: 774000, paid_amount: 774000, debt_amount: 0, created_at: '2026-09-01' },
       { id: 2, store_id: 'sham', total_amount: 1412000, paid_amount: 1412000, debt_amount: 0, created_at: '2026-10-01' },
       { id: 18, store_id: 'sham', total_amount: 2290000, paid_amount: 1500000, debt_amount: 790000, created_at: '2026-10-02' },
       { id: 8, store_id: 'ali', total_amount: 328000, paid_amount: 0, debt_amount: 328000, created_at: '2026-10-01' },
@@ -65,23 +66,26 @@ test('a fully allocated waybill does not take a new payment', () => {
   };
   const erp = {
     waybills: [
-      { id: 2, waybill_code: 'YX-LEG-2', legacy_id: '2', legacy_source: 'briket-mini-app', total_amount: 1412000, paid_amount: 1412000, debt_amount: 0, status: 'paid' },
+      { id: 12, waybill_code: 'YX-LEG-1', legacy_id: '1', legacy_source: 'briket-mini-app', total_amount: 774000, paid_amount: 774000, debt_amount: 0, status: 'paid' },
+      { id: 7, waybill_code: 'YX-LEG-2', legacy_id: '2', legacy_source: 'briket-mini-app', total_amount: 1412000, paid_amount: 1412000, debt_amount: 0, status: 'paid' },
       { id: 18, waybill_code: 'YX-LEG-18', legacy_id: '18', legacy_source: 'briket-mini-app', total_amount: 2290000, paid_amount: 2290000, debt_amount: 0, status: 'paid' },
       { id: 8, waybill_code: 'YX-LEG-8', legacy_id: '8', legacy_source: 'briket-mini-app', total_amount: 328000, paid_amount: 0, debt_amount: 328000, status: 'open' },
       { id: 17, waybill_code: 'YX-LEG-17', legacy_id: '17', legacy_source: 'briket-mini-app', total_amount: 1200000, paid_amount: 0, debt_amount: 1200000, status: 'open' },
     ],
     payments: [
-      { id: 99, amount: 1412000, note: 'Yuk tarqatish tarix 99', legacy_source: 'briket-mini-app' },
+      { id: 3, amount: 774000, note: 'naqd', legacy_source: null },
+      { id: 4, amount: 1412000, note: 'naqd', legacy_source: null },
       { id: 24, amount: 1500000, note: 'Yuk tarqatish tarix 24', legacy_source: 'briket-mini-app' },
       { id: 23, amount: 138000, note: 'Yuk tarqatish tarix 23', legacy_source: 'briket-mini-app' },
       { id: 25, amount: 916000, note: 'Yuk tarqatish tarix 25', legacy_source: 'briket-mini-app' },
     ],
     allocations: [
-      { payment_id: 99, waybill_id: 2, amount: 1412000 },
+      { payment_id: 3, waybill_id: 12, amount: 774000 },
+      { payment_id: 4, waybill_id: 7, amount: 1412000 },
     ],
   };
   const plan = buildFixPlan(mini, erp);
-  assert.equal(plan.allocations.some(function (row) { return row.code === 'YX-LEG-2'; }), false);
+  assert.equal(plan.allocations.some(function (row) { return row.code === 'YX-LEG-1' || row.code === 'YX-LEG-2'; }), false);
   function alloc(code, paymentId) {
     return plan.allocations.find(function (row) { return row.code === code && row.payment_id === paymentId; });
   }
@@ -89,6 +93,12 @@ test('a fully allocated waybill does not take a new payment', () => {
   assert.equal(alloc('YX-LEG-8', 23).amount, 138000);
   assert.equal(alloc('YX-LEG-17', 25).amount, 916000);
   assert.equal(plan.checks.bad, 0);
+  function shown(code) {
+    return plan.checks.lines.find(function (row) { return row.code === code; });
+  }
+  assert.equal(shown('YX-LEG-1').sum, 774000);
+  assert.equal(shown('YX-LEG-2').sum, 1412000);
+  assert.equal(shown('YX-LEG-18').sum, 1500000);
   plan.checks.lines.forEach(function (row) {
     assert.ok(row.sum <= row.total, row.code);
   });
@@ -184,7 +194,8 @@ test('fix plan corrects legacy balances and is idempotent', async () => {
 test('fix script does not delete and defaults to dry-run', () => {
   const src = fs.readFileSync(path.join(__dirname, '../scripts/fix-mini-import.js'), 'utf8');
   assert.match(src, /--dry-run/);
-  assert.match(src, /legacy_source = \$1/);
+  assert.match(src, /waybill_id IN \(SELECT id FROM waybills WHERE legacy_source = \$1\)/);
+  assert.doesNotMatch(src, /JOIN payments p ON p\.id = a\.payment_id/);
   assert.doesNotMatch(src, /\bDELETE\s+FROM\b/i);
   assert.doesNotMatch(src, /\bDROP\b/i);
   assert.doesNotMatch(src, /\bTRUNCATE\b/i);

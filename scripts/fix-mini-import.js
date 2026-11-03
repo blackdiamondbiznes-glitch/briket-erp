@@ -169,7 +169,7 @@ function printFix(plan, log) {
   });
   const dirty = plan.rows.filter(function (row) { return row.dirty; }).length;
   out('Jami: yuk xati tuzatish ' + dirty + ', yangi allocation ' + plan.allocations.length);
-  out('--- sum(allocations) <= total ---');
+  out('--- sum(allocations) <= total (bazadagi + reja) ---');
   const checks = plan.checks || { lines: [], bad: 0 };
   if (!checks.lines.length) out('Tekshiruv uchun legacy yuk xati yo\'q.');
   checks.lines.forEach(function (row) {
@@ -198,8 +198,7 @@ async function readErpLegacy(client) {
   const allocations = await client.query(
     `SELECT a.payment_id, a.waybill_id, a.amount
      FROM payment_allocations a
-     JOIN payments p ON p.id = a.payment_id
-     WHERE p.legacy_source = $1`,
+     WHERE a.waybill_id IN (SELECT id FROM waybills WHERE legacy_source = $1)`,
     [LEGACY_SOURCE]
   );
   return {
