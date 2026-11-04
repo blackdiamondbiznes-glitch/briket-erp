@@ -10,6 +10,11 @@
  *   YUK_WEBHOOK_SECRET — /api/agent/yuk/telegram-webhook.
  *   @briketborbot webhooki eski Supabase funksiyasida qoladi. Uni almashtirmang.
  *   TELEGRAM_BOT_TOKEN (@briket_mijoz_bot, HMAC zaxirasi va xabar yuborish).
+ *   CRON_SECRET — POST /api/cron/reminders sarlavha X-Cron-Secret.
+ *     Render cron: har kuni 10:00 Asia/Tashkent. reminders_enabled sukut false.
+ *   MIJOZ_WEBHOOK_SECRET — POST /api/customer/telegram-webhook.
+ *     Bu @briket_mijoz_bot callbacki. @briketborbot webhooki ko'chirilmaydi.
+ *   PAYME_MERCHANT_ID yoki CLICK_SERVICE_ID bo'lsa eslatmada To'lash chiqadi.
  *   initData HMAC shu uchtalikdan o'rnatilganlariga tekshiriladi.
  *   ADMIN_TELEGRAM_IDS (vergul bilan; bo'sh bo'lsa hech kim kirmaydi).
  *   /yuk va /api/agent/yuk: Telegram initData (eng ko'pi 1 soat) yoki
@@ -174,6 +179,7 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') return next();
   if (req.path === '/' || req.path === '/health') return next();
   if (req.path.indexOf('/api/customer/') === 0) return next();
+  if (req.path === '/api/cron/reminders') return next();
   if (req.path.indexOf('/api/agent/') === 0 && req.path.indexOf('/api/agent/admin') !== 0) return next();
   if (req.path.indexOf('/api/') === 0) return requireAdmin(req, res, next);
   return next();
@@ -488,6 +494,7 @@ const routeFiles = [
   './v2-routes',
   './routes-customer-app',
   './routes-agent',
+  './routes-reminders',
 ];
 
 for (const f of routeFiles) {
